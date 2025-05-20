@@ -18,7 +18,7 @@ import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import RealTimeMarketChart from "@/components/RealTimeMarketChart"
 
-const BentoGrid = ({ liveUpdates, cryptoData }) => {
+const BentoGrid = ({ liveUpdates, cryptoData }: { liveUpdates: boolean, cryptoData: any[] }) => {
   const [topGainers, setTopGainers] = useState(getTopGainers(cryptoData, 5))
   const [topLosers, setTopLosers] = useState(getTopLosers(cryptoData, 5))
   const [trending, setTrending] = useState(getTrending(cryptoData, 5))
@@ -123,7 +123,17 @@ export default function CryptoDashboard() {
     setFavList([...favorites])
   }
 
-  const renderCryptoList = (cryptos) => (
+  const renderCryptoList = (cryptos: { 
+    id: number;
+    name: string;
+    symbol: string;
+    price: number;
+    change24h: number;
+    change7d: number;
+    marketCap: number;
+    volume24h: number;
+    circulatingSupply: number;
+  }[]) => (
     <Table>
       <TableHeader>
         <TableRow>

@@ -1,51 +1,116 @@
 "use client"
 
-import { Home, TrendingUp, BarChart2, PlusCircle, Settings } from "lucide-react"
+import { Home, TrendingUp, BarChart2, PlusCircle, Settings, Wallet, HelpCircle, CandlestickChart, LineChart } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { cryptocurrencies } from "@/lib/mockData"
 import { useState, useEffect } from "react"
 import CurrencyConverterModal from "./CurrencyConverterModal"
 import PortfolioModal from "./PortfolioModal"
+import Link from "next/link"
+import { usePathname } from "next/navigation"
+import { cn } from "@/lib/utils"
 
 const Sidebar = () => {
+  const pathname = usePathname();
+
   return (
-    <div className="w-64 bg-card h-screen p-4 hidden lg:block border-r border-border">
-      <h2 className="text-2xl font-bold mb-6 text-primary">CryptoTracker</h2>
-      <nav>
-        <ul className="space-y-2">
+    <div className="hidden lg:flex flex-col h-screen w-64 bg-card border-r border-border">
+      <div className="p-6">
+        <h1 className="text-2xl font-bold text-primary">BitPulse</h1>
+      </div>
+      <nav className="flex-1 overflow-y-auto">
+        <ul className="px-2 space-y-1">
           <li>
-            <Button variant="ghost" className="w-full justify-start">
-              <Home className="mr-2 h-4 w-4" />
+            <Link 
+              href="/" 
+              className={cn(
+                "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+                pathname === "/" ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+              )}
+            >
+              <Home size={18} />
               Dashboard
-            </Button>
+            </Link>
           </li>
           <li>
-            <Button variant="ghost" className="w-full justify-start">
-              <TrendingUp className="mr-2 h-4 w-4" />
+            <Link 
+              href="/markets" 
+              className={cn(
+                "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+                pathname === "/markets" ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+              )}
+            >
+              <CandlestickChart size={18} />
+              Mercados
+            </Link>
+          </li>
+          <li>
+            <Link 
+              href="/trending" 
+              className={cn(
+                "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+                pathname === "/trending" ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+              )}
+            >
+              <LineChart size={18} />
               Trending
-            </Button>
+            </Link>
           </li>
           <li>
-            <Button variant="ghost" className="w-full justify-start">
-              <BarChart2 className="mr-2 h-4 w-4" />
-              Market
-            </Button>
+            <Link 
+              href="/portfolio" 
+              className={cn(
+                "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+                pathname === "/portfolio" ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+              )}
+            >
+              <Wallet size={18} />
+              Portfolio
+            </Link>
           </li>
           <li>
-            <Button variant="ghost" className="w-full justify-start">
-              <PlusCircle className="mr-2 h-4 w-4" />
-              New Listings
-            </Button>
-          </li>
-          <li>
-            <Button variant="ghost" className="w-full justify-start">
-              <Settings className="mr-2 h-4 w-4" />
-              Settings
-            </Button>
+            <Link 
+              href="/statistics" 
+              className={cn(
+                "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+                pathname === "/statistics" ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+              )}
+            >
+              <BarChart2 size={18} />
+              Statistics
+            </Link>
           </li>
         </ul>
       </nav>
+      <div className="p-4 border-t border-border">
+        <ul className="space-y-1">
+          <li>
+            <Link 
+              href="/settings" 
+              className={cn(
+                "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+                pathname === "/settings" ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+              )}
+            >
+              <Settings size={18} />
+              Settings
+            </Link>
+          </li>
+          <li>
+            <Link 
+              href="/help" 
+              className={cn(
+                "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+                pathname === "/help" ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+              )}
+            >
+              <HelpCircle size={18} />
+              Help & Support
+            </Link>
+          </li>
+        </ul>
+      </div>
       <div className="mt-4">
         <CurrencyConverterModal />
       </div>
