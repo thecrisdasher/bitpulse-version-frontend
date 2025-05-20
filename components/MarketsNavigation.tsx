@@ -31,6 +31,14 @@ const RealTimeMarketChart = dynamic(
   { ssr: false }
 );
 
+// Helper function for consistent number formatting
+const formatCurrency = (value: number, minimumFractionDigits = 2, maximumFractionDigits = 4) => {
+  return value.toLocaleString('en-US', { 
+    minimumFractionDigits, 
+    maximumFractionDigits: value < 1 ? maximumFractionDigits : minimumFractionDigits 
+  });
+};
+
 // Navigation Item Type
 type MarketCategoryInfo = {
   id: MarketCategory | string;
@@ -485,10 +493,7 @@ const MarketsNavigation = () => {
                   <div className="flex items-center gap-3">
                     <div className={selectedInstrument.change24h >= 0 ? "text-green-500" : "text-red-500"}>
                       <span className="text-lg font-bold">
-                        {selectedInstrument.price.toLocaleString(undefined, { 
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: selectedInstrument.price < 1 ? 4 : 2
-                        })}
+                        {formatCurrency(selectedInstrument.price)}
                       </span>
                       <span className="text-sm ml-2">
                         {selectedInstrument.change24h >= 0 ? "+" : ""}

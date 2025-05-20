@@ -18,6 +18,18 @@ import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import RealTimeMarketChart from "@/components/RealTimeMarketChart"
 
+// Helper function for consistent number formatting
+const formatCurrency = (value: number, minimumFractionDigits = 2, maximumFractionDigits = 2) => {
+  return `$${value.toLocaleString('en-US', { 
+    minimumFractionDigits, 
+    maximumFractionDigits 
+  })}`;
+};
+
+const formatNumber = (value: number) => {
+  return value.toLocaleString('en-US');
+};
+
 const BentoGrid = ({ liveUpdates, cryptoData }: { liveUpdates: boolean, cryptoData: any[] }) => {
   const [topGainers, setTopGainers] = useState(getTopGainers(cryptoData, 5))
   const [topLosers, setTopLosers] = useState(getTopLosers(cryptoData, 5))
@@ -77,7 +89,7 @@ const BentoGrid = ({ liveUpdates, cryptoData }: { liveUpdates: boolean, cryptoDa
               <li key={crypto.id} className="flex justify-between items-center">
                 <span>{crypto.name}</span>
                 <span>
-                  ${crypto.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {formatCurrency(crypto.price)}
                 </span>
               </li>
             ))}
@@ -169,7 +181,7 @@ export default function CryptoDashboard() {
               <span className="ml-2 text-muted-foreground">{crypto.symbol}</span>
             </TableCell>
             <TableCell>
-              ${crypto.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              {formatCurrency(crypto.price)}
             </TableCell>
             <TableCell className={crypto.change24h >= 0 ? "text-green-500" : "text-red-500"}>
               {crypto.change24h > 0 ? "+" : ""}
@@ -179,10 +191,10 @@ export default function CryptoDashboard() {
               {crypto.change7d > 0 ? "+" : ""}
               {crypto.change7d.toFixed(2)}%
             </TableCell>
-            <TableCell>${crypto.marketCap.toLocaleString()}</TableCell>
-            <TableCell>${crypto.volume24h.toLocaleString()}</TableCell>
+            <TableCell>${formatNumber(crypto.marketCap)}</TableCell>
+            <TableCell>${formatNumber(crypto.volume24h)}</TableCell>
             <TableCell>
-              {crypto.circulatingSupply.toLocaleString()} {crypto.symbol}
+              {formatNumber(crypto.circulatingSupply)} {crypto.symbol}
             </TableCell>
           </TableRow>
         ))}
