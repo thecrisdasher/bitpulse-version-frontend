@@ -21,9 +21,15 @@ import {
   MarketCategory,
   MarketInstrument
 } from "@/lib/mockData";
-import RealTimeMarketChart from "./RealTimeMarketChart";
+import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
 import axios from "axios";
+
+// Importar RealTimeMarketChart con SSR desactivado
+const RealTimeMarketChart = dynamic(
+  () => import("./RealTimeMarketChart"), 
+  { ssr: false }
+);
 
 // Navigation Item Type
 type MarketCategoryInfo = {
