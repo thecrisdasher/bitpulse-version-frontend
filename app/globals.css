@@ -2,6 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Optimización de renderizado */
+html {
+  text-size-adjust: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
+}
+
 @layer base {
   :root {
     --background: 240 10% 3.9%;
@@ -33,5 +41,61 @@
   }
   body {
     @apply bg-background text-foreground;
+    will-change: auto;
+    overscroll-behavior-y: none;
   }
+  
+  /* Optimización para gráficos y elementos pesados */
+  canvas, .chart-container {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    perspective: 1000;
+    -webkit-backface-visibility: hidden;
+  }
+}
+
+/* Animaciones optimizadas */
+@keyframes grow {
+  0%, 100% {
+    width: 0%;
+    transform: translateZ(0);
+  }
+  50% {
+    width: 100%;
+    transform: translateZ(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.5;
+    transform: translateZ(0);
+  }
+  50% {
+    opacity: 0.8;
+    transform: translateZ(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) translateZ(0);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) translateZ(0);
+  }
+}
+
+/* Clase de utilidad para rendimiento */
+.gpu-accelerated {
+  transform: translateZ(0);
+  will-change: transform;
+}
+
+/* Optimización para cargas */
+.loading-placeholder {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  will-change: opacity;
 }

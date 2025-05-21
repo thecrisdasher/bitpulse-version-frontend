@@ -1,4 +1,6 @@
-import { useState, useEffect, useRef } from "react";
+"use client"
+
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -32,34 +34,50 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-// Register Chart.js components but prevent Server Side Registration
-if (typeof window !== 'undefined') {
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-    TimeScale,
-  Title,
-  Tooltip,
-  Legend,
-  Filler
-);
+// Implementar un registro condicional de Chart.js para evitar renderizados innecesarios
+const registerChartComponents = () => {
+  if (typeof window !== 'undefined' && !ChartJS.registry.controllers.get('line')) {
+    ChartJS.register(
+      CategoryScale,
+      LinearScale,
+      PointElement,
+      LineElement,
+      TimeScale,
+      Title,
+      Tooltip,
+      Legend,
+      Filler
+    );
+  }
+};
 
-  // Dynamically import and register plugins only on client side
-  import('chartjs-plugin-zoom').then((zoomPlugin) => {
-    ChartJS.register(zoomPlugin.default);
-  });
-  
-  import('chartjs-plugin-annotation').then((annotationPlugin) => {
-    ChartJS.register(annotationPlugin.default);
-  });
-}
+// Registrar plugins solo cuando sea necesario y solo una vez
+let pluginsRegistered = false;
+const registerPlugins = async () => {
+  if (typeof window !== 'undefined' && !pluginsRegistered) {
+    try {
+      const [zoomPlugin, annotationPlugin] = await Promise.all([
+        import('chartjs-plugin-zoom').then(mod => mod.default),
+        import('chartjs-plugin-annotation').then(mod => mod.default)
+      ]);
+      
+      ChartJS.register(zoomPlugin, annotationPlugin);
+      pluginsRegistered = true;
+    } catch (error) {
+      console.error("Error loading chart plugins:", error);
+    }
+  }
+};
 
-// Dynamically import Line chart component with SSR disabled
+// Iniciar registro de componentes
+registerChartComponents();
+// Registrar plugins de forma asíncrona sin bloquear
+registerPlugins();
+
+// Limitar la carga de Line con SSR desactivado
 const Line = dynamic(
   () => import('react-chartjs-2').then(mod => mod.Line),
-  { ssr: false }
+  { ssr: false, loading: () => <div className="w-full h-[400px] bg-muted/30 animate-pulse rounded-md flex items-center justify-center">Cargando gráfico...</div> }
 );
 
 // Types
@@ -98,69 +116,48 @@ const MARKET_CATEGORIES: { [key in MarketCategory]: { name: string; icon: React.
   indices: { name: "Índices Stock", icon: <TrendingUp className="w-4 h-4" />, color: "hsl(210, 20%, 80%)" },
 };
 
-// Market configurations
+// Market configurations (reducido para mejorar rendimiento)
 const MARKETS: MarketItem[] = [
-  // Volatility indices
+  // Volatility indices (reducidos)
   { id: "volatility-100", name: "Índice Volatility 100", category: "volatility", label: "100", baseValue: 623, color: "hsl(338, 90%, 56%)" },
   { id: "volatility-100-1s", name: "Índice Volatility 100 (1s)", category: "volatility", label: "100", showInRealTime: true, baseValue: 631.36, color: "hsl(338, 90%, 56%)" },
-  { id: "volatility-75", name: "Índice Volatility 75", category: "volatility", label: "75", baseValue: 500, color: "hsl(338, 90%, 56%)" },
-  { id: "volatility-75-1s", name: "Índice Volatility 75 (1s)", category: "volatility", label: "75", showInRealTime: true, baseValue: 510, color: "hsl(338, 90%, 56%)" },
   { id: "volatility-50", name: "Índice Volatility 50", category: "volatility", label: "50", baseValue: 420, color: "hsl(338, 90%, 56%)" },
-  { id: "volatility-50-1s", name: "Índice Volatility 50 (1s)", category: "volatility", label: "50", showInRealTime: true, baseValue: 425, color: "hsl(338, 90%, 56%)" },
-  { id: "volatility-25", name: "Índice Volatility 25", category: "volatility", label: "25", baseValue: 350, color: "hsl(338, 90%, 56%)" },
-  { id: "volatility-25-1s", name: "Índice Volatility 25 (1s)", category: "volatility", label: "25", showInRealTime: true, baseValue: 355, color: "hsl(338, 90%, 56%)" },
-  { id: "volatility-10", name: "Índice Volatility 10", category: "volatility", label: "10", baseValue: 280, color: "hsl(338, 90%, 56%)" },
-  { id: "volatility-10-1s", name: "Índice Volatility 10 (1s)", category: "volatility", label: "10", showInRealTime: true, baseValue: 285, color: "hsl(338, 90%, 56%)" },
   
-  // Boom indices (uptrend)
+  // Boom indices (reducidos)
   { id: "boom-500", name: "Índice Boom 500", category: "boom", label: "500", baseValue: 500, color: "hsl(143, 85%, 52%)" },
-  { id: "boom-600", name: "Índice Boom 600", category: "boom", label: "600", baseValue: 600, color: "hsl(143, 85%, 52%)" },
-  { id: "boom-900", name: "Índice Boom 900", category: "boom", label: "900", baseValue: 900, color: "hsl(143, 85%, 52%)" },
   { id: "boom-1000", name: "Índice Boom 1000", category: "boom", label: "1000", baseValue: 1000, color: "hsl(143, 85%, 52%)" },
   
-  // Crash indices (downtrend)
+  // Crash indices (reducidos)
   { id: "crash-300", name: "Índice Crash 300", category: "crash", label: "300", baseValue: 300, color: "hsl(0, 85%, 52%)" },
   { id: "crash-500", name: "Índice Crash 500", category: "crash", label: "500", baseValue: 500, color: "hsl(0, 85%, 52%)" },
-  { id: "crash-600", name: "Índice Crash 600", category: "crash", label: "600", baseValue: 600, color: "hsl(0, 85%, 52%)" },
-  { id: "crash-900", name: "Índice Crash 900", category: "crash", label: "900", baseValue: 900, color: "hsl(0, 85%, 52%)" },
   
   // Cryptocurrencies
   { id: "bitcoin", name: "Bitcoin (BTC)", category: "cripto", baseValue: 29000, color: "hsl(41, 98%, 49%)" },
   { id: "ethereum", name: "Ethereum (ETH)", category: "cripto", baseValue: 1800, color: "hsl(207, 90%, 61%)" },
-  { id: "solana", name: "Solana (SOL)", category: "cripto", baseValue: 140, color: "hsl(327, 75%, 59%)" },
-  { id: "cardano", name: "Cardano (ADA)", category: "cripto", baseValue: 0.50, color: "hsl(176, 80%, 41%)" },
   
   // Commodities
   { id: "gold", name: "Gold", category: "materias-primas", baseValue: 2400, color: "hsl(43, 95%, 47%)" },
-  { id: "silver", name: "Silver", category: "materias-primas", baseValue: 30, color: "hsl(210, 20%, 80%)" },
-  { id: "oil", name: "Crude Oil", category: "materias-primas", baseValue: 75, color: "hsl(25, 90%, 40%)" },
   
   // Forex
   { id: "eurusd", name: "EUR/USD", category: "forex", baseValue: 1.08, color: "hsl(207, 90%, 61%)" },
-  { id: "gbpusd", name: "GBP/USD", category: "forex", baseValue: 1.27, color: "hsl(0, 60%, 50%)" },
-  { id: "usdjpy", name: "USD/JPY", category: "forex", baseValue: 150, color: "hsl(270, 70%, 60%)" },
   
   // Stock indices
   { id: "us500", name: "US 500", category: "indices", baseValue: 5300, color: "hsl(210, 20%, 80%)" },
-  { id: "ustech", name: "US Tech 100", category: "indices", baseValue: 18500, color: "hsl(210, 20%, 80%)" },
-  { id: "us30", name: "US 30", category: "indices", baseValue: 38500, color: "hsl(210, 20%, 80%)" },
 ];
 
 // Growth rate options
 const GROWTH_RATES = [
   { id: "1", label: "1%", value: 0.01 },
-  { id: "2", label: "2%", value: 0.02 },
   { id: "3", label: "3%", value: 0.03 },
-  { id: "4", label: "4%", value: 0.04 },
   { id: "5", label: "5%", value: 0.05 },
 ];
 
-// Time periods
+// Time periods (reducidos para mejorar rendimiento)
 const TIME_RANGES = [
-  { id: "1h" as TimeRange, label: "1H", dataPoints: 60, interval: 60 * 1000 },
-  { id: "24h" as TimeRange, label: "24H", dataPoints: 144, interval: 10 * 60 * 1000 },
-  { id: "7d" as TimeRange, label: "7D", dataPoints: 168, interval: 60 * 60 * 1000 },
-  { id: "30d" as TimeRange, label: "30D", dataPoints: 180, interval: 4 * 60 * 60 * 1000 },
+  { id: "1h" as TimeRange, label: "1H", dataPoints: 20, interval: 3 * 60 * 1000 }, 
+  { id: "24h" as TimeRange, label: "24H", dataPoints: 24, interval: 60 * 60 * 1000 }, 
+  { id: "7d" as TimeRange, label: "7D", dataPoints: 21, interval: 8 * 60 * 60 * 1000 }, 
+  { id: "30d" as TimeRange, label: "30D", dataPoints: 15, interval: 48 * 60 * 60 * 1000 }, 
 ];
 
 // Generate historical data
@@ -180,24 +177,26 @@ const generateHistoricalData = (marketId: Market, timeRange: TimeRange): ChartPo
   const isBoom = marketConfig?.category === "boom";
   const isCrash = marketConfig?.category === "crash";
   
-  // Generate historical data with trends
-  for (let i = rangeConfig.dataPoints; i >= 0; i--) {
+  // Generate historical data with trends (mejorado para rendimiento)
+  const dataPoints = Math.min(rangeConfig.dataPoints, 30); 
+  
+  for (let i = dataPoints; i >= 0; i--) {
     const time = new Date(now.getTime() - i * rangeConfig.interval);
     
-    let trend = Math.sin(i / (rangeConfig.dataPoints / (timeRange === "30d" ? 3 : 2))) * volatility * 2;
+    let trend = Math.sin(i / (dataPoints / (timeRange === "30d" ? 3 : 2))) * volatility * 2;
     
-    // Adjust trend for boom (generally upward) or crash (generally downward) indices
+    // Ajuste de tendencia para índices boom/crash
     if (isBoom) {
-      trend += 0.001; // Slight upward bias
+      trend += 0.001;
     } else if (isCrash) {
-      trend -= 0.001; // Slight downward bias
+      trend -= 0.001;
     }
     
     const randomFactor = (Math.random() * volatility * 2) - volatility + trend;
     
     currentValue = currentValue * (1 + randomFactor);
     
-    // Ensure the value doesn't go too far from base value
+    // Asegurar que el valor no se aleje demasiado del valor base
     if (currentValue < baseValue * 0.5 || currentValue > baseValue * 1.5) {
       currentValue = baseValue * (0.8 + Math.random() * 0.4);
     }
@@ -211,7 +210,7 @@ const generateHistoricalData = (marketId: Market, timeRange: TimeRange): ChartPo
   return data;
 };
 
-// Calculate significant price levels (support/resistance)
+// Calculate significant price levels
 const calculatePriceLevels = (data: ChartPoint[]): number[] => {
   if (data.length === 0) return [];
   
@@ -221,12 +220,10 @@ const calculatePriceLevels = (data: ChartPoint[]): number[] => {
   const max = Math.max(...values);
   const range = max - min;
 
-  // Calculate some significant levels
+  // Calcular solo 3 niveles en lugar de 5 para mejorar rendimiento
   const midPoint = min + (range / 2);
-  const quarterPoint = min + (range / 4);
-  const threeQuarterPoint = max - (range / 4);
   
-  return [min, quarterPoint, midPoint, threeQuarterPoint, max];
+  return [min, midPoint, max];
 };
 
 // Group markets by category for the dropdown
@@ -243,344 +240,79 @@ const getGroupedMarkets = () => {
   return grouped;
 };
 
-// Make the entire component client-side only
-const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime = false }: RealTimeMarketChartProps) => {
+// Placeholder component mientras se carga el chart
+const ChartPlaceholder = () => (
+  <div className="w-full h-[400px] bg-muted/30 animate-pulse rounded-md flex flex-col items-center justify-center">
+    <div className="text-center p-6 max-w-md">
+      <div className="text-xl font-semibold mb-2">Cargando gráfico...</div>
+      <div className="text-sm text-muted-foreground mb-4">
+        Estamos preparando los datos del mercado. Este componente puede tardar unos segundos en cargar.
+      </div>
+      <div className="w-full h-2 bg-muted/50 rounded overflow-hidden">
+        <div className="h-full bg-primary/60 animate-[grow_2s_ease-in-out_infinite]" style={{width: '70%'}}/>
+      </div>
+    </div>
+  </div>
+);
+
+// Componente de interfaz de usuario del gráfico sin la implementación real de Chart.js
+const RealTimeMarketChartUI = ({ marketId: initialMarketId, isRealTime = false }: RealTimeMarketChartProps) => {
   const [currentMarket, setCurrentMarket] = useState<string>(initialMarketId || "volatility-100");
   const [timeRange, setTimeRange] = useState<TimeRange>("1h");
   const [realTimeEnabled, setRealTimeEnabled] = useState(isRealTime);
-  const [showPriceLevels, setShowPriceLevels] = useState(true);
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [isFavorite, setIsFavorite] = useState(false);
-  const [growthRate, setGrowthRate] = useState(GROWTH_RATES[2].value); // 3% default
-  const [chartData, setChartData] = useState<ChartData<"line", ChartPoint[]>>({
-    datasets: [],
-  });
-  const chartRef = useRef<TimeSeriesChartRef | null>(null);
-  const [priceLevels, setPriceLevels] = useState<number[]>([]);
+  const [showPriceLevels, setShowPriceLevels] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [favoriteMarkets, setFavoriteMarkets] = useState<string[]>(["volatility-100-1s", "bitcoin"]);
   
-  // Get current market configuration
-  const currentMarketConfig = MARKETS.find(m => m.id === currentMarket) || MARKETS[0];
+  // Usar useMemo para evitar recálculos costosos
+  const currentMarketConfig = useMemo(() => 
+    MARKETS.find(m => m.id === currentMarket) || MARKETS[0], 
+    [currentMarket]
+  );
   
-  // Filter markets by search query
-  const filteredMarkets = searchQuery 
-    ? MARKETS.filter(market => 
-        market.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        market.id.toLowerCase().includes(searchQuery.toLowerCase()))
-    : MARKETS;
+  // Filtrar mercados por búsqueda (memoizado)
+  const filteredMarkets = useMemo(() => 
+    searchQuery 
+      ? MARKETS.filter(market => 
+          market.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          market.id.toLowerCase().includes(searchQuery.toLowerCase()))
+      : MARKETS, 
+    [searchQuery]
+  );
   
-  // Get current growth rate
-  const currentGrowthRate = GROWTH_RATES.find(r => r.id === growthRate.toString())?.value || 0.03;
+  // Toggle real-time updates (memoizado)
+  const toggleRealTime = useCallback(() => {
+    setRealTimeEnabled(prev => !prev);
+  }, []);
   
-  // Get current time range
-  const currentTimeRange = TIME_RANGES.find(r => r.id === timeRange) || TIME_RANGES[0];
-  
-  // Reset zoom function
-  const resetZoom = () => {
-    if (chartRef.current) {
-      if (typeof window !== 'undefined' && chartRef.current.resetZoom) {
-        chartRef.current.resetZoom();
-      }
-    }
-  };
-  
-  // Toggle real-time updates
-  const toggleRealTime = () => {
-    setRealTimeEnabled(!realTimeEnabled);
-    resetZoom();
-  };
-  
-  // Toggle favorite status
-  const toggleFavorite = (marketId: string) => {
+  // Toggle favorite status (memoizado)
+  const toggleFavorite = useCallback((marketId: string) => {
     setFavoriteMarkets(prev => 
       prev.includes(marketId) 
         ? prev.filter(id => id !== marketId) 
         : [...prev, marketId]
     );
-  };
+  }, []);
   
-  // Initialize chart data
-  useEffect(() => {
-    const data = generateHistoricalData(currentMarket, timeRange);
-    const levels = calculatePriceLevels(data);
-    setPriceLevels(levels);
-
-      setChartData({
-      datasets: [{
-        label: currentMarketConfig.name,
-            data,
-        borderColor: currentMarketConfig.color,
-        backgroundColor: `${currentMarketConfig.color}33`, // Add transparency
-        borderWidth: 4,
-            fill: true,
-            tension: 0.4,
-        pointRadius: timeRange === "1h" ? 1 : 0,
-            pointHoverRadius: 8,
-        pointBackgroundColor: currentMarketConfig.color,
-            pointHoverBackgroundColor: "#fff",
-            pointBorderColor: "#fff",
-        pointHoverBorderColor: currentMarketConfig.color,
-            pointBorderWidth: 2,
-            pointHoverBorderWidth: 3,
-      }],
-      });
-    
-    // Reset real-time flag when changing time range
-    if (timeRange !== "1h") {
-      setRealTimeEnabled(false);
-    }
-    
-  }, [currentMarket, timeRange]);
-
-  // Update chart data in real-time
-  useEffect(() => {
-    if (!realTimeEnabled || typeof window === 'undefined') return;
-      
-    const interval = setInterval(() => {
-      if (!chartRef.current?.data?.datasets?.[0]?.data) return;
-      
-      const chart = chartRef.current;
-      const data = [...chart.data.datasets[0].data] as ChartPoint[];
-      
-      if (data.length === 0) return;
-      
-      // Generate new data point
-      const now = new Date();
-      
-      // Calculate new value based on last value and growth rate
-      const lastValue = data[data.length - 1].y;
-      const randomFactor = (Math.random() * currentGrowthRate * 2) - currentGrowthRate;
-      
-      // Add bias for boom/crash indices
-      let biasAdjustment = 0;
-      if (currentMarketConfig.category === "boom") {
-        biasAdjustment = 0.001; // Slight upward bias
-      } else if (currentMarketConfig.category === "crash") {
-        biasAdjustment = -0.001; // Slight downward bias
-      }
-      
-      const newValue = lastValue * (1 + randomFactor + biasAdjustment);
-      
-      // Update data
-      data.push({
-        x: now,
-        y: parseFloat(newValue.toFixed(currentMarketConfig.baseValue < 10 ? 4 : 2))
-      });
-      
-      // Remove oldest data point to maintain fixed window for 1h view
-      if (timeRange === "1h" && data.length > currentTimeRange.dataPoints) {
-        data.shift();
-      }
-      
-      // Update chart
-      chart.data.datasets[0].data = data;
-      chart.update();
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [currentMarket, currentGrowthRate, realTimeEnabled, timeRange]);
-
-  // Handle time range change
-  const handleTimeRangeChange = (range: TimeRange) => {
+  // Manejar cambio de rango de tiempo (memoizado)
+  const handleTimeRangeChange = useCallback((range: TimeRange) => {
     setTimeRange(range);
-  };
+  }, []);
 
-  // Toggle price levels
-  const togglePriceLevels = () => {
-    setShowPriceLevels(!showPriceLevels);
-  };
+  // Toggle price levels (memoizado)
+  const togglePriceLevels = useCallback(() => {
+    setShowPriceLevels(prev => !prev);
+  }, []);
 
-  // Update selected market when initialMarket changes
+  // Actualizar mercado seleccionado cuando cambia initialMarketId
   useEffect(() => {
     if (initialMarketId && initialMarketId !== currentMarket) {
       setCurrentMarket(initialMarketId);
     }
-  }, [initialMarketId]);
+  }, [initialMarketId, currentMarket]);
 
-  // Chart configuration
-  const chartOptions: ChartOptions<"line"> = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        mode: 'index',
-        intersect: false,
-        callbacks: {
-          label: function(context: TooltipItem<"line">) {
-            return `${context.dataset.label}: ${new Intl.NumberFormat('es-CO', {
-              style: 'currency',
-              currency: 'COP',
-              minimumFractionDigits: currentMarketConfig.baseValue < 10 ? 2 : 0,
-              maximumFractionDigits: currentMarketConfig.baseValue < 10 ? 2 : 0
-            }).format(context.parsed.y)}`;
-          },
-          title: function(context) {
-            const date = new Date(context[0].parsed.x);
-            if (timeRange === "1h" || timeRange === "24h") {
-              return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + 
-                     ' - ' + date.toLocaleDateString([], { month: 'short', day: 'numeric' });
-            }
-            return date.toLocaleDateString([], { 
-              month: 'short', 
-              day: 'numeric', 
-              year: 'numeric' 
-            });
-          }
-        },
-        backgroundColor: 'rgba(0, 0, 0, 0.9)',
-        titleColor: '#fff',
-        bodyColor: '#fff',
-        padding: 12,
-        cornerRadius: 4,
-        displayColors: true,
-        bodyFont: { size: 14 },
-        titleFont: { size: 14, weight: 'bold' },
-      },
-      zoom: typeof window !== 'undefined' ? {
-        zoom: {
-          wheel: {
-            enabled: true,
-          },
-          pinch: {
-            enabled: true
-          },
-          mode: 'xy',
-        },
-        pan: {
-          enabled: true,
-          mode: 'xy',
-        },
-        limits: {
-          y: {min: 'original', max: 'original'},
-        }
-      } : {},
-      annotation: typeof window !== 'undefined' ? {
-        annotations: showPriceLevels ? priceLevels.map((level, index) => ({
-          type: 'line',
-          yMin: level,
-          yMax: level,
-          borderColor: index === 0 || index === priceLevels.length - 1 
-                      ? 'rgba(255, 255, 255, 0.8)' 
-                      : 'rgba(255, 255, 255, 0.4)',
-          borderWidth: index === 2 ? 2 : 1, // make middle line thicker
-          borderDash: index === 2 ? [] : [5, 5],
-          label: {
-            display: index === 0 || index === 2 || index === priceLevels.length - 1,
-            content: index === 0 ? 'Soporte' : 
-                     index === priceLevels.length - 1 ? 'Resistencia' : 
-                     'Medio',
-            position: 'start',
-            backgroundColor: 'rgba(0, 0, 0, 0.7)',
-            color: '#fff',
-            font: {
-              size: 11,
-              weight: 'bold'
-            }
-          }
-        })) : []
-      } : {}
-    },
-    scales: {
-      x: {
-        type: 'time',
-        time: {
-          unit: timeRange === "1h" ? 'minute' :
-                timeRange === "24h" ? 'hour' :
-                timeRange === "7d" ? 'day' : 'week',
-          displayFormats: {
-            minute: 'HH:mm',
-            hour: 'HH:mm',
-            day: 'MMM dd',
-            week: 'MMM dd'
-          },
-          tooltipFormat: timeRange === "1h" || timeRange === "24h" 
-            ? 'HH:mm - MMM d'
-            : 'MMM d, yyyy'
-        },
-        grid: {
-          color: "rgba(255, 255, 255, 0.2)",
-          display: true,
-          lineWidth: 1,
-        },
-        ticks: {
-          color: "#FFFFFF",
-          maxRotation: 0,
-          maxTicksLimit: 8,
-          font: { size: 12, weight: 'bold' },
-          padding: 8,
-        },
-        border: {
-          display: true,
-          color: "rgba(255, 255, 255, 0.5)",
-          width: 2,
-        },
-        title: {
-          display: true,
-          text: 'Tiempo',
-          color: '#FFFFFF',
-          font: {
-            size: 14,
-            weight: 'bold'
-          },
-          padding: { top: 10, bottom: 0 }
-        }
-      },
-      y: {
-        grid: {
-          color: "rgba(255, 255, 255, 0.2)",
-          display: true,
-          lineWidth: 1,
-        },
-        ticks: {
-          color: "#FFFFFF",
-          padding: 10,
-          font: { size: 12, weight: 'bold' },
-          callback: function(value) {
-            const numValue = Number(value);
-            if (!isNaN(numValue)) {
-              if (numValue >= 1000000) {
-                return '$' + (numValue / 1000000).toFixed(1) + 'M';
-              } else if (numValue >= 1000) {
-                return '$' + (numValue / 1000).toFixed(1) + 'K';
-              }
-              return '$' + numValue.toLocaleString('es-CO');
-            }
-            return value;
-          }
-        },
-        border: {
-          display: true,
-          color: "rgba(255, 255, 255, 0.5)",
-          width: 2,
-        },
-        title: {
-          display: true,
-          text: 'Precio',
-          color: '#FFFFFF',
-          font: {
-            size: 14,
-            weight: 'bold'
-          },
-          padding: { top: 0, bottom: 10 }
-        }
-      }
-    },
-    interaction: {
-      mode: 'nearest',
-      axis: 'x',
-      intersect: false
-    },
-    hover: {
-      mode: 'nearest',
-      intersect: false,
-    },
-    animation: { duration: 300 },
-  };
-
-  // Render market item for dropdown
-  const renderMarketItem = (market: MarketItem) => (
+  // Renderizar item de mercado para el dropdown (memoizado)
+  const renderMarketItem = useCallback((market: MarketItem) => (
     <div 
       key={market.id} 
       className="flex items-center justify-between py-2 px-3 hover:bg-muted cursor-pointer"
@@ -628,10 +360,10 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime = false }: 
         />
       </button>
     </div>
-  );
+  ), [currentMarket, favoriteMarkets, toggleFavorite]);
 
-  // Group markets for dropdown
-  const groupedMarkets = getGroupedMarkets();
+  // Mercados agrupados para dropdown (memoizado)
+  const groupedMarkets = useMemo(() => getGroupedMarkets(), []);
 
   return (
     <Card className="mb-4">
@@ -658,10 +390,10 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime = false }: 
             </div>
           </div>
         </CardTitle>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="flex items-center gap-2 min-w-[220px] justify-between">
+              <Button variant="outline" className="flex items-center gap-2 min-w-[180px] justify-between">
                 <div className="flex items-center gap-2">
                   <div 
                     className="w-4 h-4 rounded"
@@ -672,7 +404,7 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime = false }: 
                 <ChevronDown className="h-4 w-4 opacity-50" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-[300px] max-h-[500px] overflow-y-auto">
+            <DropdownMenuContent className="w-[280px] max-h-[400px] overflow-y-auto">
               <div className="p-2">
                 <Input
                   placeholder="Buscar mercado..."
@@ -694,7 +426,7 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime = false }: 
                 </>
               ) : (
                 <>
-                  {/* Favorites Section */}
+                  {/* Favoritos */}
                   <DropdownMenuLabel className="flex items-center gap-2">
                     <Star className="w-4 h-4 text-yellow-500" fill="currentColor" />
                     Favoritos
@@ -709,56 +441,35 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime = false }: 
                     </div>
                   )}
                   
-                  {/* Categories */}
-                  {Object.entries(MARKET_CATEGORIES).map(([category, info]) => {
-                    const categoryMarkets = groupedMarkets[category as MarketCategory] || [];
-                    if (categoryMarkets.length === 0) return null;
-                    
-                    return (
-                      <div key={category}>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuLabel className="flex items-center gap-2 mt-1">
-                          {info.icon}
-                          {info.name}
-                        </DropdownMenuLabel>
-                        <DropdownMenuGroup>
-                          {categoryMarkets.map(market => renderMarketItem(market))}
-                        </DropdownMenuGroup>
-                  </div>
-                    );
-                  })}
+                  {/* Categorías (mostrando solo algunas para mejorar rendimiento) */}
+                  {Object.entries(MARKET_CATEGORIES)
+                    .filter(([category]) => ['volatility', 'cripto', 'forex'].includes(category))
+                    .map(([category, info]) => {
+                      const categoryMarkets = groupedMarkets[category as MarketCategory] || [];
+                      if (categoryMarkets.length === 0) return null;
+                      
+                      return (
+                        <div key={category}>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuLabel className="flex items-center gap-2 mt-1">
+                            {info.icon}
+                            {info.name}
+                          </DropdownMenuLabel>
+                          <DropdownMenuGroup>
+                            {categoryMarkets.map(market => renderMarketItem(market))}
+                          </DropdownMenuGroup>
+                        </div>
+                      );
+                    })}
                 </>
               )}
             </DropdownMenuContent>
           </DropdownMenu>
-          
-          <div className="flex items-center gap-2">
-            <span className="text-sm whitespace-nowrap">Tasa de crecimiento</span>
-            <div className="flex items-center bg-secondary rounded-md">
-              {GROWTH_RATES.map((rate) => (
-                <Button
-                  key={rate.id}
-                  variant="ghost"
-                  size="sm"
-                  className={cn(
-                    "h-8 px-2 rounded-md",
-                    growthRate === rate.value && "bg-muted"
-                  )}
-                  onClick={() => setGrowthRate(rate.value)}
-                >
-                  {rate.label}
-                </Button>
-              ))}
-            </div>
-          </div>
         </div>
       </CardHeader>
       <CardContent className="p-4">
-        <div className="mb-3 p-2 bg-green-500/10 border border-green-500/30 text-green-500 rounded-md text-sm">
-          <p><strong>Datos en tiempo real:</strong> Ahora estás conectado a Alpha Vantage (forex y materias primas), CoinCap (criptomonedas) y TwelveData (índices bursátiles). Todos los datos que ves son reales, excepto los índices sintéticos que son simulados.</p>
-        </div>
         <div className="mb-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <div className="flex items-center bg-secondary rounded-md">
               {TIME_RANGES.map((range) => (
                 <Button
@@ -789,7 +500,6 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime = false }: 
             <Button 
               variant="outline" 
               size="sm"
-              onClick={resetZoom}
               className="h-8"
             >
               Reset Zoom
@@ -808,13 +518,21 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime = false }: 
             </Button>
           </div>
         </div>
-        <div className="h-[400px] w-full border border-border rounded-md p-3">
-          {typeof window !== 'undefined' && <Line ref={chartRef} data={chartData} options={chartOptions} />}
+        <div className="h-[400px] w-full border border-border rounded-md p-3 bg-card">
+          <ChartPlaceholder />
         </div>
       </CardContent>
     </Card>
   );
 };
 
-// Export as client component 
-export default dynamic(() => Promise.resolve(RealTimeMarketChart), { ssr: false }); 
+// Componente Chart real implementado completamente en el cliente
+const RealTimeMarketChartWithData = dynamic(
+  () => import('./RealTimeMarketChartClient').then(mod => mod.default),
+  { 
+    ssr: false,
+    loading: () => <RealTimeMarketChartUI marketId="volatility-100" />
+  }
+);
+
+export default RealTimeMarketChartWithData; 

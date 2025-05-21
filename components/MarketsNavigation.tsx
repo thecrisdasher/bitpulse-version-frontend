@@ -448,13 +448,13 @@ const MarketsNavigation = ({ onInstrumentSelect }: MarketsNavigationProps = {}) 
   };
   
   // Búsqueda de instrumentos
-  const searchInstruments = async () => {
+    const searchInstruments = async () => {
     if (!searchQuery.trim()) {
-      handleCategoryClick(selectedCategory);
-      return;
-    }
-    
-    try {
+        handleCategoryClick(selectedCategory);
+        return;
+      }
+      
+      try {
       const response = await axios.get(`/api/market/search?query=${encodeURIComponent(searchQuery)}`);
       setInstruments(response.data.instruments);
       
@@ -466,12 +466,12 @@ const MarketsNavigation = ({ onInstrumentSelect }: MarketsNavigationProps = {}) 
           category: inst.category
         }))
       );
-    } catch (err) {
-      console.error("Error al buscar instrumentos:", err);
-      setInstruments([]);
-    }
-  };
-  
+      } catch (err) {
+        console.error("Error al buscar instrumentos:", err);
+        setInstruments([]);
+      }
+    };
+    
   // Obtener título de sección
   const getSectionTitle = () => {
     if (searchQuery.trim()) {
@@ -530,7 +530,7 @@ const MarketsNavigation = ({ onInstrumentSelect }: MarketsNavigationProps = {}) 
             <button
               onClick={() => {
                 if (category.subcategories && category.subcategories.length > 0) {
-                  toggleCategoryExpansion(category.id as string);
+                toggleCategoryExpansion(category.id as string);
                 } else {
                   handleCategoryClick(category.id as string);
                 }
@@ -546,39 +546,39 @@ const MarketsNavigation = ({ onInstrumentSelect }: MarketsNavigationProps = {}) 
               </div>
               {category.subcategories && category.subcategories.length > 0 && (
                 <span className="text-xs">
-                  {expandedCategories.includes(category.id as string) ? (
+              {expandedCategories.includes(category.id as string) ? (
                     <ChevronUp className="h-4 w-4" />
-                  ) : (
+              ) : (
                     <ChevronDown className="h-4 w-4" />
                   )}
                 </span>
               )}
             </button>
-            
+        
             {/* Subcategorías */}
             {category.subcategories && 
              expandedCategories.includes(category.id as string) && (
               <div className="ml-4 space-y-1 border-l pl-2">
-                {category.subcategories.map((subcategory) => (
+            {category.subcategories.map((subcategory) => (
                   <button
                     key={subcategory.id}
                     onClick={() => handleSubcategoryClick(subcategory.id)}
-                    className={cn(
+                  className={cn(
                       "flex w-full items-center rounded-md px-3 py-2 text-sm hover:bg-accent",
                       selectedCategory === subcategory.id && "bg-accent"
-                    )}
-                  >
-                    {subcategory.label}
+                  )}
+                >
+                  {subcategory.label}
                   </button>
                 ))}
               </div>
             )}
-          </div>
-        ))}
+                </div>
+            ))}
       </div>
     );
   };
-  
+
   return (
     <div className="h-full flex flex-col">
       <div className="p-4 border-b">
@@ -626,7 +626,7 @@ const MarketsNavigation = ({ onInstrumentSelect }: MarketsNavigationProps = {}) 
                   >
                     Reintentar
                   </button>
-                </div>
+      </div>
               ) : instruments.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full">
                   <p className="text-sm text-muted-foreground">
@@ -634,7 +634,7 @@ const MarketsNavigation = ({ onInstrumentSelect }: MarketsNavigationProps = {}) 
                       ? `No hay resultados para "${searchQuery}"` 
                       : "No hay instrumentos disponibles en esta categoría"}
                   </p>
-                </div>
+        </div>
               ) : (
                 <div className="flex-1 overflow-y-auto">
                   <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
@@ -644,10 +644,10 @@ const MarketsNavigation = ({ onInstrumentSelect }: MarketsNavigationProps = {}) 
                       const cardStyleClass = getInstrumentCardStyle(instrument);
                       
                       return (
-                        <div
-                          key={instrument.id}
+                <div
+                  key={instrument.id}
                           onClick={() => handleInstrumentClick(instrument)}
-                          className={cn(
+                  className={cn(
                             "border rounded-lg p-3 flex flex-col hover:bg-accent/50 cursor-pointer transition-colors shadow-sm",
                             cardStyleClass
                           )}
@@ -656,11 +656,11 @@ const MarketsNavigation = ({ onInstrumentSelect }: MarketsNavigationProps = {}) 
                             <div className="flex gap-2 items-center">
                               <div className="flex items-center justify-center h-8 w-8 rounded-full bg-white/40 dark:bg-black/10 shadow-sm">
                                 {instrumentIcon}
-                              </div>
-                              <div>
+                    </div>
+                    <div>
                                 <div className="font-medium flex items-center gap-1.5">
                                   {instrument.name}
-                                  {instrument.hasRealTime && (
+                        {instrument.hasRealTime && (
                                     <span className="inline-flex items-center rounded-full bg-green-50 px-1.5 py-0.5 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
                                       <span className="relative flex h-1.5 w-1.5 mr-1">
                                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
@@ -668,27 +668,27 @@ const MarketsNavigation = ({ onInstrumentSelect }: MarketsNavigationProps = {}) 
                                       </span>
                                       RT
                                     </span>
-                                  )}
-                                </div>
-                                <div className="text-xs text-muted-foreground">
-                                  {instrument.symbol}
-                                </div>
-                              </div>
-                            </div>
-                            <button
+                        )}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {instrument.symbol}
+                      </div>
+                    </div>
+                  </div>
+                  <button
                               onClick={(e) => handleToggleFavorite(e, instrument)}
                               className={`p-1 rounded-full hover:bg-white/30 dark:hover:bg-white/10 ${
-                                instrument.isFavorite ? "text-yellow-500" : "text-muted-foreground"
+                      instrument.isFavorite ? "text-yellow-500" : "text-muted-foreground"
                               }`}
-                            >
-                              <Star className="h-5 w-5" fill={instrument.isFavorite ? "currentColor" : "none"} />
-                            </button>
-                          </div>
-                          
+                  >
+                    <Star className="h-5 w-5" fill={instrument.isFavorite ? "currentColor" : "none"} />
+                  </button>
+        </div>
+        
                           <div className="mt-2 flex justify-between items-end">
                             <div className="text-xl font-semibold">
                               {formatCurrency(instrument.price)}
-                            </div>
+                    </div>
                             <div className={cn(
                               "text-sm font-medium rounded-full px-2 py-0.5",
                               isPositiveChange 
@@ -696,15 +696,15 @@ const MarketsNavigation = ({ onInstrumentSelect }: MarketsNavigationProps = {}) 
                                 : "text-red-700 bg-red-100 dark:bg-red-900/30 dark:text-red-400"
                             )}>
                               {isPositiveChange ? "+" : ""}{instrument.change24h.toFixed(2)}%
-                            </div>
-                          </div>
-                          
+                    </div>
+                  </div>
+                  
                           {/* Última actualización */}
                           {instrument.lastUpdated && (
                             <div className="mt-1 text-xs text-muted-foreground flex items-center">
                               <span className="mr-1">Actualizado:</span>
                               <span className="text-xs font-medium">{new Date(instrument.lastUpdated).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                            </div>
+                    </div>
                           )}
                         </div>
                       );
@@ -712,9 +712,9 @@ const MarketsNavigation = ({ onInstrumentSelect }: MarketsNavigationProps = {}) 
                   </div>
                 </div>
               )}
-            </CardContent>
-          </Card>
-        </div>
+              </CardContent>
+            </Card>
+          </div>
       </div>
       
       {/* Gráfico en tiempo real */}

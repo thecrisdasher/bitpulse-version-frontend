@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { MarketData, subscribeToRealTimeUpdates, getMarketData, cleanupWebSockets } from '@/lib/api/marketDataService';
+import { MarketData, subscribeToRealTimeUpdates, getMarketData, getBatchMarketData } from '@/lib/api/marketDataService';
 
 export interface UseRealTimeMarketDataOptions {
   refreshInterval?: number; // Update interval in ms for fallback polling
@@ -91,42 +91,118 @@ export function useBatchRealTimeMarketData(
   const [data, setData] = useState<Record<string, MarketData | null>>({});
   const [isLoading, setIsLoading] = useState<boolean>(initialFetch);
   const [error, setError] = useState<Error | null>(null);
+  const [failedAttempts, setFailedAttempts] = useState<number>(0);
+  
+  // Silenciar errores en producción
+  const logError = (message: string, err: any) => {
+    if (process.env.NODE_ENV !== 'production') {
+      console.error(message, err);
+    } else {
+      // En producción, solo mostrar un mensaje más simple y sin stack trace
+      console.warn('⚠️ ' + message);
+    }
+  };
   
   // Fetch market data initially and set up real-time updates
   useEffect(() => {
+    // Validar que instruments es un array válido y no está vacío
+    if (!instruments || !Array.isArray(instruments) || instruments.length === 0) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('useBatchRealTimeMarketData: No se proporcionaron instrumentos válidos');
+      }
+      setIsLoading(false);
+      return () => {}; // No hacer nada si no hay instrumentos
+    }
+    
     let cleanupFunctions: Array<() => void> = [];
     let intervalId: NodeJS.Timeout | null = null;
     
     const fetchAllData = async () => {
+      // Si ya fallaron demasiados intentos, esperar más tiempo antes de reintentar
+      if (failedAttempts > 3) {
+        const waitTime = Math.min(failedAttempts * 5000, 30000);
+        
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn(`Demasiados errores consecutivos (${failedAttempts}), esperando ${waitTime/1000}s antes de reintentar`);
+        }
+        
+        // Resetear contador después de un tiempo
+        setTimeout(() => setFailedAttempts(0), 60000);
+        return;
+      }
+      
       try {
         setIsLoading(true);
-        const requests = instruments.map(inst => ({
-          symbol: inst.symbol,
-          category: inst.category
-        }));
         
-        const batchData = await getMarketData(requests[0].symbol, requests[0].category);
+        // Crear un array de solicitudes válidas
+        const requests = instruments
+          .filter(inst => inst && inst.symbol && inst.category) // Filtrar entradas inválidas
+          .map(inst => ({
+            symbol: inst.symbol,
+            category: inst.category
+          }));
         
-        setData(prev => ({
-          ...prev,
-          [requests[0].symbol]: batchData
-        }));
+        if (requests.length === 0) {
+          if (process.env.NODE_ENV !== 'production') {
+            console.warn('No hay instrumentos válidos para obtener datos');
+          }
+          setIsLoading(false);
+          return;
+        }
+        
+        // Usar getBatchMarketData para obtener múltiples instrumentos a la vez
+        const batchResults = await getBatchMarketData(requests);
+        
+        // Verificar si obtuvimos algún resultado
+        if (Object.keys(batchResults).length === 0) {
+          // Si no se obtuvieron datos pero no hubo error explícito, no mostrar error
+          // pero incrementar contador de fallos
+          setFailedAttempts(prev => prev + 1);
+        } else {
+          // Actualizar el estado con todos los resultados
+          setData(prev => ({
+            ...prev,
+            ...batchResults
+          }));
+        
+          // Resetear contador de errores al tener éxito
+          if (failedAttempts > 0) {
+            setFailedAttempts(0);
+          }
+        }
+        
         setError(null);
       } catch (err) {
-        console.error('Error fetching batch market data:', err);
-        setError(err instanceof Error ? err : new Error('Error fetching batch market data'));
+        logError('Error obteniendo datos de mercado en lote:', err);
+        
+        // No mostrar error visual al usuario a menos que sea crítico
+        // y hayamos fallado múltiples veces
+        if (failedAttempts > 2) {
+          setError(err instanceof Error ? err : new Error('Error de conexión temporal'));
+        }
+        
+        // Incrementar contador de intentos fallidos
+        setFailedAttempts(prev => prev + 1);
       } finally {
         setIsLoading(false);
       }
     };
     
     // Initial fetch if requested
-    if (initialFetch && instruments.length > 0) {
+    if (initialFetch) {
       fetchAllData();
     }
     
     // Subscribe to real-time updates for each instrument
     instruments.forEach(inst => {
+      // Validación adicional
+      if (!inst || !inst.symbol || !inst.category) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn('Instrumento inválido detectado:', inst);
+        }
+        return;
+      }
+      
       try {
         const cleanup = subscribeToRealTimeUpdates(
           inst.symbol, 
@@ -136,33 +212,51 @@ export function useBatchRealTimeMarketData(
               ...prev,
               [inst.symbol]: marketData
             }));
+            
+            // Si recibimos datos por WebSocket, resetear contador de errores
+            if (failedAttempts > 0) {
+              setFailedAttempts(0);
+            }
           }
         );
         
         cleanupFunctions.push(cleanup);
       } catch (err) {
-        console.error(`Error subscribing to updates for ${inst.symbol}:`, err);
+        logError(`Error al suscribirse a actualizaciones para ${inst?.symbol || 'unknown'}:`, err);
       }
     });
     
-    // Fallback polling
-    intervalId = setInterval(fetchAllData, refreshInterval);
+    // Fallback polling con intervalo dinámico basado en fallos
+    intervalId = setInterval(() => {
+      // Ajustar intervalo según número de fallos
+      const adjustedInterval = Math.min(failedAttempts * 5000, 30000); // Max 30 segundos de retraso
+      
+      setTimeout(fetchAllData, adjustedInterval);
+    }, refreshInterval);
     
     // Cleanup function
     return () => {
       cleanupFunctions.forEach(cleanup => cleanup());
       if (intervalId) clearInterval(intervalId);
     };
-  }, [JSON.stringify(instruments), refreshInterval, initialFetch]);
+  }, [JSON.stringify(instruments), refreshInterval, initialFetch, failedAttempts]);
   
-  return { data, isLoading, error };
+  return { 
+    data, 
+    isLoading, 
+    // Si tenemos datos pero también errores, no mostrar el error al usuario
+    error: Object.keys(data).length > 0 ? null : error,
+    // Nueva propiedad que indica si estamos usando datos de respaldo o datos en tiempo real  
+    hasRealtimeData: Object.values(data).some(item => item?.isRealTime === true)
+  };
 }
 
 // Clean up all WebSocket connections when app unmounts
 export function useCleanupWebSockets() {
   useEffect(() => {
     return () => {
-      cleanupWebSockets();
+      // This hook was using a non-existent cleanupWebSockets function
+      // Since cleanupFunctions is not accessible here, we can remove this empty hook
     };
   }, []);
-} 
+}
