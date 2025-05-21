@@ -71,7 +71,8 @@ type TimeSeriesChartRef = ChartJS<"line", ChartPoint[]>;
 
 // Component props
 interface RealTimeMarketChartProps {
-  selectedMarket?: string;
+  marketId: string;
+  isRealTime?: boolean;
 }
 
 // Define market categories
@@ -243,10 +244,10 @@ const getGroupedMarkets = () => {
 };
 
 // Make the entire component client-side only
-const RealTimeMarketChart = ({ selectedMarket: initialMarket }: RealTimeMarketChartProps = {}) => {
-  const [currentMarket, setCurrentMarket] = useState<string>(initialMarket || "volatility-100");
+const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime = false }: RealTimeMarketChartProps) => {
+  const [currentMarket, setCurrentMarket] = useState<string>(initialMarketId || "volatility-100");
   const [timeRange, setTimeRange] = useState<TimeRange>("1h");
-  const [realTimeEnabled, setRealTimeEnabled] = useState(false);
+  const [realTimeEnabled, setRealTimeEnabled] = useState(isRealTime);
   const [showPriceLevels, setShowPriceLevels] = useState(true);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
@@ -392,10 +393,10 @@ const RealTimeMarketChart = ({ selectedMarket: initialMarket }: RealTimeMarketCh
 
   // Update selected market when initialMarket changes
   useEffect(() => {
-    if (initialMarket && initialMarket !== currentMarket) {
-      setCurrentMarket(initialMarket);
+    if (initialMarketId && initialMarketId !== currentMarket) {
+      setCurrentMarket(initialMarketId);
     }
-  }, [initialMarket]);
+  }, [initialMarketId]);
 
   // Chart configuration
   const chartOptions: ChartOptions<"line"> = {

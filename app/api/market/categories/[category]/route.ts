@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getInstrumentsByCategory, MarketCategory } from '@/lib/mockData';
+import { getMarketData, getBatchMarketData } from '@/lib/api/marketDataService';
 
 /**
  * GET /api/market/categories/[category]
@@ -12,32 +13,62 @@ export async function GET(
   try {
     const category = params.category as MarketCategory;
     
-    // Validar que la categoría sea válida
-    const validCategories: MarketCategory[] = [
-      "favoritos", "derivados", "baskets", "sinteticos", 
-      "forex", "indices", "criptomonedas", "materias-primas"
-    ];
-    
-    if (!validCategories.includes(category as MarketCategory)) {
+    if (!category) {
       return NextResponse.json(
-        { error: `Categoría '${category}' no válida` },
+        { error: 'Se requiere una categoría' },
         { status: 400 }
       );
     }
     
-    const instruments = getInstrumentsByCategory(category as MarketCategory);
+    // Get instruments from mock data first
+    const mockInstruments = getInstrumentsByCategory(category);
+    
+    // Prepare batch requests for real-time data
+    const dataRequests = mockInstruments.map(instrument => ({
+      symbol: instrument.symbol,
+      category: instrument.category
+    }));
+    
+    try {
+      // Try to get real-time data for all instruments
+      const realTimeData = await getBatchMarketData(dataRequests);
+      
+      // Enhance mock data with real-time data
+      const enhancedInstruments = mockInstruments.map(instrument => {
+        const rtData = realTimeData[instrument.symbol];
+        if (rtData) {
+          return {
+            ...instrument,
+            price: rtData.currentPrice,
+            change24h: rtData.changePercent24h,
+            lastUpdated: new Date(rtData.lastUpdated),
+            hasRealTime: rtData.isRealTime
+          };
+        }
+        return instrument;
+      });
     
     return NextResponse.json({
-      category,
-      instruments,
-      count: instruments.length,
+        instruments: enhancedInstruments,
+        count: enhancedInstruments.length,
       timestamp: Date.now(),
       success: true
     });
+    } catch (error) {
+      // If real-time data fails, return mock data
+      console.error('Error fetching real-time data:', error);
+      return NextResponse.json({
+        instruments: mockInstruments,
+        count: mockInstruments.length,
+        timestamp: Date.now(),
+        success: true,
+        message: 'Datos obtenidos de caché local, error en tiempo real'
+      });
+    }
   } catch (error: any) {
-    console.error(`Error en API market/categories/${params.category}:`, error);
+    console.error('Error en API category:', error);
     return NextResponse.json(
-      { error: error.message || 'Error al obtener instrumentos de la categoría' },
+      { error: error.message || 'Error al obtener instrumentos' },
       { status: 500 }
     );
   }

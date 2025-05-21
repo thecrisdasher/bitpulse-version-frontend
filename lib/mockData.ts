@@ -270,7 +270,6 @@ export const toggleFavorite = (id: number) => {
 
 // Market types and trading instruments
 export type MarketCategory = 
-  | "favoritos" 
   | "derivados" 
   | "baskets" 
   | "sinteticos" 
@@ -279,18 +278,19 @@ export type MarketCategory =
   | "criptomonedas" 
   | "materias-primas";
 
-export type MarketInstrument = {
+export interface MarketInstrument {
   id: string;
   name: string;
   symbol: string;
-  category: MarketCategory | MarketCategory[];
+  category: MarketCategory;
   price: number;
   change24h: number;
-  hasRealTime?: boolean;
-  isFavorite?: boolean;
-  logoUrl?: string;
+  change7d: number;
+  isFavorite: boolean;
+  hasRealTime: boolean;
   color?: string;
-};
+  lastUpdated?: Date;
+}
 
 // Derivados
 export const derivativesInstruments: MarketInstrument[] = [
@@ -298,88 +298,96 @@ export const derivativesInstruments: MarketInstrument[] = [
     id: "volatility-10-1s",
     name: "Índice Volatility 10",
     symbol: "VOL10",
-    category: ["derivados", "sinteticos"],
+    category: "derivados",
     price: 9876.54,
     change24h: 1.45,
-    hasRealTime: true,
+    change7d: 0,
     isFavorite: false,
+    hasRealTime: true,
     color: "hsl(338, 90%, 56%)"
   },
   {
     id: "volatility-10",
     name: "Índice Volatility 10",
     symbol: "VOL10",
-    category: ["derivados", "sinteticos"],
+    category: "derivados",
     price: 9872.12,
     change24h: 1.23,
-    hasRealTime: false,
+    change7d: 0,
     isFavorite: false,
+    hasRealTime: false,
     color: "hsl(338, 90%, 56%)"
   },
   {
     id: "volatility-25-1s",
     name: "Índice Volatility 25",
     symbol: "VOL25",
-    category: ["derivados", "sinteticos"],
+    category: "derivados",
     price: 12345.67,
     change24h: 2.34,
-    hasRealTime: true,
+    change7d: 0,
     isFavorite: false,
+    hasRealTime: true,
     color: "hsl(207, 90%, 61%)"
   },
   {
     id: "volatility-25",
     name: "Índice Volatility 25",
     symbol: "VOL25",
-    category: ["derivados", "sinteticos"],
+    category: "derivados",
     price: 12340.21,
     change24h: 2.12,
-    hasRealTime: false,
+    change7d: 0,
     isFavorite: false,
+    hasRealTime: false,
     color: "hsl(207, 90%, 61%)"
   },
   {
     id: "volatility-50-1s",
     name: "Índice Volatility 50",
     symbol: "VOL50",
-    category: ["derivados", "sinteticos"],
+    category: "derivados",
     price: 24680.35,
     change24h: 3.21,
-    hasRealTime: true,
+    change7d: 0,
     isFavorite: false,
+    hasRealTime: true,
     color: "hsl(41, 98%, 49%)"
   },
   {
     id: "volatility-50",
     name: "Índice Volatility 50",
     symbol: "VOL50",
-    category: ["derivados", "sinteticos"],
+    category: "derivados",
     price: 24675.42,
     change24h: 3.15,
-    hasRealTime: false,
+    change7d: 0,
     isFavorite: false,
+    hasRealTime: false,
     color: "hsl(41, 98%, 49%)"
   },
   {
     id: "volatility-75-1s",
     name: "Índice Volatility 75",
     symbol: "VOL75",
-    category: ["derivados", "sinteticos"],
+    category: "derivados",
     price: 32541.87,
     change24h: 4.56,
-    hasRealTime: true,
+    change7d: 0,
     isFavorite: false,
+    hasRealTime: true,
     color: "hsl(43, 95%, 47%)"
   },
   {
     id: "volatility-75",
     name: "Índice Volatility 75",
     symbol: "VOL75",
-    category: ["derivados", "sinteticos"],
+    category: "derivados",
     price: 32530.12,
     change24h: 4.35,
-    hasRealTime: false,
+    change7d: 0,
     isFavorite: false,
+    hasRealTime: false,
     color: "hsl(43, 95%, 47%)"
   }
 ];
@@ -390,33 +398,36 @@ export const basketsInstruments: MarketInstrument[] = [
     id: "tech-basket",
     name: "Tech Giants Basket",
     symbol: "TECH",
-    category: ["derivados", "baskets"],
+    category: "baskets",
     price: 1234.56,
     change24h: 1.2,
-    hasRealTime: false,
+    change7d: 0,
     isFavorite: false,
+    hasRealTime: false,
     color: "hsl(207, 90%, 61%)"
   },
   {
     id: "energy-basket",
     name: "Energy Sector Basket",
     symbol: "ENRG",
-    category: ["derivados", "baskets"],
+    category: "baskets",
     price: 876.54,
     change24h: -0.5,
-    hasRealTime: false,
+    change7d: 0,
     isFavorite: false,
+    hasRealTime: false,
     color: "hsl(338, 90%, 56%)"
   },
   {
     id: "finance-basket",
     name: "Financial Sector Basket",
     symbol: "FINT",
-    category: ["derivados", "baskets"],
+    category: "baskets",
     price: 987.65,
     change24h: 0.8,
-    hasRealTime: false,
+    change7d: 0,
     isFavorite: false,
+    hasRealTime: false,
     color: "hsl(41, 98%, 49%)"
   }
 ];
@@ -430,8 +441,9 @@ export const forexInstruments: MarketInstrument[] = [
     category: "forex",
     price: 1.0876,
     change24h: -0.12,
-    hasRealTime: true,
+    change7d: 0,
     isFavorite: false,
+    hasRealTime: true,
     color: "hsl(207, 90%, 61%)"
   },
   {
@@ -441,8 +453,9 @@ export const forexInstruments: MarketInstrument[] = [
     category: "forex",
     price: 1.2754,
     change24h: 0.28,
-    hasRealTime: true,
+    change7d: 0,
     isFavorite: false,
+    hasRealTime: true,
     color: "hsl(338, 90%, 56%)"
   },
   {
@@ -452,8 +465,9 @@ export const forexInstruments: MarketInstrument[] = [
     category: "forex",
     price: 149.27,
     change24h: 0.05,
-    hasRealTime: true,
+    change7d: 0,
     isFavorite: false,
+    hasRealTime: true,
     color: "hsl(41, 98%, 49%)"
   },
   {
@@ -463,8 +477,9 @@ export const forexInstruments: MarketInstrument[] = [
     category: "forex",
     price: 0.6543,
     change24h: -0.31,
-    hasRealTime: true,
+    change7d: 0,
     isFavorite: false,
+    hasRealTime: true,
     color: "hsl(43, 95%, 47%)"
   }
 ];
@@ -478,8 +493,9 @@ export const stockIndicesInstruments: MarketInstrument[] = [
     category: "indices",
     price: 5123.45,
     change24h: 0.75,
-    hasRealTime: true,
+    change7d: 0,
     isFavorite: false,
+    hasRealTime: true,
     color: "hsl(207, 90%, 61%)"
   },
   {
@@ -489,8 +505,9 @@ export const stockIndicesInstruments: MarketInstrument[] = [
     category: "indices",
     price: 17876.32,
     change24h: 1.23,
-    hasRealTime: true,
+    change7d: 0,
     isFavorite: false,
+    hasRealTime: true,
     color: "hsl(338, 90%, 56%)"
   },
   {
@@ -500,8 +517,9 @@ export const stockIndicesInstruments: MarketInstrument[] = [
     category: "indices",
     price: 38765.21,
     change24h: 0.45,
-    hasRealTime: true,
+    change7d: 0,
     isFavorite: false,
+    hasRealTime: true,
     color: "hsl(41, 98%, 49%)"
   },
   {
@@ -511,8 +529,9 @@ export const stockIndicesInstruments: MarketInstrument[] = [
     category: "indices",
     price: 7654.32,
     change24h: -0.21,
-    hasRealTime: true,
+    change7d: 0,
     isFavorite: false,
+    hasRealTime: true,
     color: "hsl(43, 95%, 47%)"
   }
 ];
@@ -526,8 +545,9 @@ export const commoditiesInstruments: MarketInstrument[] = [
     category: "materias-primas",
     price: 2355.67,
     change24h: 0.34,
-    hasRealTime: true,
+    change7d: 0,
     isFavorite: false,
+    hasRealTime: true,
     color: "hsl(43, 95%, 47%)"
   },
   {
@@ -537,8 +557,9 @@ export const commoditiesInstruments: MarketInstrument[] = [
     category: "materias-primas",
     price: 27.65,
     change24h: 0.56,
-    hasRealTime: true,
+    change7d: 0,
     isFavorite: false,
+    hasRealTime: true,
     color: "hsl(210, 20%, 80%)"
   },
   {
@@ -548,8 +569,9 @@ export const commoditiesInstruments: MarketInstrument[] = [
     category: "materias-primas",
     price: 73.42,
     change24h: -1.23,
-    hasRealTime: true,
+    change7d: 0,
     isFavorite: false,
+    hasRealTime: true,
     color: "hsl(338, 90%, 56%)"
   },
   {
@@ -559,8 +581,9 @@ export const commoditiesInstruments: MarketInstrument[] = [
     category: "materias-primas",
     price: 2.13,
     change24h: -0.45,
-    hasRealTime: true,
+    change7d: 0,
     isFavorite: false,
+    hasRealTime: true,
     color: "hsl(207, 90%, 61%)"
   }
 ];
@@ -574,8 +597,9 @@ export const cryptoInstruments: MarketInstrument[] = [
     category: "criptomonedas",
     price: 29324.52,
     change24h: 1.2,
-    hasRealTime: true,
+    change7d: 0,
     isFavorite: true,
+    hasRealTime: true,
     color: "hsl(41, 98%, 49%)"
   },
   {
@@ -585,8 +609,9 @@ export const cryptoInstruments: MarketInstrument[] = [
     category: "criptomonedas",
     price: 1876.34,
     change24h: -0.8,
-    hasRealTime: true,
+    change7d: 0,
     isFavorite: true,
+    hasRealTime: true,
     color: "hsl(207, 90%, 61%)"
   },
   {
@@ -596,8 +621,9 @@ export const cryptoInstruments: MarketInstrument[] = [
     category: "criptomonedas",
     price: 19.87,
     change24h: -0.5,
-    hasRealTime: true,
+    change7d: 0,
     isFavorite: false,
+    hasRealTime: true,
     color: "hsl(338, 90%, 56%)"
   }
 ];
@@ -615,9 +641,7 @@ export const allMarketInstruments: MarketInstrument[] = [
 // Get instruments by category
 export const getInstrumentsByCategory = (category: MarketCategory): MarketInstrument[] => {
   return allMarketInstruments.filter(instrument => 
-    Array.isArray(instrument.category) 
-      ? instrument.category.includes(category)
-      : instrument.category === category
+    instrument.category === category
   );
 };
 

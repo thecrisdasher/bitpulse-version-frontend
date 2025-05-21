@@ -17,6 +17,10 @@ import TrendingPage from "@/components/TrendingPage"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import RealTimeMarketChart from "@/components/RealTimeMarketChart"
+import dynamic from "next/dynamic"
+
+// Dynamically import TradeControlPanel to prevent SSR issues
+const TradeControlPanel = dynamic(() => import("@/components/TradeControlPanel"), { ssr: false });
 
 // Helper function for consistent number formatting
 const formatCurrency = (value: number, minimumFractionDigits = 2, maximumFractionDigits = 2) => {
@@ -105,6 +109,8 @@ export default function CryptoDashboard() {
   const [favList, setFavList] = useState(favorites)
   const [liveUpdates, setLiveUpdates] = useState(true)
   const [cryptoData, setCryptoData] = useState(cryptocurrencies)
+  const [selectedInstrument, setSelectedInstrument] = useState<any>(null)
+  const [showTradePanel, setShowTradePanel] = useState(false)
   const { theme } = useTheme()
 
   useEffect(() => {
@@ -135,6 +141,15 @@ export default function CryptoDashboard() {
     setFavList([...favorites])
   }
 
+  const handleCryptoSelection = (crypto: any) => {
+    setSelectedInstrument(crypto)
+    setShowTradePanel(true)
+  }
+
+  const closeTradePanel = () => {
+    setShowTradePanel(false)
+  }
+
   const renderCryptoList = (cryptos: { 
     id: number;
     name: string;
@@ -162,7 +177,11 @@ export default function CryptoDashboard() {
       </TableHeader>
       <TableBody>
         {cryptos.map((crypto, index) => (
-          <TableRow key={crypto.id} className="cursor-pointer">
+          <TableRow 
+            key={crypto.id} 
+            className="cursor-pointer"
+            onClick={() => handleCryptoSelection(crypto)}
+          >
             <TableCell>
               <Button
                 variant="ghost"
@@ -249,7 +268,23 @@ export default function CryptoDashboard() {
           </div>
         </header>
         <main className="container mx-auto px-4 py-8 flex-1">
-          <RealTimeMarketChart />
+          <div className="flex flex-col md:flex-row gap-4 mb-6">
+            <div className={`flex-1 transition-all duration-300 ${showTradePanel ? 'md:w-2/3' : 'w-full'}`}>
+              <RealTimeMarketChart />
+            </div>
+            
+            {showTradePanel && selectedInstrument && (
+              <div className="md:w-1/3 transition-all duration-300 ease-in-out">
+                <TradeControlPanel
+                  instrumentName={selectedInstrument.name}
+                  instrumentPrice={selectedInstrument.price}
+                  instrumentId={selectedInstrument.id.toString()}
+                  onClose={closeTradePanel}
+                />
+              </div>
+            )}
+          </div>
+          
           <MarketOverviewBanner liveUpdates={liveUpdates} />
           <BentoGrid liveUpdates={liveUpdates} cryptoData={cryptoData} />
           <Tabs defaultValue="all" className="space-y-4 mt-8">

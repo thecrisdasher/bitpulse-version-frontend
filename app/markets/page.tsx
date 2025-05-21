@@ -1,25 +1,48 @@
 "use client"
 
-import { Suspense } from "react"
-import Sidebar from "@/components/Sidebar"
+import { useState } from "react"
 import dynamic from "next/dynamic"
-import { MarketSkeleton } from "@/components/SkeletonLoaders"
+import Sidebar from "@/components/Sidebar"
+import { Card, CardContent } from "@/components/ui/card"
+import { MarketInstrument } from "@/lib/mockData"
 
-// Importar MarketsNavigation con SSR desactivado
-const MarketsNavigation = dynamic(
-  () => import("@/components/MarketsNavigation"),
-  { 
-    ssr: false,
-    loading: () => <MarketSkeleton />
-  }
-);
+// Dynamically import components with client-side only rendering
+const MarketsNavigation = dynamic(() => import("@/components/MarketsNavigation"), { ssr: false })
+const TradeControlPanel = dynamic(() => import("@/components/TradeControlPanel"), { ssr: false })
 
 export default function MarketsPage() {
+  const [selectedInstrument, setSelectedInstrument] = useState<MarketInstrument | null>(null)
+  const [showTradePanel, setShowTradePanel] = useState(false)
+
+  const handleInstrumentSelect = (instrument: MarketInstrument) => {
+    setSelectedInstrument(instrument)
+    setShowTradePanel(true)
+  }
+
+  const closeTradePanel = () => {
+    setShowTradePanel(false)
+  }
+
   return (
     <div className="flex min-h-screen bg-background text-foreground">
       <Sidebar />
-      <div className="flex-1 flex flex-col">
-        <MarketsNavigation />
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <main className="flex-1 flex">
+          <div className={`flex-1 transition-all duration-300 ${showTradePanel ? 'max-w-[calc(100%-350px)]' : 'w-full'}`}>
+            <MarketsNavigation onInstrumentSelect={handleInstrumentSelect} />
+          </div>
+          
+          {showTradePanel && selectedInstrument && (
+            <div className="w-[350px] border-l border-border p-4 transition-all duration-300 ease-in-out">
+              <TradeControlPanel
+                instrumentName={selectedInstrument.name}
+                instrumentPrice={selectedInstrument.price}
+                instrumentId={selectedInstrument.id}
+                onClose={closeTradePanel}
+              />
+            </div>
+          )}
+        </main>
       </div>
     </div>
   )
