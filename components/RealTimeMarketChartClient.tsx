@@ -1,20 +1,22 @@
 "use client";
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { createChart, ColorType, AreaSeries, Time } from 'lightweight-charts';
+import { createChart, ColorType, AreaSeries, LineSeries, CandlestickSeries, BarSeries, Time } from 'lightweight-charts';
 
 // Define types for props
 interface ChartProps {
-  data?: {
-    time: Time;
-    value: number;
-  }[];
+  data?: any[];
+  chartType?: 'area' | 'line' | 'candle' | 'bar';
   colors?: {
     backgroundColor?: string;
     lineColor?: string;
     textColor?: string;
     areaTopColor?: string;
     areaBottomColor?: string;
+    upColor?: string;
+    downColor?: string;
+    wickUpColor?: string;
+    wickDownColor?: string;
   };
   width?: number;
   height?: number;
@@ -52,12 +54,17 @@ const generateMockData = (days = 30, baseValue = 100) => {
 // Chart Component
 const RealTimeMarketChartClient: React.FC<ChartProps> = ({
   data = [],
+  chartType = 'area',
   colors = {
     backgroundColor: 'transparent',
     lineColor: '#2962FF',
     textColor: 'rgba(255, 255, 255, 0.6)',
     areaTopColor: 'rgba(41, 98, 255, 0.3)',
     areaBottomColor: 'rgba(41, 98, 255, 0.0)',
+    upColor: '#26a69a',
+    downColor: '#ef5350',
+    wickUpColor: '#26a69a',
+    wickDownColor: '#ef5350',
   },
   width = 500,
   height = 300,
@@ -68,6 +75,7 @@ const RealTimeMarketChartClient: React.FC<ChartProps> = ({
   const seriesRef = useRef<any>(null);
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
   const initializedRef = useRef<boolean>(false);
+  const chartTypeRef = useRef<string>(chartType);
   
   // State for dimensions
   const [dimensions, setDimensions] = useState({
@@ -99,6 +107,8 @@ const RealTimeMarketChartClient: React.FC<ChartProps> = ({
         },
         timeScale: {
           borderColor: 'rgba(197, 203, 206, 0.4)',
+          timeVisible: true,
+          secondsVisible: false,
         },
         rightPriceScale: {
           borderColor: 'rgba(197, 203, 206, 0.4)',
@@ -108,22 +118,56 @@ const RealTimeMarketChartClient: React.FC<ChartProps> = ({
         },
       });
       
-      // Create series
-      const series = chart.addSeries(AreaSeries, {
-        lineColor: colors.lineColor,
-        topColor: colors.areaTopColor,
-        bottomColor: colors.areaBottomColor,
-        lineWidth: 2,
-      });
+      // Create appropriate series based on chart type
+      let series: any;
+      
+      switch (chartType) {
+        case 'line':
+          series = chart.addSeries(LineSeries, {
+            color: colors.lineColor,
+            lineWidth: 2,
+          });
+          break;
+        
+        case 'candle':
+          series = chart.addSeries(CandlestickSeries, {
+            upColor: colors.upColor || '#26a69a',
+            downColor: colors.downColor || '#ef5350',
+            borderVisible: false,
+            wickUpColor: colors.wickUpColor || '#26a69a',
+            wickDownColor: colors.wickDownColor || '#ef5350',
+          });
+          break;
+          
+        case 'bar':
+          series = chart.addSeries(BarSeries, {
+            upColor: colors.upColor || '#26a69a',
+            downColor: colors.downColor || '#ef5350',
+            thinBars: false,
+          });
+          break;
+          
+        case 'area':
+        default:
+          series = chart.addSeries(AreaSeries, {
+            lineColor: colors.lineColor,
+            topColor: colors.areaTopColor,
+            bottomColor: colors.areaBottomColor,
+            lineWidth: 2,
+          });
+          break;
+      }
       
       // Store references
       chartRef.current = chart;
       seriesRef.current = series;
       initializedRef.current = true;
+      chartTypeRef.current = chartType;
       
       // Set initial data if available
       if (data && data.length > 0) {
         series.setData(data);
+        chart.timeScale().fitContent();
       }
       
       // Setup resize handler
@@ -165,7 +209,7 @@ const RealTimeMarketChartClient: React.FC<ChartProps> = ({
       console.error("Error initializing chart:", err);
       return undefined;
     }
-  }, [colors, dimensions.width, dimensions.height, data]);
+  }, [colors, dimensions.width, dimensions.height, chartType]);
 
   // Handle chart creation and cleanup
   useEffect(() => {
@@ -204,6 +248,26 @@ const RealTimeMarketChartClient: React.FC<ChartProps> = ({
       }
     };
   }, [initializeChart]);
+
+  // Handle chart type changes
+  useEffect(() => {
+    // If chart type has changed, recreate the chart
+    if (chartRef.current && chartTypeRef.current !== chartType) {
+      // Clean up existing chart
+      try {
+        chartRef.current.remove();
+        chartRef.current = null;
+        seriesRef.current = null;
+        initializedRef.current = false;
+        chartTypeRef.current = chartType;
+        
+        // Reinitialize chart with new type
+        setTimeout(initializeChart, 0);
+      } catch (err) {
+        console.error("Error switching chart type:", err);
+      }
+    }
+  }, [chartType, initializeChart]);
 
   // Update data when it changes
   useEffect(() => {
@@ -253,13 +317,44 @@ const RealTimeMarketChartClient: React.FC<ChartProps> = ({
       },
     });
     
-    // Update series colors
-    seriesRef.current.applyOptions({
-      lineColor: colors.lineColor,
-      topColor: colors.areaTopColor,
-      bottomColor: colors.areaBottomColor,
-    });
-  }, [colors]);
+    // Update series colors based on chart type
+    try {
+      switch (chartType) {
+        case 'line':
+          seriesRef.current.applyOptions({
+            color: colors.lineColor,
+          });
+          break;
+        
+        case 'candle':
+          seriesRef.current.applyOptions({
+            upColor: colors.upColor,
+            downColor: colors.downColor,
+            wickUpColor: colors.wickUpColor,
+            wickDownColor: colors.wickDownColor,
+          });
+          break;
+          
+        case 'bar':
+          seriesRef.current.applyOptions({
+            upColor: colors.upColor,
+            downColor: colors.downColor,
+          });
+          break;
+          
+        case 'area':
+        default:
+          seriesRef.current.applyOptions({
+            lineColor: colors.lineColor,
+            topColor: colors.areaTopColor,
+            bottomColor: colors.areaBottomColor,
+          });
+          break;
+      }
+    } catch (err) {
+      console.error('Error updating chart colors:', err);
+    }
+  }, [colors, chartType]);
 
   return (
     <div 

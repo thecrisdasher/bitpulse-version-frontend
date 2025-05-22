@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -16,6 +16,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { AreaChartIcon, LineChartIcon, CandleChartIcon, BarChartIcon } from "@/components/icons/icons";
 
 // Dynamically import the chart client to avoid SSR issues
 const RealTimeMarketChartClient = dynamic(
@@ -26,6 +27,7 @@ const RealTimeMarketChartClient = dynamic(
 // Types
 type MarketCategory = "volatility" | "boom" | "crash" | "cripto" | "forex" | "materias-primas" | "indices";
 type TimeRange = "1h" | "24h" | "7d" | "30d";
+type ChartType = "area" | "candle" | "line" | "bar";
 
 // Component props
 interface RealTimeMarketChartProps {
@@ -43,6 +45,21 @@ interface MarketItem {
   baseValue: number;
   color: string;
   icon?: React.ReactNode;
+}
+
+// Chart data point
+interface ChartDataPoint {
+  time: number;
+  value: number;
+}
+
+// Candlestick data point
+interface CandlestickDataPoint {
+  time: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
 }
 
 // Market configuration with categories
@@ -161,17 +178,74 @@ const generateMarketData = (marketConfig: MarketItem, timeRange: TimeRange) => {
   return data;
 };
 
+// Generate candlestick data
+const generateCandlestickData = (marketConfig: MarketItem, timeRange: TimeRange) => {
+  const dataPoints = timeRange === "1h" ? 60 : 
+                    timeRange === "24h" ? 24 : 
+                    timeRange === "7d" ? 7 : 30;
+  
+  const now = new Date();
+  const data: CandlestickDataPoint[] = [];
+  
+  // Base value with some randomness
+  let currentValue = marketConfig.baseValue * (1 + (Math.random() * 0.1 - 0.05));
+  
+  for (let i = dataPoints; i >= 0; i--) {
+    const date = new Date();
+    
+    if (timeRange === "1h") {
+      date.setMinutes(now.getMinutes() - i);
+    } else if (timeRange === "24h") {
+      date.setHours(now.getHours() - i);
+    } else {
+      date.setDate(now.getDate() - i);
+    }
+    
+    // Calculate open, high, low, close
+    const open = currentValue;
+    const volatility = marketConfig.category === "volatility" ? 0.015 : 0.008;
+    const change = (Math.random() * volatility * 2 - volatility) * currentValue;
+    const close = open + change;
+    
+    // Generate high and low with some randomness
+    const highOffset = Math.abs(Math.random() * 0.008 * currentValue);
+    const lowOffset = Math.abs(Math.random() * 0.008 * currentValue);
+    
+    const high = Math.max(open, close) + highOffset;
+    const low = Math.min(open, close) - lowOffset;
+    
+    // Update current value for next candle
+    currentValue = close;
+    
+    // Use Unix timestamp (seconds) for precise time representation
+    const time = Math.floor(date.getTime() / 1000);
+    
+    data.push({
+      time,
+      open: Math.round(open * 100) / 100,
+      high: Math.round(high * 100) / 100,
+      low: Math.round(low * 100) / 100,
+      close: Math.round(close * 100) / 100
+    });
+  }
+  
+  return data;
+};
+
 // Main Chart Component
 const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRealTime = false }: RealTimeMarketChartProps) => {
   // State
   const [currentMarket, setCurrentMarket] = useState<string>(initialMarketId || "volatility-100");
   const [timeRange, setTimeRange] = useState<TimeRange>("1h");
+  const [chartType, setChartType] = useState<ChartType>("area");
   const [realTimeEnabled, setRealTimeEnabled] = useState(initialRealTime);
   const [showPriceLevels, setShowPriceLevels] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [favoriteMarkets, setFavoriteMarkets] = useState<string[]>(["volatility-100-1s", "bitcoin"]);
   const [isClient, setIsClient] = useState(false);
   const [chartData, setChartData] = useState<any[]>([]);
+  const [candlestickData, setCandlestickData] = useState<CandlestickDataPoint[]>([]);
+  const updateIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
   // Set client-side rendering flag
   useEffect(() => {
@@ -189,40 +263,111 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
     if (isClient && currentMarketConfig) {
       const newData = generateMarketData(currentMarketConfig, timeRange);
       setChartData(newData);
+      
+      const newCandleData = generateCandlestickData(currentMarketConfig, timeRange);
+      setCandlestickData(newCandleData);
     }
-  }, [isClient, currentMarketConfig, timeRange]);
+  }, [isClient, currentMarketConfig, timeRange, generateCandlestickData]);
   
-  // Update data in real-time if enabled
+  // Update data in real-time if enabled with more fluid updates
   useEffect(() => {
     if (!realTimeEnabled || !isClient || !currentMarketConfig) return;
     
-    const interval = setInterval(() => {
-      // Add a new data point
-      const now = new Date();
-      const latestValue = chartData.length > 0 
-        ? chartData[chartData.length - 1].value 
-        : currentMarketConfig.baseValue;
-      
-      // Add some random movement to the value
-      const change = (Math.random() * 0.02 - 0.01) * latestValue;
-      const newValue = Math.round((latestValue + change) * 100) / 100;
-      
-      // Use Unix timestamp (seconds) for precise time representation
-      const time = Math.floor(now.getTime() / 1000);
-      
-      // Add new point and remove oldest if needed
-      setChartData(prev => {
-        const newData = [...prev, { time, value: newValue }];
-        // Limit the number of points to maintain performance
-        if (newData.length > 100) {
-          return newData.slice(-100);
-        }
-        return newData;
-      });
-    }, currentMarketConfig.showInRealTime ? 1000 : 5000);
+    // Clear any existing interval
+    if (updateIntervalRef.current) {
+      clearInterval(updateIntervalRef.current);
+    }
     
-    return () => clearInterval(interval);
-  }, [realTimeEnabled, isClient, currentMarketConfig, timeRange, chartData]);
+    // Create smoother updates with appropriate interval
+    const updateInterval = currentMarketConfig.showInRealTime ? 500 : 2000;
+    
+    updateIntervalRef.current = setInterval(() => {
+      const now = new Date();
+      
+      if (chartType === 'area' || chartType === 'line') {
+        // Handle line/area chart updates
+        const latestValue = chartData.length > 0 
+          ? chartData[chartData.length - 1].value 
+          : currentMarketConfig.baseValue;
+        
+        // Add some random movement to the value (smoother changes)
+        const changeMultiplier = currentMarketConfig.category === "volatility" ? 0.01 : 0.005;
+        const change = (Math.random() * changeMultiplier * 2 - changeMultiplier) * latestValue;
+        const newValue = Math.round((latestValue + change) * 100) / 100;
+        
+        // Use Unix timestamp for precise time
+        const time = Math.floor(now.getTime() / 1000);
+        
+        // Add new point and remove oldest if needed
+        setChartData(prev => {
+          const newData = [...prev, { time, value: newValue }];
+          // Limit the number of points to maintain performance
+          const maxPoints = 100;
+          if (newData.length > maxPoints) {
+            return newData.slice(-maxPoints);
+          }
+          return newData;
+        });
+      } else if (chartType === 'candle' || chartType === 'bar') {
+        // Handle candlestick/bar chart updates
+        if (candlestickData.length === 0) return;
+        
+        // Get the latest candle
+        const latestCandle = {...candlestickData[candlestickData.length - 1]};
+        
+        // Create a new candle or update the current one
+        const time = Math.floor(now.getTime() / 1000);
+        const volatility = currentMarketConfig.category === "volatility" ? 0.008 : 0.004;
+        
+        // 20% chance to create a new candle, 80% chance to update current
+        if (Math.random() > 0.8 || time - latestCandle.time > 60) {
+          // Create a new candle
+          const open = latestCandle.close;
+          const change = (Math.random() * volatility * 2 - volatility) * open;
+          const close = Math.round((open + change) * 100) / 100;
+          
+          const highOffset = Math.abs(Math.random() * 0.005 * open);
+          const lowOffset = Math.abs(Math.random() * 0.005 * open);
+          
+          const high = Math.round((Math.max(open, close) + highOffset) * 100) / 100;
+          const low = Math.round((Math.min(open, close) - lowOffset) * 100) / 100;
+          
+          setCandlestickData(prev => {
+            const newData = [...prev, { time, open, high, low, close }];
+            const maxPoints = 100;
+            if (newData.length > maxPoints) {
+              return newData.slice(-maxPoints);
+            }
+            return newData;
+          });
+        } else {
+          // Update the current candle
+          const change = (Math.random() * volatility * 2 - volatility) * latestCandle.close;
+          const newClose = Math.round((latestCandle.close + change) * 100) / 100;
+          
+          const newHigh = Math.max(latestCandle.high, newClose);
+          const newLow = Math.min(latestCandle.low, newClose);
+          
+          setCandlestickData(prev => {
+            const newData = [...prev];
+            newData[newData.length - 1] = {
+              ...latestCandle,
+              close: newClose,
+              high: newHigh,
+              low: newLow
+            };
+            return newData;
+          });
+        }
+      }
+    }, updateInterval);
+    
+    return () => {
+      if (updateIntervalRef.current) {
+        clearInterval(updateIntervalRef.current);
+      }
+    };
+  }, [realTimeEnabled, isClient, currentMarketConfig, chartType, chartData, candlestickData]);
   
   // Filtered markets by search (memoized)
   const filteredMarkets = useMemo(() => 
@@ -333,8 +478,20 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
       textColor: 'rgba(255, 255, 255, 0.6)',
       areaTopColor,
       areaBottomColor,
+      upColor: 'hsl(143, 85%, 52%)',
+      downColor: 'hsl(0, 85%, 52%)',
+      wickUpColor: 'hsl(143, 85%, 65%)',
+      wickDownColor: 'hsl(0, 85%, 65%)',
     };
   }, [currentMarketConfig]);
+
+  // Chart type options
+  const chartTypeOptions = [
+    { id: 'area', label: 'Área', icon: <AreaChartIcon className="w-4 h-4" /> },
+    { id: 'line', label: 'Línea', icon: <LineChartIcon className="w-4 h-4" /> },
+    { id: 'candle', label: 'Velas', icon: <CandleChartIcon className="w-4 h-4" /> },
+    { id: 'bar', label: 'Barras', icon: <BarChartIcon className="w-4 h-4" /> },
+  ];
 
   return (
     <Card className="mb-4">
@@ -440,7 +597,28 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
       </CardHeader>
       <CardContent className="p-4">
         <div className="mb-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Chart Type Selector */}
+            <div className="flex items-center bg-secondary rounded-md mr-2">
+              {chartTypeOptions.map((type) => (
+                <Button
+                  key={type.id}
+                  variant="ghost"
+                  size="sm"
+                  className={cn(
+                    "h-8 px-2 rounded-md flex items-center gap-1",
+                    chartType === type.id && "bg-muted"
+                  )}
+                  onClick={() => setChartType(type.id as ChartType)}
+                  title={type.label}
+                >
+                  {type.icon}
+                  <span className="hidden sm:inline">{type.label}</span>
+                </Button>
+              ))}
+            </div>
+            
+            {/* Time Range Selector */}
             <div className="flex items-center bg-secondary rounded-md">
               {TIME_RANGES.map((range) => (
                 <Button
@@ -492,7 +670,8 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
         <div className="h-[400px] w-full border border-border rounded-md p-3 bg-card">
           {isClient ? (
             <RealTimeMarketChartClient 
-              data={chartData}
+              data={chartType === 'candle' || chartType === 'bar' ? candlestickData : chartData}
+              chartType={chartType}
               colors={chartColors}
               height={400}
             />
