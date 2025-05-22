@@ -16,10 +16,11 @@ import MarketOverviewBanner from "@/components/MarketOverviewBanner"
 import TrendingPage from "@/components/TrendingPage"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
-import RealTimeMarketChart from "@/components/RealTimeMarketChart"
 import dynamic from "next/dynamic"
 
-// Dynamically import TradeControlPanel to prevent SSR issues
+// Importación normal en lugar de dinámica para evitar errores
+import RealTimeMarketChart from "@/components/RealTimeMarketChart"
+// Mantener dinámica para TradeControlPanel
 const TradeControlPanel = dynamic(() => import("@/components/TradeControlPanel"), { ssr: false });
 
 // Helper function for consistent number formatting

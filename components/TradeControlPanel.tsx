@@ -241,6 +241,8 @@ const TradeControlPanel = ({
             </Button>
             <Input
               type="text"
+              id="investment-amount"
+              name="investment-amount"
               value={amount}
               onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ''))}
               className="h-10 text-center border-x-0 rounded-none focus-visible:ring-0 focus-visible:ring-offset-0"

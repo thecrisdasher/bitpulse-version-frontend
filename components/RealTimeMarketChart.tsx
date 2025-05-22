@@ -1,27 +1,10 @@
 "use client"
 
-import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler,
-  ChartData,
-  ChartOptions,
-  TooltipItem,
-  TimeScale,
-} from "chart.js";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
-import 'chartjs-adapter-date-fns';
 import { TrendingUp, TrendingDown, Star, ChevronDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
@@ -34,66 +17,23 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-// Implementar un registro condicional de Chart.js para evitar renderizados innecesarios
-const registerChartComponents = () => {
-  if (typeof window !== 'undefined' && !ChartJS.registry.controllers.get('line')) {
-    ChartJS.register(
-      CategoryScale,
-      LinearScale,
-      PointElement,
-      LineElement,
-      TimeScale,
-      Title,
-      Tooltip,
-      Legend,
-      Filler
-    );
-  }
-};
-
-// Registrar plugins solo cuando sea necesario y solo una vez
-let pluginsRegistered = false;
-const registerPlugins = async () => {
-  if (typeof window !== 'undefined' && !pluginsRegistered) {
-    try {
-      const [zoomPlugin, annotationPlugin] = await Promise.all([
-        import('chartjs-plugin-zoom').then(mod => mod.default),
-        import('chartjs-plugin-annotation').then(mod => mod.default)
-      ]);
-      
-      ChartJS.register(zoomPlugin, annotationPlugin);
-      pluginsRegistered = true;
-    } catch (error) {
-      console.error("Error loading chart plugins:", error);
-    }
-  }
-};
-
-// Iniciar registro de componentes
-registerChartComponents();
-// Registrar plugins de forma asíncrona sin bloquear
-registerPlugins();
-
-// Limitar la carga de Line con SSR desactivado
-const Line = dynamic(
-  () => import('react-chartjs-2').then(mod => mod.Line),
-  { ssr: false, loading: () => <div className="w-full h-[400px] bg-muted/30 animate-pulse rounded-md flex items-center justify-center">Cargando gráfico...</div> }
+// Dynamically import the chart client to avoid SSR issues
+const RealTimeMarketChartClient = dynamic(
+  () => import("@/components/RealTimeMarketChartClient"),
+  { ssr: false, loading: () => <ChartPlaceholder /> }
 );
 
 // Types
 type MarketCategory = "volatility" | "boom" | "crash" | "cripto" | "forex" | "materias-primas" | "indices";
-type Market = string;
 type TimeRange = "1h" | "24h" | "7d" | "30d";
-type ChartPoint = { x: Date; y: number };
-type TimeSeriesChartRef = ChartJS<"line", ChartPoint[]>;
 
 // Component props
 interface RealTimeMarketChartProps {
-  marketId: string;
+  marketId?: string;
   isRealTime?: boolean;
 }
 
-// Define market categories
+// Market item interface
 interface MarketItem {
   id: string;
   name: string;
@@ -145,86 +85,13 @@ const MARKETS: MarketItem[] = [
   { id: "us500", name: "US 500", category: "indices", baseValue: 5300, color: "hsl(210, 20%, 80%)" },
 ];
 
-// Growth rate options
-const GROWTH_RATES = [
-  { id: "1", label: "1%", value: 0.01 },
-  { id: "3", label: "3%", value: 0.03 },
-  { id: "5", label: "5%", value: 0.05 },
-];
-
-// Time periods (reducidos para mejorar rendimiento)
+// Time periods
 const TIME_RANGES = [
-  { id: "1h" as TimeRange, label: "1H", dataPoints: 20, interval: 3 * 60 * 1000 }, 
-  { id: "24h" as TimeRange, label: "24H", dataPoints: 24, interval: 60 * 60 * 1000 }, 
-  { id: "7d" as TimeRange, label: "7D", dataPoints: 21, interval: 8 * 60 * 60 * 1000 }, 
-  { id: "30d" as TimeRange, label: "30D", dataPoints: 15, interval: 48 * 60 * 60 * 1000 }, 
+  { id: "1h" as TimeRange, label: "1H" }, 
+  { id: "24h" as TimeRange, label: "24H" }, 
+  { id: "7d" as TimeRange, label: "7D" }, 
+  { id: "30d" as TimeRange, label: "30D" }, 
 ];
-
-// Generate historical data
-const generateHistoricalData = (marketId: Market, timeRange: TimeRange): ChartPoint[] => {
-  const marketConfig = MARKETS.find(m => m.id === marketId);
-  const baseValue = marketConfig?.baseValue || 500;
-  const rangeConfig = TIME_RANGES.find(r => r.id === timeRange) || TIME_RANGES[0];
-  
-  const now = new Date();
-  let currentValue = baseValue;
-  const data: ChartPoint[] = [];
-  const volatility = timeRange === "1h" ? 0.001 : 
-                     timeRange === "24h" ? 0.005 : 
-                     timeRange === "7d" ? 0.02 : 0.05;
-  
-  // Special trends based on market category
-  const isBoom = marketConfig?.category === "boom";
-  const isCrash = marketConfig?.category === "crash";
-  
-  // Generate historical data with trends (mejorado para rendimiento)
-  const dataPoints = Math.min(rangeConfig.dataPoints, 30); 
-  
-  for (let i = dataPoints; i >= 0; i--) {
-    const time = new Date(now.getTime() - i * rangeConfig.interval);
-    
-    let trend = Math.sin(i / (dataPoints / (timeRange === "30d" ? 3 : 2))) * volatility * 2;
-    
-    // Ajuste de tendencia para índices boom/crash
-    if (isBoom) {
-      trend += 0.001;
-    } else if (isCrash) {
-      trend -= 0.001;
-    }
-    
-    const randomFactor = (Math.random() * volatility * 2) - volatility + trend;
-    
-    currentValue = currentValue * (1 + randomFactor);
-    
-    // Asegurar que el valor no se aleje demasiado del valor base
-    if (currentValue < baseValue * 0.5 || currentValue > baseValue * 1.5) {
-      currentValue = baseValue * (0.8 + Math.random() * 0.4);
-    }
-    
-    data.push({ 
-      x: time, 
-      y: parseFloat(currentValue.toFixed(baseValue < 10 ? 4 : 2)) 
-    });
-  }
-  
-  return data;
-};
-
-// Calculate significant price levels
-const calculatePriceLevels = (data: ChartPoint[]): number[] => {
-  if (data.length === 0) return [];
-  
-  // Get min and max values
-  const values = data.map(point => point.y);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const range = max - min;
-
-  // Calcular solo 3 niveles en lugar de 5 para mejorar rendimiento
-  const midPoint = min + (range / 2);
-  
-  return [min, midPoint, max];
-};
 
 // Group markets by category for the dropdown
 const getGroupedMarkets = () => {
@@ -240,9 +107,9 @@ const getGroupedMarkets = () => {
   return grouped;
 };
 
-// Placeholder component mientras se carga el chart
+// Chart Placeholder component
 const ChartPlaceholder = () => (
-  <div className="w-full h-[400px] bg-muted/30 animate-pulse rounded-md flex flex-col items-center justify-center">
+  <div className="w-full h-full bg-muted/30 animate-pulse rounded-md flex flex-col items-center justify-center">
     <div className="text-center p-6 max-w-md">
       <div className="text-xl font-semibold mb-2">Cargando gráfico...</div>
       <div className="text-sm text-muted-foreground mb-4">
@@ -255,22 +122,109 @@ const ChartPlaceholder = () => (
   </div>
 );
 
-// Componente de interfaz de usuario del gráfico sin la implementación real de Chart.js
-const RealTimeMarketChartUI = ({ marketId: initialMarketId, isRealTime = false }: RealTimeMarketChartProps) => {
+// Generate market data based on market configuration and time range
+const generateMarketData = (marketConfig: MarketItem, timeRange: TimeRange) => {
+  const dataPoints = timeRange === "1h" ? 60 : 
+                     timeRange === "24h" ? 24 : 
+                     timeRange === "7d" ? 7 : 30;
+  
+  const now = new Date();
+  const data = [];
+  
+  // Base value with some randomness
+  let currentValue = marketConfig.baseValue * (1 + (Math.random() * 0.1 - 0.05));
+  
+  for (let i = dataPoints; i >= 0; i--) {
+    const date = new Date();
+    
+    if (timeRange === "1h") {
+      date.setMinutes(now.getMinutes() - i);
+    } else if (timeRange === "24h") {
+      date.setHours(now.getHours() - i);
+    } else {
+      date.setDate(now.getDate() - i);
+    }
+    
+    // Add some randomness to create a realistic looking chart
+    const change = (Math.random() * 0.02 - 0.01) * currentValue;
+    currentValue += change;
+    
+    // Use Unix timestamp (seconds) for precise time representation
+    const time = Math.floor(date.getTime() / 1000);
+    
+    data.push({
+      time,
+      value: Math.round(currentValue * 100) / 100,
+    });
+  }
+  
+  return data;
+};
+
+// Main Chart Component
+const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRealTime = false }: RealTimeMarketChartProps) => {
+  // State
   const [currentMarket, setCurrentMarket] = useState<string>(initialMarketId || "volatility-100");
   const [timeRange, setTimeRange] = useState<TimeRange>("1h");
-  const [realTimeEnabled, setRealTimeEnabled] = useState(isRealTime);
+  const [realTimeEnabled, setRealTimeEnabled] = useState(initialRealTime);
   const [showPriceLevels, setShowPriceLevels] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [favoriteMarkets, setFavoriteMarkets] = useState<string[]>(["volatility-100-1s", "bitcoin"]);
+  const [isClient, setIsClient] = useState(false);
+  const [chartData, setChartData] = useState<any[]>([]);
   
-  // Usar useMemo para evitar recálculos costosos
+  // Set client-side rendering flag
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+  
+  // Current market configuration (memoized)
   const currentMarketConfig = useMemo(() => 
     MARKETS.find(m => m.id === currentMarket) || MARKETS[0], 
     [currentMarket]
   );
   
-  // Filtrar mercados por búsqueda (memoizado)
+  // Generate and update chart data when market or time range changes
+  useEffect(() => {
+    if (isClient && currentMarketConfig) {
+      const newData = generateMarketData(currentMarketConfig, timeRange);
+      setChartData(newData);
+    }
+  }, [isClient, currentMarketConfig, timeRange]);
+  
+  // Update data in real-time if enabled
+  useEffect(() => {
+    if (!realTimeEnabled || !isClient || !currentMarketConfig) return;
+    
+    const interval = setInterval(() => {
+      // Add a new data point
+      const now = new Date();
+      const latestValue = chartData.length > 0 
+        ? chartData[chartData.length - 1].value 
+        : currentMarketConfig.baseValue;
+      
+      // Add some random movement to the value
+      const change = (Math.random() * 0.02 - 0.01) * latestValue;
+      const newValue = Math.round((latestValue + change) * 100) / 100;
+      
+      // Use Unix timestamp (seconds) for precise time representation
+      const time = Math.floor(now.getTime() / 1000);
+      
+      // Add new point and remove oldest if needed
+      setChartData(prev => {
+        const newData = [...prev, { time, value: newValue }];
+        // Limit the number of points to maintain performance
+        if (newData.length > 100) {
+          return newData.slice(-100);
+        }
+        return newData;
+      });
+    }, currentMarketConfig.showInRealTime ? 1000 : 5000);
+    
+    return () => clearInterval(interval);
+  }, [realTimeEnabled, isClient, currentMarketConfig, timeRange, chartData]);
+  
+  // Filtered markets by search (memoized)
   const filteredMarkets = useMemo(() => 
     searchQuery 
       ? MARKETS.filter(market => 
@@ -280,12 +234,12 @@ const RealTimeMarketChartUI = ({ marketId: initialMarketId, isRealTime = false }
     [searchQuery]
   );
   
-  // Toggle real-time updates (memoizado)
+  // Toggle real-time updates (memoized)
   const toggleRealTime = useCallback(() => {
     setRealTimeEnabled(prev => !prev);
   }, []);
   
-  // Toggle favorite status (memoizado)
+  // Toggle favorite status (memoized)
   const toggleFavorite = useCallback((marketId: string) => {
     setFavoriteMarkets(prev => 
       prev.includes(marketId) 
@@ -294,24 +248,17 @@ const RealTimeMarketChartUI = ({ marketId: initialMarketId, isRealTime = false }
     );
   }, []);
   
-  // Manejar cambio de rango de tiempo (memoizado)
+  // Handle time range change (memoized)
   const handleTimeRangeChange = useCallback((range: TimeRange) => {
     setTimeRange(range);
   }, []);
 
-  // Toggle price levels (memoizado)
+  // Toggle price levels (memoized)
   const togglePriceLevels = useCallback(() => {
     setShowPriceLevels(prev => !prev);
   }, []);
 
-  // Actualizar mercado seleccionado cuando cambia initialMarketId
-  useEffect(() => {
-    if (initialMarketId && initialMarketId !== currentMarket) {
-      setCurrentMarket(initialMarketId);
-    }
-  }, [initialMarketId, currentMarket]);
-
-  // Renderizar item de mercado para el dropdown (memoizado)
+  // Render market item (memoized)
   const renderMarketItem = useCallback((market: MarketItem) => (
     <div 
       key={market.id} 
@@ -362,8 +309,32 @@ const RealTimeMarketChartUI = ({ marketId: initialMarketId, isRealTime = false }
     </div>
   ), [currentMarket, favoriteMarkets, toggleFavorite]);
 
-  // Mercados agrupados para dropdown (memoizado)
+  // Grouped markets (memoized)
   const groupedMarkets = useMemo(() => getGroupedMarkets(), []);
+
+  // Chart colors based on market type and theme
+  const chartColors = useMemo(() => {
+    const color = currentMarketConfig.color;
+    // Extract the HSL values to properly create HSLA colors
+    const match = color.match(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/);
+    
+    let areaTopColor = color;
+    let areaBottomColor = color;
+    
+    if (match) {
+      const [_, h, s, l] = match;
+      areaTopColor = `hsla(${h}, ${s}%, ${l}%, 0.3)`;
+      areaBottomColor = `hsla(${h}, ${s}%, ${l}%, 0)`;
+    }
+    
+    return {
+      backgroundColor: 'transparent',
+      lineColor: color,
+      textColor: 'rgba(255, 255, 255, 0.6)',
+      areaTopColor,
+      areaBottomColor,
+    };
+  }, [currentMarketConfig]);
 
   return (
     <Card className="mb-4">
@@ -519,20 +490,19 @@ const RealTimeMarketChartUI = ({ marketId: initialMarketId, isRealTime = false }
           </div>
         </div>
         <div className="h-[400px] w-full border border-border rounded-md p-3 bg-card">
-          <ChartPlaceholder />
+          {isClient ? (
+            <RealTimeMarketChartClient 
+              data={chartData}
+              colors={chartColors}
+              height={400}
+            />
+          ) : (
+            <ChartPlaceholder />
+          )}
         </div>
       </CardContent>
     </Card>
   );
 };
 
-// Componente Chart real implementado completamente en el cliente
-const RealTimeMarketChartWithData = dynamic(
-  () => import('./RealTimeMarketChartClient').then(mod => mod.default),
-  { 
-    ssr: false,
-    loading: () => <RealTimeMarketChartUI marketId="volatility-100" />
-  }
-);
-
-export default RealTimeMarketChartWithData; 
+export default RealTimeMarketChart; 
