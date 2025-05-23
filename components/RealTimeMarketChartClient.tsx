@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { createChart, ColorType, AreaSeries, LineSeries, CandlestickSeries, BarSeries, Time } from 'lightweight-charts';
+import { createChart, ColorType, AreaSeries, LineSeries, CandlestickSeries, BarSeries, Time, IPriceLine } from 'lightweight-charts';
 
 // Define types for props
 interface ChartProps {
@@ -21,6 +21,17 @@ interface ChartProps {
   width?: number;
   height?: number;
   isSimulatedData?: boolean;
+  levels?: {
+    id?: string;
+    value: number;
+    color: string;
+    lineWidth?: number;
+    lineStyle?: number;
+    title?: string;
+    type?: 'soporte' | 'resistencia' | 'precio' | 'custom';
+  }[];
+  showLevels?: boolean;
+  onReady?: (resetZoom: () => void) => void;
 }
 
 // Format date to YYYY-MM-DD format required by lightweight-charts
@@ -70,6 +81,9 @@ const RealTimeMarketChartClient: React.FC<ChartProps> = ({
   width = 500,
   height = 300,
   isSimulatedData = false,
+  levels = [],
+  showLevels = true,
+  onReady,
 }) => {
   // Refs for elements and chart instance
   const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -78,12 +92,52 @@ const RealTimeMarketChartClient: React.FC<ChartProps> = ({
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
   const initializedRef = useRef<boolean>(false);
   const chartTypeRef = useRef<string>(chartType);
+  const priceLineRefs = useRef<IPriceLine[]>([]);
   
   // State for dimensions
   const [dimensions, setDimensions] = useState({
     width: width || 500,
     height: height || 300
   });
+
+  // Function to add price levels to chart
+  const addPriceLevels = useCallback(() => {
+    if (!seriesRef.current || !levels) return;
+    
+    // Remove any existing price lines
+    priceLineRefs.current.forEach(priceLine => {
+      try {
+        if (priceLine && seriesRef.current) {
+          seriesRef.current.removePriceLine(priceLine);
+        }
+      } catch (error) {
+        console.error("Error removing price line:", error);
+      }
+    });
+    
+    priceLineRefs.current = [];
+    
+    // Add new price lines based on levels
+    if (showLevels) {
+      levels.forEach(level => {
+        try {
+          const lineOptions = {
+            price: level.value,
+            color: level.color || '#8a0303',
+            lineWidth: level.lineWidth || 1,
+            lineStyle: level.lineStyle || 1, // 0 = solid, 1 = dotted, 2 = dashed, 3 = large dashed
+            title: level.title || `${level.type || ''} ${level.value.toFixed(2)}`,
+            axisLabelVisible: true,
+          };
+          
+          const priceLine = seriesRef.current.createPriceLine(lineOptions);
+          priceLineRefs.current.push(priceLine);
+        } catch (error) {
+          console.error("Error adding price line:", error);
+        }
+      });
+    }
+  }, [levels, showLevels]);
 
   // Initialize the chart
   const initializeChart = useCallback(() => {
@@ -181,8 +235,11 @@ const RealTimeMarketChartClient: React.FC<ChartProps> = ({
       // Set initial data if available
       if (data && data.length > 0) {
         series.setData(data);
-      chart.timeScale().fitContent();
+        chart.timeScale().fitContent();
       }
+      
+      // Add price levels if available
+      addPriceLevels();
       
       // Setup resize handler
       const resizeObserver = new ResizeObserver(entries => {
@@ -223,7 +280,7 @@ const RealTimeMarketChartClient: React.FC<ChartProps> = ({
       console.error("Error initializing chart:", err);
       return undefined;
     }
-  }, [colors, dimensions.width, dimensions.height, chartType]);
+  }, [colors, dimensions.width, dimensions.height, chartType, data, addPriceLevels]);
 
   // Handle chart creation and cleanup
   useEffect(() => {
@@ -369,6 +426,43 @@ const RealTimeMarketChartClient: React.FC<ChartProps> = ({
       console.error('Error updating chart colors:', err);
     }
   }, [colors, chartType]);
+
+  // Update price levels when they change
+  useEffect(() => {
+    if (seriesRef.current) {
+      addPriceLevels();
+    }
+  }, [levels, showLevels, addPriceLevels]);
+
+  // Expose a function to reset the zoom
+  const resetZoom = useCallback(() => {
+    if (chartRef.current) {
+      try {
+        chartRef.current.timeScale().fitContent();
+      } catch (error) {
+        console.error("Error resetting zoom:", error);
+      }
+    }
+  }, []);
+
+  // Notify parent when chart is ready
+  useEffect(() => {
+    if (chartRef.current && onReady && typeof onReady === 'function') {
+      onReady(resetZoom);
+    }
+  }, [chartRef.current, onReady, resetZoom]);
+
+  // Make resetZoom available through window for external calls
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).resetChartZoom = resetZoom;
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        delete (window as any).resetChartZoom;
+      }
+    };
+  }, [resetZoom]);
 
   return (
       <div 

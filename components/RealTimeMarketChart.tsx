@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
-import { TrendingUp, TrendingDown, Star, ChevronDown, DollarSign, ArrowUpDown } from "lucide-react";
+import { TrendingUp, TrendingDown, Star, ChevronDown, DollarSign, ArrowUpDown, Layers, ZoomOut, ZoomIn, RefreshCw } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
@@ -39,6 +39,33 @@ import OpenPositions, { TradePosition } from "@/components/OpenPositions";
 import { v4 as uuidv4 } from 'uuid';
 import { useTradePositions } from "@/contexts/TradePositionsContext";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Label,
+} from "@/components/ui/label";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Switch,
+} from "@/components/ui/switch";
 
 // Dynamically import the chart client to avoid SSR issues
 const RealTimeMarketChartClient = dynamic(
@@ -50,6 +77,17 @@ const RealTimeMarketChartClient = dynamic(
 type MarketCategory = "volatility" | "boom" | "crash" | "cripto" | "forex" | "materias-primas" | "indices" | "stocks";
 type TimeRange = "1h" | "24h" | "7d" | "30d";
 type ChartType = "area" | "candle" | "line" | "bar";
+
+// Tipos adicionales para los niveles
+interface ChartLevel {
+  id: string;
+  value: number;
+  color: string;
+  lineWidth: number;
+  lineStyle: number;
+  title?: string;
+  type: 'soporte' | 'resistencia' | 'precio' | 'custom';
+}
 
 // Component props
 interface RealTimeMarketChartProps {
@@ -193,6 +231,22 @@ const TIME_RANGES = [
   { id: "24h" as TimeRange, label: "24H" }, 
   { id: "7d" as TimeRange, label: "7D" }, 
   { id: "30d" as TimeRange, label: "30D" }, 
+];
+
+// Colores predeterminados para niveles
+const LEVEL_COLORS = {
+  soporte: "hsl(143, 85%, 52%)",  // Verde para soporte
+  resistencia: "hsl(0, 85%, 52%)", // Rojo para resistencia
+  precio: "#2962FF",              // Azul para precio
+  custom: "#8a0303"               // Burdeos para personalizado
+};
+
+// Estilos de línea disponibles
+const LINE_STYLES = [
+  { id: 0, label: "Sólida" },
+  { id: 1, label: "Punteada" },
+  { id: 2, label: "Discontinua" },
+  { id: 3, label: "Guiones largos" }
 ];
 
 // Group markets by category for the dropdown
@@ -362,6 +416,32 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
   // Animation ref for trading panel transition
   const chartHeightRef = useRef<number>(400);
   const [chartContainerHeight, setChartContainerHeight] = useState<number>(400);
+  
+  // Estados para niveles
+  const [showLevels, setShowLevels] = useState<boolean>(true);
+  const [levels, setLevels] = useState<ChartLevel[]>([]);
+  const [newLevel, setNewLevel] = useState<{
+    value: string;
+    type: 'soporte' | 'resistencia' | 'precio' | 'custom';
+    color: string;
+    lineWidth: number;
+    lineStyle: number;
+    title: string;
+  }>({
+    value: '100',
+    type: 'precio',
+    color: LEVEL_COLORS.precio,
+    lineWidth: 1,
+    lineStyle: 0,
+    title: '',
+  });
+  const [isAddLevelDialogOpen, setIsAddLevelDialogOpen] = useState(false);
+  
+  // Ref para el componente del gráfico
+  const chartRef = useRef<any>(null);
+  
+  // Ref para la función resetZoom
+  const resetZoomRef = useRef<(() => void) | null>(null);
   
   // Trading mode toggle
   const toggleTradingPanel = () => {
@@ -658,9 +738,9 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
               {market.icon}
             </span>
           ) : (
-            <span className="text-xs font-semibold" style={{ color: market.color }}>
-              {market.label || market.id.substring(0, 3).toUpperCase()}
-            </span>
+          <span className="text-xs font-semibold" style={{ color: market.color }}>
+            {market.label || market.id.substring(0, 3).toUpperCase()}
+          </span>
           )}
         </div>
         <div className="flex flex-col">
@@ -735,6 +815,72 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
     { id: 'bar', label: 'Barras', icon: <BarChartIcon className="w-4 h-4" /> },
   ];
 
+  // Función para añadir un nivel nuevo
+  const handleAddLevel = useCallback(() => {
+    const value = parseFloat(newLevel.value);
+    
+    if (isNaN(value)) return;
+    
+    const levelId = uuidv4();
+    const newLevelObj: ChartLevel = {
+      id: levelId,
+      value,
+      color: newLevel.color || LEVEL_COLORS[newLevel.type],
+      lineWidth: newLevel.lineWidth || 1,
+      lineStyle: newLevel.lineStyle,
+      title: newLevel.title || `${newLevel.type} ${value.toFixed(2)}`,
+      type: newLevel.type
+    };
+    
+    setLevels(prev => [...prev, newLevelObj]);
+    
+    // Reset the form
+    setNewLevel(prev => ({
+      ...prev,
+      value: currentPrice ? currentPrice.toFixed(2) : '100',
+      title: ''
+    }));
+    
+    setIsAddLevelDialogOpen(false);
+  }, [newLevel, currentPrice]);
+  
+  // Función para eliminar un nivel
+  const handleRemoveLevel = useCallback((levelId: string) => {
+    setLevels(prev => prev.filter(level => level.id !== levelId));
+  }, []);
+  
+  // Función para usar el precio actual
+  const handleUseCurrentPrice = useCallback(() => {
+    if (currentPrice) {
+      setNewLevel(prev => ({
+        ...prev,
+        value: currentPrice.toFixed(2)
+      }));
+    }
+  }, [currentPrice]);
+
+  // Actualizar color basado en el tipo seleccionado
+  useEffect(() => {
+    setNewLevel(prev => ({
+      ...prev,
+      color: LEVEL_COLORS[prev.type]
+    }));
+  }, [newLevel.type]);
+
+  // Callback cuando el gráfico está listo
+  const handleChartReady = useCallback((resetZoom: () => void) => {
+    resetZoomRef.current = resetZoom;
+  }, []);
+
+  // Función para resetear el zoom del gráfico
+  const handleResetZoom = useCallback(() => {
+    if (resetZoomRef.current) {
+      resetZoomRef.current();
+    } else if (typeof window !== 'undefined' && (window as any).resetChartZoom) {
+      (window as any).resetChartZoom();
+    }
+  }, [resetZoomRef]);
+
   return (
     <div className="space-y-4">
       <Card className="mb-4 overflow-hidden transition-all duration-300">
@@ -749,12 +895,12 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
                 {currentMarketConfig.icon}
               </span>
             ) : (
-              <span 
-                className="font-bold text-sm"
-                style={{ color: currentMarketConfig.color }}
-              >
-                {currentMarketConfig.label || currentMarketConfig.id.substring(0, 3).toUpperCase()}
-              </span>
+            <span 
+              className="font-bold text-sm"
+              style={{ color: currentMarketConfig.color }}
+            >
+              {currentMarketConfig.label || currentMarketConfig.id.substring(0, 3).toUpperCase()}
+            </span>
             )}
           </div>
           <div className="flex flex-col">
@@ -783,7 +929,7 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
                     : "(Datos de mercado en tiempo real)"
                   }
                 </span>
-              </div>
+            </div>
           </div>
         </CardTitle>
         <div className="flex items-center gap-2">
@@ -937,17 +1083,38 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
                 <ArrowUpDown className="w-4 h-4" />
                 <span className="hidden sm:inline">Operar</span>
             </Button>
-            <Button 
-              variant={realTimeEnabled ? "default" : "outline"} 
+            <Button
+              variant={realTimeEnabled ? "default" : "outline"}
               size="sm"
               onClick={toggleRealTime}
-              className="h-8 flex items-center gap-1"
+              className="gap-1 h-8"
+              title={realTimeEnabled ? "Desactivar tiempo real" : "Activar tiempo real"}
             >
-              <div className={cn(
-                "w-2 h-2 rounded-full",
-                realTimeEnabled ? "bg-green-500" : "bg-red-500"
-              )} />
-              {realTimeEnabled ? "Tiempo Real" : "Histórico"}
+              <span className={cn(
+                "relative flex h-2 w-2 mr-1",
+                realTimeEnabled ? "opacity-100" : "opacity-60"
+              )}>
+                <span className={cn(
+                  "animate-ping absolute inline-flex h-full w-full rounded-full opacity-75",
+                  realTimeEnabled ? "bg-green-400" : "bg-muted-foreground"
+                )}></span>
+                <span className={cn(
+                  "relative inline-flex rounded-full h-2 w-2",
+                  realTimeEnabled ? "bg-green-500" : "bg-muted-foreground"
+                )}></span>
+              </span>
+              <span>Tiempo real</span>
+            </Button>
+            
+            {/* Botón para resetear zoom */}
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              onClick={handleResetZoom}
+              title="Resetear zoom"
+            >
+              <RefreshCw className="h-4 w-4" />
             </Button>
           </div>
         </div>
@@ -964,7 +1131,10 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
                 colors={chartColors}
                 height={chartContainerHeight}
                 isSimulatedData={isSimulatedData}
-            />
+                levels={levels}
+                showLevels={showLevels}
+                onReady={handleChartReady}
+              />
           ) : (
             <ChartPlaceholder />
           )}
@@ -979,6 +1149,276 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
             onClose={() => setShowTradingPanel(false)}
             onPlaceTrade={handlePlaceTrade}
           />
+
+          {/* New level dialog */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button 
+                variant={showLevels ? "default" : "outline"}
+                size="icon" 
+                className="relative h-8 w-8"
+                title="Niveles"
+              >
+                <Layers className="h-4 w-4" />
+                {levels.length > 0 && (
+                  <Badge className="absolute -top-1.5 -right-1.5 h-4 w-4 p-0 flex items-center justify-center text-[10px]">
+                    {levels.length}
+                  </Badge>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-64 p-3" align="end">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="show-levels">Mostrar niveles</Label>
+                  <Switch 
+                    id="show-levels" 
+                    checked={showLevels} 
+                    onCheckedChange={setShowLevels}
+                  />
+                </div>
+                
+                <div className="flex justify-between items-center mt-2">
+                  <span className="text-sm font-medium">Niveles ({levels.length})</span>
+                  <div className="flex gap-1">
+                    <Dialog open={isAddLevelDialogOpen} onOpenChange={setIsAddLevelDialogOpen}>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" size="sm" className="h-7">Añadir</Button>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-[425px]">
+                        <DialogHeader>
+                          <DialogTitle>Añadir nuevo nivel</DialogTitle>
+                          <DialogDescription>
+                            Establece un nivel para mostrar en el gráfico (soporte, resistencia o precio)
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-4 py-4">
+                          <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="level-value" className="text-right">Valor</Label>
+                            <div className="col-span-3 flex gap-2">
+                              <Input 
+                                id="level-value" 
+                                type="text"
+                                inputMode="decimal"
+                                value={newLevel.value} 
+                                onChange={(e) => setNewLevel(prev => ({...prev, value: e.target.value}))}
+                                className="flex-1"
+                              />
+                              <Button 
+                                type="button" 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={handleUseCurrentPrice}
+                                disabled={currentPrice === null}
+                                title="Usar precio actual"
+                              >
+                                Actual
+                              </Button>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="level-type" className="text-right">Tipo</Label>
+                            <Select 
+                              value={newLevel.type} 
+                              onValueChange={(value: any) => setNewLevel(prev => ({...prev, type: value}))}
+                            >
+                              <SelectTrigger className="col-span-3">
+                                <SelectValue placeholder="Tipo de nivel" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="soporte">Soporte</SelectItem>
+                                <SelectItem value="resistencia">Resistencia</SelectItem>
+                                <SelectItem value="precio">Precio</SelectItem>
+                                <SelectItem value="custom">Personalizado</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="level-style" className="text-right">Estilo</Label>
+                            <Select 
+                              value={newLevel.lineStyle.toString()} 
+                              onValueChange={(value) => setNewLevel(prev => ({...prev, lineStyle: parseInt(value)}))}
+                            >
+                              <SelectTrigger className="col-span-3">
+                                <SelectValue placeholder="Estilo de línea" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {LINE_STYLES.map(style => (
+                                  <SelectItem key={style.id} value={style.id.toString()}>
+                                    {style.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="level-title" className="text-right">Etiqueta</Label>
+                            <Input 
+                              id="level-title" 
+                              value={newLevel.title} 
+                              onChange={(e) => setNewLevel(prev => ({...prev, title: e.target.value}))}
+                              placeholder="Opcional"
+                              className="col-span-3"
+                            />
+                          </div>
+                        </div>
+                        <DialogFooter>
+                          <Button onClick={handleAddLevel}>Añadir nivel</Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm" className="h-7">Presets</Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent className="w-56">
+                        <DropdownMenuLabel>Niveles Predefinidos</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuGroup>
+                          <DropdownMenuItem onClick={() => {
+                            if (!currentPrice) return;
+                            // Añadir niveles Fibonacci (retrocesos)
+                            const fibLevels = [0.236, 0.382, 0.5, 0.618, 0.786, 1];
+                            const basePrice = currentPrice;
+                            const priceRange = basePrice * 0.1; // 10% del precio actual
+                            
+                            // Creamos niveles de retroceso
+                            const newLevels = fibLevels.map(level => ({
+                              id: uuidv4(),
+                              value: basePrice - (priceRange * level),
+                              color: 'hsl(259, 85%, 65%)',
+                              lineWidth: 1,
+                              lineStyle: 1,
+                              title: `Fib ${level * 100}%`,
+                              type: 'custom' as const
+                            }));
+                            
+                            setLevels(prev => [...prev, ...newLevels]);
+                          }}>
+                            Niveles Fibonacci
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => {
+                            if (!currentPrice) return;
+                            // Añadir niveles de Pivote (soporte y resistencia)
+                            const basePrice = currentPrice;
+                            const priceRange = basePrice * 0.03; // 3% del precio actual
+                            
+                            // Crear niveles de pivote
+                            const pivotLevels = [
+                              { name: 'R3', offset: priceRange * 2.5, type: 'resistencia' as const, color: 'hsl(0, 85%, 52%)' },
+                              { name: 'R2', offset: priceRange * 1.5, type: 'resistencia' as const, color: 'hsl(0, 85%, 60%)' },
+                              { name: 'R1', offset: priceRange * 0.75, type: 'resistencia' as const, color: 'hsl(0, 85%, 68%)' },
+                              { name: 'Pivote', offset: 0, type: 'precio' as const, color: 'hsl(207, 90%, 61%)' },
+                              { name: 'S1', offset: -priceRange * 0.75, type: 'soporte' as const, color: 'hsl(143, 85%, 68%)' },
+                              { name: 'S2', offset: -priceRange * 1.5, type: 'soporte' as const, color: 'hsl(143, 85%, 60%)' },
+                              { name: 'S3', offset: -priceRange * 2.5, type: 'soporte' as const, color: 'hsl(143, 85%, 52%)' },
+                            ];
+                            
+                            const newLevels = pivotLevels.map(level => ({
+                              id: uuidv4(),
+                              value: basePrice + level.offset,
+                              color: level.color,
+                              lineWidth: level.name === 'Pivote' ? 2 : 1,
+                              lineStyle: level.name === 'Pivote' ? 0 : 1,
+                              title: level.name,
+                              type: level.type
+                            }));
+                            
+                            setLevels(prev => [...prev, ...newLevels]);
+                          }}>
+                            Niveles de Pivote
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => {
+                            if (!currentPrice) return;
+                            // Añadir líneas de tendencia basadas en el precio actual
+                            const basePrice = currentPrice;
+                            
+                            // Calculamos los niveles psicológicos más cercanos 
+                            // (números redondos que suelen ser importantes en trading)
+                            
+                            // Determinamos la escala del precio para encontrar niveles psicológicos relevantes
+                            let scale = 1;
+                            if (basePrice >= 10000) scale = 1000;
+                            else if (basePrice >= 1000) scale = 100;
+                            else if (basePrice >= 100) scale = 10;
+                            else if (basePrice >= 10) scale = 1;
+                            else if (basePrice >= 1) scale = 0.1;
+                            else scale = 0.01;
+                            
+                            const roundedBase = Math.round(basePrice / scale) * scale;
+                            
+                            // Creamos 5 niveles psicológicos
+                            const psychLevels = [
+                              roundedBase - scale * 2,
+                              roundedBase - scale,
+                              roundedBase,
+                              roundedBase + scale,
+                              roundedBase + scale * 2
+                            ];
+                            
+                            const newLevels = psychLevels.map(value => ({
+                              id: uuidv4(),
+                              value,
+                              color: value === roundedBase ? 'hsl(207, 90%, 61%)' : 'hsl(20, 85%, 58%)',
+                              lineWidth: value === roundedBase ? 2 : 1,
+                              lineStyle: 0,
+                              title: `Nivel ${value.toFixed(2)}`,
+                              type: 'precio' as const
+                            }));
+                            
+                            setLevels(prev => [...prev, ...newLevels]);
+                          }}>
+                            Niveles Psicológicos
+                          </DropdownMenuItem>
+                        </DropdownMenuGroup>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem 
+                          className="text-red-500 focus:text-red-500 focus:bg-red-50 dark:focus:bg-red-950/50" 
+                          onClick={() => setLevels([])}
+                        >
+                          Borrar todos los niveles
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+                
+                {/* Lista de niveles existentes */}
+                <div className="max-h-[200px] overflow-y-auto">
+                  {levels.length > 0 ? (
+                    <div className="space-y-1">
+                      {levels.map(level => (
+                        <div key={level.id} className="flex items-center justify-between p-1 rounded hover:bg-accent">
+                          <div className="flex items-center gap-2">
+                            <div 
+                              className="w-3 h-3 rounded-full" 
+                              style={{ backgroundColor: level.color }}
+                            />
+                            <span className="text-sm">
+                              {level.title || `${level.type} ${level.value.toFixed(2)}`}
+                            </span>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0" 
+                            onClick={() => handleRemoveLevel(level.id)}
+                          >
+                            ✕
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-muted-foreground py-2 text-center">
+                      No hay niveles configurados
+                    </div>
+                  )}
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
       </CardContent>
     </Card>
       

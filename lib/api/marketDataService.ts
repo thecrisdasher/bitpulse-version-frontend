@@ -806,33 +806,33 @@ export const getMarketData = async (
     try {
       // Try to get data from API
       switch (normalizedCategory) {
-        case 'criptomonedas':
-          data = await getCryptoMarketData(symbol);
-          break;
-        case 'forex':
-          data = await getForexMarketData(symbol);
-          break;
-        case 'indices':
-          data = await getStockIndexData(symbol);
-          break;
-        case 'materias-primas':
-          data = await getCommodityData(symbol);
-          break;
+      case 'criptomonedas':
+        data = await getCryptoMarketData(symbol);
+        break;
+      case 'forex':
+        data = await getForexMarketData(symbol);
+        break;
+      case 'indices':
+        data = await getStockIndexData(symbol);
+        break;
+      case 'materias-primas':
+        data = await getCommodityData(symbol);
+        break;
         case 'stocks':
           data = await getStockData(symbol);
           break;
-        case 'sinteticos':
+      case 'sinteticos':
         case 'derivados':
-        case 'baskets':
-          data = await getSyntheticMarketData(symbol, baseValue || 10000);
-          break;
-        default:
+      case 'baskets':
+        data = await getSyntheticMarketData(symbol, baseValue || 10000);
+        break;
+      default:
           // For unknown categories, use simulated data
           console.warn(`Categoría no reconocida: ${normalizedCategory}, usando datos simulados`);
           return generateAndCacheSimulatedData(symbol, 'sinteticos');
-      }
-      
-      return data;
+    }
+    
+    return data;
     } catch (error: any) {
       // Check if this is our special signal to use simulated data
       if (error && error.message === 'Se necesitan datos simulados') {
