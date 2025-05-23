@@ -10,14 +10,24 @@ import PortfolioModal from "./PortfolioModal"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
+import { Badge } from "@/components/ui/badge"
+import { useTranslation } from '@/app/i18n/client'
+
+// Context import (to be created later)
+import { useTradePositions } from "@/contexts/TradePositionsContext"
 
 const Sidebar = () => {
   const pathname = usePathname();
+  const { t } = useTranslation();
+  
+  // Use the context to get position data (will implement this later)
+  const { positions = [] } = useTradePositions?.() || { positions: [] };
+  const openPositionsCount = positions.length;
 
   return (
     <div className="hidden lg:flex flex-col h-screen w-64 bg-card border-r border-border">
       <div className="p-6">
-        <h1 className="text-2xl font-bold text-primary">BitPulse</h1>
+        <h1 className="text-2xl font-bold text-primary">{t('app.title')}</h1>
       </div>
       <nav className="flex-1 overflow-y-auto">
         <ul className="px-2 space-y-1">
@@ -30,7 +40,7 @@ const Sidebar = () => {
               )}
             >
               <Home size={18} />
-              Dashboard
+              {t('nav.home')}
             </Link>
           </li>
           <li>
@@ -42,7 +52,7 @@ const Sidebar = () => {
               )}
             >
               <CandlestickChart size={18} />
-              Mercados
+              {t('nav.markets')}
             </Link>
           </li>
           <li>
@@ -61,12 +71,25 @@ const Sidebar = () => {
             <Link 
               href="/portfolio" 
               className={cn(
-                "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+                "flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors",
                 pathname === "/portfolio" ? "bg-primary text-primary-foreground" : "hover:bg-muted"
               )}
             >
-              <Wallet size={18} />
-              Portfolio
+              <div className="flex items-center gap-3">
+                <Wallet size={18} />
+                {t('nav.portfolio')}
+              </div>
+              {openPositionsCount > 0 && (
+                <Badge 
+                  variant="default"
+                  className={cn(
+                    "ml-auto bg-primary/20 text-primary-foreground hover:bg-primary/20",
+                    pathname === "/portfolio" ? "bg-primary-foreground/20 text-primary" : ""
+                  )}
+                >
+                  {openPositionsCount}
+                </Badge>
+              )}
             </Link>
           </li>
           <li>
@@ -94,7 +117,7 @@ const Sidebar = () => {
               )}
             >
               <Settings size={18} />
-              Settings
+              {t('nav.settings')}
             </Link>
           </li>
           <li>
@@ -120,7 +143,13 @@ const Sidebar = () => {
 }
 
 const PortfolioSummary = () => {
-  const [totalValue, setTotalValue] = useState(0)
+  const [totalValue, setTotalValue] = useState(0);
+  const [isClient, setIsClient] = useState(false);
+  const { t } = useTranslation();
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   useEffect(() => {
     // This is a mock calculation. In a real app, this would be based on actual user data.
@@ -136,12 +165,14 @@ const PortfolioSummary = () => {
     }, 0)
 
     setTotalValue(calculatedValue)
-  }, [])
+  }, []);
 
   return (
     <Card className="mt-4">
       <CardHeader>
-        <CardTitle className="text-sm">Portfolio Summary</CardTitle>
+        <CardTitle className="text-sm">
+          {isClient ? t('nav.portfolio') : 'Portfolio'} Summary
+        </CardTitle>
       </CardHeader>
       <CardContent>
         <p className="text-2xl font-bold">${totalValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>

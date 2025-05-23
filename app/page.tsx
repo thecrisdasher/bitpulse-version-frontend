@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -16,6 +16,8 @@ import MarketOverviewBanner from "@/components/MarketOverviewBanner"
 import TrendingPage from "@/components/TrendingPage"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
+import { LanguageSelector } from "@/components/LanguageSelector"
+import { useTranslation } from '@/app/i18n/client'
 import dynamic from "next/dynamic"
 
 // Importación normal en lugar de dinámica para evitar errores
@@ -39,6 +41,12 @@ const BentoGrid = ({ liveUpdates, cryptoData }: { liveUpdates: boolean, cryptoDa
   const [topGainers, setTopGainers] = useState(getTopGainers(cryptoData, 5))
   const [topLosers, setTopLosers] = useState(getTopLosers(cryptoData, 5))
   const [trending, setTrending] = useState(getTrending(cryptoData, 5))
+  const { t } = useTranslation();
+  const [isClient, setIsClient] = useState(false);
+  
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   useEffect(() => {
     if (liveUpdates) {
@@ -56,7 +64,9 @@ const BentoGrid = ({ liveUpdates, cryptoData }: { liveUpdates: boolean, cryptoDa
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm font-medium">Top Gainers</CardTitle>
+          <CardTitle className="text-sm font-medium">
+            {isClient ? t('markets.topGainers') : 'Top Gainers'}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <ul className="space-y-2">
@@ -71,7 +81,9 @@ const BentoGrid = ({ liveUpdates, cryptoData }: { liveUpdates: boolean, cryptoDa
       </Card>
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm font-medium">Top Losers</CardTitle>
+          <CardTitle className="text-sm font-medium">
+            {isClient ? t('markets.topLosers') : 'Top Losers'}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <ul className="space-y-2">
@@ -86,7 +98,9 @@ const BentoGrid = ({ liveUpdates, cryptoData }: { liveUpdates: boolean, cryptoDa
       </Card>
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm font-medium">Trending</CardTitle>
+          <CardTitle className="text-sm font-medium">
+            {isClient ? t('markets.trending') : 'Trending'}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <ul className="space-y-2">
@@ -106,14 +120,23 @@ const BentoGrid = ({ liveUpdates, cryptoData }: { liveUpdates: boolean, cryptoDa
 }
 
 export default function CryptoDashboard() {
+  const { t } = useTranslation();
   const [searchTerm, setSearchTerm] = useState("")
-  const [favList, setFavList] = useState(favorites)
+  const [favList, setFavList] = useState<number[]>([])
   const [liveUpdates, setLiveUpdates] = useState(true)
   const [cryptoData, setCryptoData] = useState(cryptocurrencies)
   const [selectedInstrument, setSelectedInstrument] = useState<any>(null)
   const [showTradePanel, setShowTradePanel] = useState(false)
+  const [isClient, setIsClient] = useState(false)
   const { theme } = useTheme()
 
+  // Wait for client-side hydration before rendering favorites
+  useEffect(() => {
+    setFavList([...favorites])
+    setIsClient(true)
+  }, [])
+
+  // Other existing useEffect for live updates
   useEffect(() => {
     if (liveUpdates) {
       const interval = setInterval(() => {
@@ -184,16 +207,26 @@ export default function CryptoDashboard() {
             onClick={() => handleCryptoSelection(crypto)}
           >
             <TableCell>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleFavoriteToggle(crypto.id)
-                }}
-              >
-                <Star className={`h-4 w-4 ${favList.includes(crypto.id) ? "text-yellow-500 fill-yellow-500" : ""}`} />
-              </Button>
+              {isClient && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleFavoriteToggle(crypto.id)
+                  }}
+                >
+                  <Star className={`h-4 w-4 ${favList.includes(crypto.id) ? "text-yellow-500 fill-yellow-500" : ""}`} />
+                </Button>
+              )}
+              {!isClient && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                >
+                  <Star className="h-4 w-4" />
+                </Button>
+              )}
             </TableCell>
             <TableCell>{index + 1}</TableCell>
             <TableCell className="font-medium">
@@ -228,12 +261,12 @@ export default function CryptoDashboard() {
       <div className="flex-1 flex flex-col">
         <header className="border-b border-border">
           <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-primary lg:hidden">CryptoTracker</h1>
+            <h1 className="text-2xl font-bold text-primary lg:hidden">{isClient ? t('app.title') : 'BitPulse'}</h1>
             <div className="flex items-center space-x-4">
               <div className="relative">
                 <Input
                   type="text"
-                  placeholder="Search"
+                  placeholder={isClient ? t('nav.search') : 'Search'}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10 bg-secondary text-secondary-foreground"
@@ -246,24 +279,25 @@ export default function CryptoDashboard() {
               <nav className="hidden md:block">
                 <ul className="flex space-x-4">
                   <li>
-                    <Button variant="ghost">Cryptocurrencies</Button>
+                    <Button variant="ghost">{isClient ? t('markets.crypto') : 'Cryptocurrencies'}</Button>
                   </li>
                   <li>
-                    <Button variant="ghost">Exchanges</Button>
+                    <Button variant="ghost">{isClient ? t('markets.forex') : 'Forex'}</Button>
                   </li>
                   <li>
-                    <Button variant="ghost">NFT</Button>
+                    <Button variant="ghost">{isClient ? t('markets.stocks') : 'Stocks'}</Button>
                   </li>
                   <li>
-                    <Button variant="ghost">Portfolio</Button>
+                    <Button variant="ghost">{isClient ? t('nav.portfolio') : 'Portfolio'}</Button>
                   </li>
                 </ul>
               </nav>
               <MarketSentimentHeader />
+              <LanguageSelector />
               <ThemeToggle />
               <div className="flex items-center space-x-2">
                 <Switch id="live-updates" checked={liveUpdates} onCheckedChange={setLiveUpdates} />
-                <Label htmlFor="live-updates">Live Updates</Label>
+                <Label htmlFor="live-updates">{isClient ? t('common.liveUpdates') : 'Live Updates'}</Label>
               </div>
             </div>
           </div>
@@ -277,9 +311,10 @@ export default function CryptoDashboard() {
             {showTradePanel && selectedInstrument && (
               <div className="md:w-1/3 transition-all duration-300 ease-in-out">
                 <TradeControlPanel
-                  instrumentName={selectedInstrument.name}
-                  instrumentPrice={selectedInstrument.price}
-                  instrumentId={selectedInstrument.id.toString()}
+                  marketName={selectedInstrument.name}
+                  marketPrice={selectedInstrument.price}
+                  marketColor="hsl(338, 95%, 51%)"
+                  isVisible={showTradePanel}
                   onClose={closeTradePanel}
                 />
               </div>

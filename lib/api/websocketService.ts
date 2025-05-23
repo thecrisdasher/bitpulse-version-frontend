@@ -1,6 +1,6 @@
-import { WebSocketManager, WebSocketManagerOptions, getWebSocketUrlForInstrument, generateSubscriptionMessage } from './websocketManager';
+import { WebSocketManager, WebSocketManagerOptions, getWebSocketUrlForInstrument, generateSubscriptionMessage, hasWebSocketSupport } from './websocketManager';
 import { MarketData } from './marketDataService';
-import { WEBSOCKET_CONFIG } from './apiConfig';
+import { WEBSOCKET_CONFIG, FORCE_MOCK_DATA } from './apiConfig';
 
 type WebSocketCallback = (data: MarketData) => void;
 
@@ -195,12 +195,18 @@ export const websocketService = {
       };
     }
     
-    // Determinar el proveedor preferente para este instrumento y categoría
-    // A través del WebSocket Manager se seleccionará la URL apropiada
+    // Determinar si debemos usar simulación o datos reales
+    const shouldUseMockData = FORCE_MOCK_DATA || 
+                            !hasWebSocketSupport(symbol, category);
+    
+    // Normalizar categoría para asegurar consistencia
+    const normalizedCategory = category.toLowerCase();
     let provider = '';
     
-    switch (category.toLowerCase()) {
+    // Determinar el proveedor preferente para este instrumento y categoría
+    switch (normalizedCategory) {
       case 'criptomonedas':
+      case 'cripto':
         provider = 'BINANCE';
         break;
       case 'forex':
@@ -211,6 +217,9 @@ export const websocketService = {
       case 'derivados':
       case 'sinteticos':
       case 'baskets':
+      case 'volatility':
+      case 'boom':
+      case 'crash':
         provider = 'DERIV';
         break;
       default:
@@ -218,39 +227,70 @@ export const websocketService = {
     }
     
     // Obtener URL del WebSocket para este instrumento
-    const wsUrl = getWebSocketUrlForInstrument(symbol, category, provider);
+    const wsUrl = getWebSocketUrlForInstrument(symbol, normalizedCategory, provider);
     
-    // Si no hay URL disponible, no podemos crear una conexión
-    if (!wsUrl) {
-      console.warn(`No hay WebSocket disponible para ${symbol} (${category})`);
-      return () => {}; // Función vacía como cancelación
-    }
+    // Extract base value from initial data if available, or use a sensible default
+    const baseValue = initialData?.currentPrice || 
+      (symbol.toLowerCase().includes('bitcoin') ? 50000 : 
+       symbol.toLowerCase().includes('eth') ? 3000 : 
+       normalizedCategory === 'forex' ? 1.1 : 
+       normalizedCategory.includes('volatility') ? 500 : 100);
+       
+    // Crear opciones de simulación adaptadas al tipo de instrumento
+    const simulationOptions = {
+      enabled: shouldUseMockData,
+      initialValue: baseValue,
+      // Different volatility based on instrument type
+      volatility: 
+        normalizedCategory.includes('volatility') ? 0.008 : 
+        normalizedCategory === 'cripto' ? 0.006 : 
+        normalizedCategory === 'forex' ? 0.001 : 0.003,
+      updateInterval: 
+        symbol.toLowerCase().includes('1s') ? 1000 : 
+        normalizedCategory === 'cripto' ? 2000 : 3000
+    };
     
-    // Generar mensaje de suscripción apropiado para este proveedor
-    const subscriptionMessage = generateSubscriptionMessage(symbol, category, provider);
+    let options: WebSocketManagerOptions;
     
-    // Crear nueva conexión
-    const options: WebSocketManagerOptions = {
-      url: wsUrl,
-      subscriptionMessage: subscriptionMessage || undefined,
-      autoReconnect: true,
-      maxReconnectAttempts: WEBSOCKET_CONFIG.RECONNECT_ATTEMPTS,
-      reconnectDelay: WEBSOCKET_CONFIG.RECONNECT_DELAY,
-      heartbeatInterval: WEBSOCKET_CONFIG.HEARTBEAT_INTERVAL,
-      
-      // Callback para procesar mensajes recibidos
+    // Configurar las opciones según si usamos datos simulados o reales
+    if (shouldUseMockData) {
+      // Configuración para simulación
+      options = {
+        // URL ficticia (no se usará realmente)
+        url: 'ws://mock-data',
+        onMessage: (data) => {
+          const connection = activeConnections[key];
+          if (!connection) return;
+          
+          // Actualizar datos en la conexión
+          connection.lastData = data as MarketData;
+          
+          // Notificar a todos los suscriptores
+          connection.subscribers.forEach(cb => {
+            try {
+              cb(data as MarketData);
+            } catch (error) {
+              console.error('Error en callback de WebSocket:', error);
+            }
+          });
+        },
+        simulationOptions
+      };
+    } else {
+      // Configuración para API real
+      options = {
+        url: wsUrl || 'ws://fallback-mock-data',
       onMessage: (data) => {
         const connection = activeConnections[key];
-        
         if (!connection) return;
         
         // Procesar datos según el proveedor
         const processedData = processWebSocketData(
           data, 
           symbol, 
-          category, 
+            normalizedCategory, 
           provider, 
-          connection.lastData || initialData || null
+            connection.lastData
         );
         
         // Si no se pudieron procesar los datos, ignorarlos
@@ -268,27 +308,42 @@ export const websocketService = {
           }
         });
       },
-      
-      // Callback para manejar errores
-      onError: (error) => {
-        console.error(`Error en WebSocket para ${symbol} (${category}):`, error);
+        onOpen: () => console.log(`Conexión WebSocket abierta para ${key}`),
+        onClose: () => console.log(`Conexión WebSocket cerrada para ${key}`),
+        onError: (error) => console.error(`Error en WebSocket para ${key}:`, error),
+        // Manejar correctamente el caso de null en subscriptionMessage
+        subscriptionMessage: generateSubscriptionMessage(symbol, normalizedCategory, provider) || undefined,
+        autoReconnect: true,
+        maxReconnectAttempts: WEBSOCKET_CONFIG.RECONNECT_ATTEMPTS,
+        reconnectDelay: WEBSOCKET_CONFIG.RECONNECT_DELAY,
+        heartbeatInterval: WEBSOCKET_CONFIG.HEARTBEAT_INTERVAL,
+        simulationOptions: {
+          ...simulationOptions,
+          enabled: false // Desactivar simulación para datos reales
       }
     };
+    }
     
-    // Crear y guardar la conexión
+    // Crear nueva conexión WebSocket
     const manager = new WebSocketManager(options);
     
+    // Almacenar la conexión
     activeConnections[key] = {
       manager,
       subscribers: new Set([callback]),
       lastData: initialData || null,
       symbol,
-      category,
+      category: normalizedCategory,  // Almacenar la categoría normalizada
       provider
     };
     
     // Iniciar la conexión
     manager.connect();
+    
+    // Si hay datos iniciales, enviarlos inmediatamente
+    if (initialData) {
+      setTimeout(() => callback(initialData), 0);
+    }
     
     // Devolver función para cancelar la suscripción
     return () => {

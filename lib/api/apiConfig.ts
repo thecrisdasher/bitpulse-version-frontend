@@ -57,7 +57,8 @@ export const API_PROVIDERS = {
   FOREX: ['TWELVE_DATA', 'ALPHA_VANTAGE', 'YAHOO_FINANCE', 'MOCK'],
   INDICES: ['TWELVE_DATA', 'POLYGON_IO', 'YAHOO_FINANCE', 'MOCK'],
   COMMODITIES: ['TWELVE_DATA', 'ALPHA_VANTAGE', 'YAHOO_FINANCE', 'MOCK'],
-  SYNTHETIC: ['DERIV', 'MOCK']
+  SYNTHETIC: ['DERIV', 'MOCK'],
+  STOCKS: ['POLYGON_IO', 'TWELVE_DATA', 'YAHOO_FINANCE', 'MOCK']
 };
 
 // Mapeo de instrumentos específicos a proveedores preferenciales
@@ -73,7 +74,13 @@ export const INSTRUMENT_API_MAPPING: Record<string, string[]> = {
   'SPX': ['TWELVE_DATA', 'YAHOO_FINANCE', 'MOCK'],
   // Instrumentos sintéticos
   'volatility-50': ['YAHOO_FINANCE', 'MOCK'], // Sin API disponible, usar simulador
-  'volatility-75': ['YAHOO_FINANCE', 'MOCK']
+  'volatility-75': ['YAHOO_FINANCE', 'MOCK'],
+  // Acciones
+  'AAPL': ['POLYGON_IO', 'TWELVE_DATA', 'YAHOO_FINANCE', 'MOCK'],
+  'MSFT': ['POLYGON_IO', 'TWELVE_DATA', 'YAHOO_FINANCE', 'MOCK'],
+  'AMZN': ['POLYGON_IO', 'TWELVE_DATA', 'YAHOO_FINANCE', 'MOCK'],
+  'GOOGL': ['POLYGON_IO', 'TWELVE_DATA', 'YAHOO_FINANCE', 'MOCK'],
+  'NVDA': ['POLYGON_IO', 'TWELVE_DATA', 'YAHOO_FINANCE', 'MOCK']
 };
 
 // Símbolos no compatibles con WebSockets
@@ -93,5 +100,6 @@ export const CACHE_TTL = {
   INDICES: 300000,     // 5 minutos
   COMMODITIES: 300000, // 5 minutos
   SYNTHETIC: 60000,    // 1 minuto
+  STOCKS: 300000,      // 5 minutos
   DEFAULT: 300000      // 5 minutos
 }; 

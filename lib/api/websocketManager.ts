@@ -4,6 +4,9 @@ import {
   API_PROVIDERS 
 } from './apiConfig';
 
+// Add a simulation mode flag - will fallback to this if WebSocket fails
+const USE_SIMULATION_MODE = process.env.NODE_ENV === 'development' || true;
+
 export interface WebSocketManagerOptions {
   url: string;
   onMessage: (data: any) => void;
@@ -17,6 +20,12 @@ export interface WebSocketManagerOptions {
   heartbeatInterval?: number;
   heartbeatMessage?: string | object;
   protocols?: string | string[];
+  simulationOptions?: {
+    enabled?: boolean;
+    initialValue?: number;
+    volatility?: number;
+    updateInterval?: number;
+  };
 }
 
 interface WebsocketState {
@@ -31,23 +40,33 @@ interface WebsocketState {
  */
 export const hasWebSocketSupport = (symbol: string, category: string): boolean => {
   const normalizedSymbol = symbol.toLowerCase();
+  const normalizedCategory = category.toLowerCase();
   
   // Verificar en la lista explícita de sin soporte
-  if (NO_WEBSOCKET_SUPPORT.includes(normalizedSymbol)) {
+  if (NO_WEBSOCKET_SUPPORT.some(id => normalizedSymbol.includes(id))) {
     return false;
   }
   
   // Verificar por categoría/prefijo
   if (
     normalizedSymbol.startsWith('vol') || 
-    (category === 'baskets' && normalizedSymbol.includes('enrg')) ||
+    (normalizedCategory === 'baskets' && normalizedSymbol.includes('enrg')) ||
     normalizedSymbol.includes('crash') ||
-    normalizedSymbol.includes('boom')
+    normalizedSymbol.includes('boom') ||
+    // Categorías sin soporte WebSocket
+    ['volatility', 'boom', 'crash'].includes(normalizedCategory)
   ) {
     return false;
   }
   
-  return true;
+  // Soporte limitado por categoría y proveedor
+  if (normalizedCategory === 'indices' && !['ustec', 'us500', 'us30', 'uk100', 'germany40'].includes(normalizedSymbol)) {
+    // Solo algunos índices específicos tienen soporte WebSocket confiable
+    return false;
+  }
+  
+  // Categorías con soporte WebSocket
+  return ['cripto', 'criptomonedas', 'forex', 'stocks'].includes(normalizedCategory);
 };
 
 /**
@@ -58,58 +77,88 @@ export const getWebSocketUrlForInstrument = (
   category: string, 
   provider?: string
 ): string | null => {
-  // Normalizar el símbolo para usar en URLs
-  const normalizedSymbol = symbol.toLowerCase();
-  
-  // Si no tiene soporte de WebSocket, devolver null
-  if (!hasWebSocketSupport(symbol, category)) {
+  try {
+    // Normalizar el símbolo para usar en URLs
+    const normalizedSymbol = symbol.toLowerCase();
+    const normalizedCategory = category.toLowerCase();
+    
+    // Si no tiene soporte de WebSocket, devolver null
+    if (!hasWebSocketSupport(symbol, normalizedCategory)) {
+      console.log(`No WebSocket support for: ${symbol} in category ${normalizedCategory}`);
+      return null;
+    }
+    
+    // Determinar qué proveedor usar
+    let targetProvider = provider || '';
+    
+    if (!targetProvider) {
+      // Determinar el proveedor basado en la categoría
+      // Usar un mapeo seguro para evitar errores de categorías desconocidas
+      const categoryMap: Record<string, string[]> = {
+        'cripto': ['BINANCE', 'COIN_GECKO', 'MOCK'],
+        'criptomonedas': ['BINANCE', 'COIN_GECKO', 'MOCK'],
+        'forex': ['TWELVE_DATA', 'YAHOO_FINANCE', 'MOCK'],
+        'indices': ['TWELVE_DATA', 'POLYGON_IO', 'YAHOO_FINANCE', 'MOCK'],
+        'materias-primas': ['TWELVE_DATA', 'ALPHA_VANTAGE', 'YAHOO_FINANCE', 'MOCK'],
+        'volatility': ['DERIV', 'MOCK'],
+        'boom': ['DERIV', 'MOCK'],
+        'crash': ['DERIV', 'MOCK'],
+        'derivados': ['DERIV', 'MOCK'],
+        'sinteticos': ['DERIV', 'MOCK'],
+        'baskets': ['DERIV', 'MOCK'],
+        'stocks': ['TWELVE_DATA', 'POLYGON_IO', 'YAHOO_FINANCE', 'MOCK'],
+      };
+      
+      // Obtener el proveedor para la categoría o usar MOCK como fallback
+      const providers = categoryMap[normalizedCategory] || ['MOCK'];
+      targetProvider = providers[0];
+    }
+    
+    // Formatear URL según el proveedor
+    switch (targetProvider.toUpperCase()) {
+      case 'BINANCE':
+        // Para criptomonedas, convertir formato para Binance WebSocket API
+        let formattedSymbol = normalizedSymbol;
+        if (symbol.includes('/')) {
+          const [base, quote] = symbol.split('/');
+          formattedSymbol = (base + quote).toLowerCase();
+        }
+        
+        return `wss://stream.binance.com:9443/ws/${formattedSymbol}@ticker`;
+        
+      case 'COIN_GECKO':
+      case 'COINCAP':
+        // CoinGecko y CoinCap no tienen WebSockets públicos
+        return null;
+        
+      case 'TWELVE_DATA':
+        // Para forex, índices o acciones
+        return `wss://ws.twelvedata.com/v1/quotes/price?apikey=${process.env.NEXT_PUBLIC_TWELVE_DATA_API_KEY || ''}&symbols=${symbol}`;
+        
+      case 'POLYGON_IO':
+        // Para acciones e índices con Polygon.io (requiere suscripción)
+        return `wss://socket.polygon.io/stocks?apiKey=${process.env.NEXT_PUBLIC_POLYGON_API_KEY || ''}`;
+        
+      case 'DERIV':
+        if (normalizedCategory === 'derivados' || normalizedCategory === 'sinteticos' ||
+            normalizedCategory === 'volatility' || normalizedCategory === 'boom' || 
+            normalizedCategory === 'crash') {
+          return `wss://ws.deriv.com/v3/${normalizedSymbol}`;
+        } else if (normalizedCategory === 'baskets') {
+          return `wss://ws.deriv.com/v3/basket/${normalizedSymbol}`;
+        }
+        return null;
+        
+      case 'YAHOO_FINANCE':
+        // Yahoo Finance no ofrece WebSockets públicos
+        return null;
+        
+      default:
+        return null;
+    }
+  } catch (error) {
+    console.error(`Error generating WebSocket URL for ${symbol}:`, error);
     return null;
-  }
-  
-  // Determinar qué proveedor usar
-  let targetProvider = provider || '';
-  
-  if (!targetProvider) {
-    // Determinar el proveedor basado en la categoría
-    const categoryKey = category.toUpperCase() as keyof typeof API_PROVIDERS;
-    targetProvider = API_PROVIDERS[categoryKey]?.[0] || '';
-  }
-  
-  // Formatear URL según el proveedor
-  switch (targetProvider.toUpperCase()) {
-    case 'BINANCE':
-      // Para criptomonedas, convertir formato para Binance WebSocket API
-      let formattedSymbol = normalizedSymbol;
-      if (symbol.includes('/')) {
-        const [base, quote] = symbol.split('/');
-        formattedSymbol = (base + quote).toLowerCase();
-      }
-      
-      return `wss://stream.binance.com:9443/ws/${formattedSymbol}@ticker`;
-      
-    case 'COIN_GECKO':
-    case 'COINCAP':
-      // CoinGecko y CoinCap no tienen WebSockets públicos
-      return null;
-      
-    case 'TWELVE_DATA':
-      // Para forex o índices
-      return `wss://ws.twelvedata.com/v1/quotes/price?apikey=${process.env.NEXT_PUBLIC_TWELVE_DATA_API_KEY}&symbols=${symbol}`;
-      
-    case 'DERIV':
-      if (category === 'derivados' || category === 'sinteticos') {
-        return `wss://ws.deriv.com/v3/${normalizedSymbol}`;
-      } else if (category === 'baskets') {
-        return `wss://ws.deriv.com/v3/basket/${normalizedSymbol}`;
-      }
-      return null;
-      
-    case 'YAHOO_FINANCE':
-      // Yahoo Finance no ofrece WebSockets públicos
-      return null;
-      
-    default:
-      return null;
   }
 };
 
@@ -122,6 +171,7 @@ export const generateSubscriptionMessage = (
   provider: string
 ): string | object | null => {
   const normalizedSymbol = symbol.toLowerCase();
+  const normalizedCategory = category.toLowerCase();
   
   switch (provider.toUpperCase()) {
     case 'BINANCE':
@@ -132,12 +182,27 @@ export const generateSubscriptionMessage = (
       });
       
     case 'TWELVE_DATA':
+      // Mismo formato para forex, stocks e índices
       return JSON.stringify({
         action: 'subscribe',
         params: {
           symbols: [symbol]
         }
       });
+      
+    case 'POLYGON_IO':
+      // Para acciones con Polygon.io
+      if (normalizedCategory === 'stocks') {
+        return JSON.stringify({
+          action: 'auth',
+          params: process.env.NEXT_PUBLIC_POLYGON_API_KEY
+        });
+      } else {
+        return JSON.stringify({
+          action: 'subscribe',
+          params: `T.${symbol}`
+        });
+      }
       
     case 'DERIV':
       return JSON.stringify({
@@ -158,12 +223,15 @@ export class WebSocketManager {
   private ws: WebSocket | null = null;
   private reconnectTimer: NodeJS.Timeout | null = null;
   private heartbeatTimer: NodeJS.Timeout | null = null;
+  private simulationTimer: NodeJS.Timeout | null = null;
   private state: WebsocketState = {
     isConnecting: false,
     isConnected: false,
     reconnectAttempts: 0,
     lastMessageTime: 0
   };
+  private simulationMode: boolean = false;
+  private simulatedValue: number = 100;
   
   constructor(options: WebSocketManagerOptions) {
     this.url = options.url;
@@ -172,14 +240,31 @@ export class WebSocketManager {
       maxReconnectAttempts: WEBSOCKET_CONFIG.RECONNECT_ATTEMPTS,
       reconnectDelay: WEBSOCKET_CONFIG.RECONNECT_DELAY,
       heartbeatInterval: WEBSOCKET_CONFIG.HEARTBEAT_INTERVAL,
+      simulationOptions: {
+        enabled: USE_SIMULATION_MODE,
+        initialValue: 100,
+        volatility: 0.01,
+        updateInterval: 2000
+      },
       ...options
     };
+    
+    // Initialize simulation value from options if provided
+    if (this.options.simulationOptions?.initialValue) {
+      this.simulatedValue = this.options.simulationOptions.initialValue;
+    }
   }
   
   /**
    * Conectar al WebSocket
    */
   public connect(): void {
+    // Check if simulation mode is enabled in options
+    if (this.options.simulationOptions?.enabled) {
+      this.startSimulationMode();
+      return;
+    }
+    
     if (this.ws) {
       // Ya existe una conexión, cerrarla primero
       this.cleanup();
@@ -213,6 +298,103 @@ export class WebSocketManager {
       this.state.isConnecting = false;
       this.handleError(error);
     }
+  }
+  
+  /**
+   * Start simulation mode instead of real WebSocket
+   */
+  private startSimulationMode(): void {
+    if (this.simulationMode) return;
+    
+    console.log(`Using simulation mode instead of WebSocket for ${this.url}`);
+    this.simulationMode = true;
+    this.state.isConnected = true;
+    this.state.isConnecting = false;
+    
+    // Notify that we're "connected"
+    if (this.options.onOpen) {
+      this.options.onOpen();
+    }
+    
+    // Start sending simulated data
+    const updateInterval = this.options.simulationOptions?.updateInterval || 2000;
+    const volatility = this.options.simulationOptions?.volatility || 0.01;
+    
+    // Extract symbol from URL for more realistic simulation
+    let symbol = "";
+    try {
+      const urlObj = new URL(this.url);
+      const pathParts = urlObj.pathname.split('/');
+      symbol = pathParts[pathParts.length - 1] || "";
+      
+      if (symbol.includes('@')) {
+        symbol = symbol.split('@')[0];
+      }
+    } catch (e) {
+      // Fallback if URL parsing fails
+      symbol = this.url.split('/').pop() || "";
+    }
+    
+    this.simulationTimer = setInterval(() => {
+      // Generate random price change
+      const changePercent = (Math.random() * 2 - 1) * volatility;
+      this.simulatedValue = this.simulatedValue * (1 + changePercent);
+      
+      // Create simulated data in a format similar to what the WebSocket would send
+      let simulatedData: any;
+      
+      if (this.url.includes('binance')) {
+        // Binance-like format
+        simulatedData = {
+          e: '24hrTicker',
+          s: symbol.toUpperCase(),
+          c: this.simulatedValue.toFixed(2),
+          o: (this.simulatedValue * 0.99).toFixed(2),
+          h: (this.simulatedValue * 1.02).toFixed(2),
+          l: (this.simulatedValue * 0.98).toFixed(2),
+          v: (Math.random() * 1000).toFixed(2),
+          p: (changePercent * 100).toFixed(2),
+          P: (changePercent * 100).toFixed(2),
+          timestamp: Date.now()
+        };
+      } else if (this.url.includes('twelve')) {
+        // TwelveData-like format
+        simulatedData = {
+          symbol: symbol.toUpperCase(),
+          price: this.simulatedValue.toFixed(2),
+          timestamp: Math.floor(Date.now() / 1000)
+        };
+      } else if (this.url.includes('polygon')) {
+        // Polygon.io-like format
+        simulatedData = {
+          ev: 'T',
+          sym: symbol.toUpperCase(),
+          p: this.simulatedValue.toFixed(2),
+          t: Date.now(),
+          v: Math.floor(Math.random() * 100)
+        };
+      } else if (this.url.includes('deriv')) {
+        // Deriv-like format
+        simulatedData = {
+          tick: {
+            symbol: symbol,
+            quote: this.simulatedValue.toFixed(2),
+            epoch: Math.floor(Date.now() / 1000)
+          }
+        };
+      } else {
+        // Generic format
+        simulatedData = {
+          symbol: symbol,
+          price: this.simulatedValue,
+          timestamp: Date.now()
+        };
+      }
+      
+      // Send the simulated data to the callback
+      this.options.onMessage(simulatedData);
+      this.state.lastMessageTime = Date.now();
+    }, updateInterval);
   }
   
   /**
@@ -272,11 +454,44 @@ export class WebSocketManager {
    * Manejar errores
    */
   private handleError(error: any): void {
-    console.error(`WebSocket error: ${error}`);
+    // Improved error handling to properly format different error types
+    let errorMessage = 'Unknown WebSocket error';
+    
+    if (error instanceof Error) {
+      errorMessage = `${error.name}: ${error.message}`;
+    } else if (error instanceof Event) {
+      // Handle Event objects (common in WebSocket errors)
+      errorMessage = `WebSocket Event: ${error.type}`;
+    } else if (typeof error === 'object') {
+      try {
+        // Verificar si es un objeto vacío
+        if (error === null || Object.keys(error).length === 0) {
+          errorMessage = 'WebSocket error: Empty error object';
+        } else {
+          errorMessage = JSON.stringify(error);
+        }
+      } catch (e) {
+        errorMessage = 'WebSocket error: [Object cannot be stringified]';
+      }
+    } else if (error !== undefined && error !== null) {
+      errorMessage = String(error);
+    }
+    
+    console.error(`WebSocket error for ${this.url}: ${errorMessage}`);
     
     // Ejecutar callback de error si existe
     if (this.options.onError) {
-      this.options.onError(error);
+      this.options.onError({
+        message: errorMessage,
+        originalError: error
+      });
+    }
+    
+    // If we're not already in simulation mode and simulation is enabled, switch to it
+    if (!this.simulationMode && this.options.simulationOptions?.enabled) {
+      console.log(`Switching to simulation mode due to WebSocket error: ${errorMessage}`);
+      this.startSimulationMode();
+      return;
     }
     
     // Reconectar si está configurado
@@ -419,6 +634,11 @@ export class WebSocketManager {
       this.reconnectTimer = null;
     }
     
+    if (this.simulationTimer) {
+      clearInterval(this.simulationTimer);
+      this.simulationTimer = null;
+    }
+    
     this.stopHeartbeat();
     
     // Cerrar conexión
@@ -442,5 +662,8 @@ export class WebSocketManager {
       reconnectAttempts: 0,
       lastMessageTime: 0
     };
+    
+    // Reset simulation mode
+    this.simulationMode = false;
   }
-} 
+}

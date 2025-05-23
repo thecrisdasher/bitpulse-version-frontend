@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ChevronLeft, Info } from "lucide-react";
+import { ChevronLeft, Info, ArrowUpCircle, ArrowDownCircle, Percent, DollarSign, BarChart4, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -14,316 +14,378 @@ import {
 } from "@/components/ui/tooltip";
 import { Checkbox } from "@/components/ui/checkbox";
 import useRealTimeMarketData from "@/hooks/useRealTimeMarketData";
+import { Slider } from "@/components/ui/slider";
+import { Toggle } from "@/components/ui/toggle";
+import { Switch } from "@/components/ui/switch";
+import { useToast } from "@/hooks/use-toast";
 
 interface TradeControlPanelProps {
-  instrumentName: string;
-  instrumentPrice: number;
-  instrumentId: string;
-  onClose?: () => void;
-  instrumentCategory?: string;
-  instrumentSymbol?: string;
+  marketName: string;
+  marketPrice: number;
+  marketColor: string;
+  isVisible: boolean;
+  onClose: () => void;
+  onPlaceTrade?: (
+    direction: 'up' | 'down', 
+    amount: number, 
+    stake: number, 
+    duration: {value: number, unit: 'minute' | 'hour' | 'day'}
+  ) => void;
 }
 
-const TradeControlPanel = ({
-  instrumentName = "Índice Volatility 10 (1s)",
-  instrumentPrice = 9120.21,
-  instrumentId = "volatility-10-1s",
-  instrumentCategory = "volatility",
-  instrumentSymbol = "VOL10",
+const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
+  marketName,
+  marketPrice,
+  marketColor,
+  isVisible,
   onClose,
-}: TradeControlPanelProps) => {
-  const [amount, setAmount] = useState("21");
-  const [selectedRate, setSelectedRate] = useState<number>(3);
-  const [takeProfitEnabled, setTakeProfitEnabled] = useState(false);
-  const [isMounted, setIsMounted] = useState(false);
-  const [currentPrice, setCurrentPrice] = useState(instrumentPrice);
+  onPlaceTrade
+}) => {
+  // Trading state
+  const [tradeDirection, setTradeDirection] = useState<'up' | 'down'>('up');
+  const [investmentAmount, setInvestmentAmount] = useState<number>(100);
+  const [stakePct, setStakePct] = useState<number>(1);
+  const [duration, setDuration] = useState<number>(1);
+  const [durationUnit, setDurationUnit] = useState<'minute' | 'hour' | 'day'>('minute');
+  const [isStakePercent, setIsStakePercent] = useState<boolean>(true);
+  const [potentialReturn, setPotentialReturn] = useState<number>(0);
+  const [showChart, setShowChart] = useState<boolean>(true);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  
+  // Get toast service for notifications
+  const { toast } = useToast();
   
   // Get real-time market data
   const { data: marketData, isLoading } = useRealTimeMarketData(
-    instrumentSymbol,
-    instrumentCategory || getCategoryFromId(instrumentId),
+    marketName,
+    'indices',
     { refreshInterval: 5000 }
   );
   
-  // Helper function to determine category from ID
-  function getCategoryFromId(id: string): string {
-    if (id.includes('volatility') || id.includes('boom') || id.includes('crash')) {
-      return 'derivados';
-    } else if (id.includes('btc') || id.includes('eth')) {
-      return 'criptomonedas';
-    } else if (id.includes('eur') || id.includes('usd') || id.includes('gbp')) {
-      return 'forex';
-    } else if (id.includes('gold') || id.includes('oil')) {
-      return 'materias-primas';
+  // Calculate potential return based on stake and direction
+  useEffect(() => {
+    // Simplified calculation - in a real app this would use real market data
+    const multiplier = tradeDirection === 'up' ? 1.85 : 1.8;
+    const stakeAmount = isStakePercent 
+      ? (investmentAmount * stakePct / 100) 
+      : stakePct;
+    setPotentialReturn(stakeAmount * multiplier);
+  }, [tradeDirection, investmentAmount, stakePct, isStakePercent]);
+
+  // Format currency with 2 decimal places
+  const formatCurrency = (amount: number): string => {
+    return new Intl.NumberFormat('es-CO', {
+      style: 'currency',
+      currency: 'COP',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(amount);
+  };
+
+  // Handle trade execution
+  const handlePlaceTrade = () => {
+    setIsSubmitting(true);
+    
+    const stakeAmount = isStakePercent 
+      ? (investmentAmount * stakePct / 100) 
+      : stakePct;
+    
+    if (onPlaceTrade) {
+      onPlaceTrade(
+        tradeDirection, 
+        stakeAmount, 
+        investmentAmount, 
+        {value: duration, unit: durationUnit}
+      );
+    }
+    
+    // Show toast notification instead of alert
+    toast({
+      title: tradeDirection === 'up' ? "Compra ejecutada" : "Venta ejecutada",
+      description: (
+        <div className="flex flex-col gap-1">
+          <p>Operación colocada correctamente:</p>
+          <p>
+            <strong>Instrumento:</strong> {marketName}
+          </p>
+          <p>
+            <strong>Tipo:</strong> {tradeDirection === 'up' ? 'COMPRA' : 'VENTA'}
+          </p>
+          <p>
+            <strong>Monto:</strong> {formatCurrency(stakeAmount)}
+          </p>
+          <p>
+            <strong>Duración:</strong> {duration} {durationUnit}{duration > 1 ? 's' : ''}
+          </p>
+        </div>
+      ),
+      action: (
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="bg-primary hover:bg-primary/90 text-primary-foreground"
+          onClick={() => {
+            // Dirigir a la página de portfolio
+            window.location.href = "/portfolio";
+          }}
+        >
+          Ver portfolio
+        </Button>
+      ),
+    });
+    
+    // Allow animation to complete
+    setTimeout(() => {
+      setIsSubmitting(false);
+      onClose();
+    }, 1000);
+  };
+
+  // Toggle between percentage and fixed amount
+  const toggleStakeType = () => {
+    if (isStakePercent) {
+      // Convert percentage to equivalent fixed amount
+      setStakePct(Math.round(investmentAmount * stakePct / 100));
     } else {
-      return 'indices';
+      // Convert fixed amount to equivalent percentage
+      setStakePct(Math.round((stakePct / investmentAmount) * 100));
     }
-  }
-  
-  // Update price when new market data is received
-  useEffect(() => {
-    if (marketData) {
-      setCurrentPrice(marketData.currentPrice);
-    }
-  }, [marketData]);
-  
-  // Animation effect on mount
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  // Available growth rates
-  const growthRates = [
-    { value: 1, label: "1%" },
-    { value: 2, label: "2%" },
-    { value: 3, label: "3%" },
-    { value: 4, label: "4%" },
-    { value: 5, label: "5%" },
-  ];
-
-  // Format currency
-  const formatCurrency = (value: number) => {
-    return value.toLocaleString('en-US', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    });
-  };
-
-  // Calculate maximum payout based on amount and rate
-  const calculateMaxPayout = () => {
-    const investmentAmount = parseFloat(amount) || 0;
-    const multiplier = 1 + (selectedRate / 100);
-    return investmentAmount * multiplier;
-  };
-
-  // Handle buy/trade action
-  const handleBuy = () => {
-    console.log("Buy order placed", {
-      instrumentId,
-      amount: parseFloat(amount),
-      growthRate: selectedRate,
-      takeProfit: takeProfitEnabled,
-      currentPrice
-    });
-    // Here you would implement the actual trading logic
+    setIsStakePercent(!isStakePercent);
   };
 
   return (
     <Card className={cn(
-      "w-full md:w-[350px] transition-all duration-300 ease-in-out", 
-      isMounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+      "w-full transition-all duration-300 overflow-hidden",
+      isVisible ? "max-h-[600px] opacity-100" : "max-h-0 opacity-0 pointer-events-none"
     )}>
-      <CardContent className="p-4">
-        {/* Header with back button option */}
-        {onClose && (
-          <div className="flex items-center mb-3">
-            <Button variant="ghost" size="sm" onClick={onClose}>
-              <ChevronLeft className="h-4 w-4 mr-1" />
-              <span>Volver</span>
+      <div className="p-4">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div 
+              className="w-3 h-3 rounded-full" 
+              style={{ backgroundColor: marketColor }}
+            />
+            <span className="font-medium">{marketName}</span>
+            <span className="text-lg font-semibold">{formatCurrency(marketPrice)}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Toggle 
+              pressed={showChart} 
+              onPressedChange={setShowChart}
+              size="sm"
+              variant="outline"
+              className="h-8"
+            >
+              <BarChart4 className="w-4 h-4 mr-1" />
+              <span className="text-xs">Gráfico</span>
+            </Toggle>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={onClose}
+              className="h-8 px-2"
+            >
+              Cerrar
             </Button>
           </div>
-        )}
+        </div>
 
-        {/* Instrument details */}
-        <div className="mb-4">
-          <h3 className="font-semibold">{instrumentName}</h3>
-          <div className="flex items-center justify-between">
-            <span className="text-xl font-bold">
-              {isLoading ? (
-                <span className="text-muted-foreground">Cargando...</span>
-              ) : (
-                `${formatCurrency(currentPrice)}`
-              )}
-            </span>
-            {marketData && (
-              <div className={`text-sm font-medium ${marketData.changePercent24h >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {marketData.changePercent24h >= 0 ? '+' : ''}
-                {marketData.changePercent24h.toFixed(2)}%
-              </div>
-            )}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          {/* Trade Direction */}
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-muted-foreground">Dirección</label>
+            <div className="flex gap-2">
+              <Button 
+                variant={tradeDirection === 'up' ? "default" : "outline"}
+                className={cn(
+                  "flex-1 gap-2",
+                  tradeDirection === 'up' && "bg-green-500 hover:bg-green-600"
+                )}
+                onClick={() => setTradeDirection('up')}
+              >
+                <ArrowUpCircle className="w-4 h-4" />
+                Comprar
+              </Button>
+              <Button 
+                variant={tradeDirection === 'down' ? "default" : "outline"}
+                className={cn(
+                  "flex-1 gap-2",
+                  tradeDirection === 'down' && "bg-red-500 hover:bg-red-600"
+                )}
+                onClick={() => setTradeDirection('down')}
+              >
+                <ArrowDownCircle className="w-4 h-4" />
+                Vender
+              </Button>
+            </div>
+        </div>
+
+          {/* Investment Amount */}
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-muted-foreground">Inversión total</label>
+            <div className="flex gap-2 items-center">
+              <DollarSign className="w-4 h-4 text-muted-foreground" />
+              <Input 
+                type="number"
+                id="investment-amount"
+                name="investment-amount"
+                value={investmentAmount}
+                onChange={(e) => setInvestmentAmount(Number(e.target.value))}
+                className="flex-1"
+                />
+            </div>
           </div>
-          {marketData?.isRealTime && (
-            <div className="flex items-center mt-1">
-              <span className="relative flex h-2 w-2 mr-1">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+        </div>
+
+        {/* Stake Amount/Percentage */}
+        <div className="mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-sm font-medium text-muted-foreground">
+              {isStakePercent ? 'Porcentaje a invertir' : 'Monto a invertir'}
+            </label>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">
+                {isStakePercent ? 'Porcentaje' : 'Monto fijo'}
               </span>
-              <span className="text-xs text-green-600">Tiempo real</span>
+              <Switch 
+                checked={isStakePercent}
+                onCheckedChange={toggleStakeType}
+              />
+            </div>
+          </div>
+          
+          <div className="flex gap-4 items-center mb-2">
+            <Slider 
+              value={[stakePct]} 
+              min={isStakePercent ? 1 : 10}
+              max={isStakePercent ? 100 : investmentAmount}
+              step={isStakePercent ? 1 : 10}
+              onValueChange={(value) => setStakePct(value[0])}
+              className="flex-1"
+            />
+            <div className="flex gap-1 items-center min-w-[80px]">
+              {isStakePercent ? (
+                <>
+                  <Input 
+                    type="number"
+                    value={stakePct}
+                    onChange={(e) => setStakePct(Number(e.target.value))}
+                    className="w-16"
+                  />
+                  <Percent className="w-4 h-4 text-muted-foreground" />
+                </>
+              ) : (
+                <Input 
+                  type="number"
+                  value={stakePct}
+                  onChange={(e) => setStakePct(Number(e.target.value))}
+                  className="w-20"
+                />
+              )}
+            </div>
+          </div>
+          
+          {isStakePercent && (
+            <div className="text-sm text-muted-foreground">
+              Monto aproximado: {formatCurrency(investmentAmount * stakePct / 100)}
             </div>
           )}
         </div>
 
-        {/* Accumulators Section */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center">
-            <div className="w-5 h-5 mr-2">
-              <svg viewBox="0 0 24 24" className="w-full h-full">
-                <path 
-                  d="M2 12h5l3-9 4 18 3-9h5" 
-                  fill="none" 
-                  stroke="currentColor" 
-                  strokeWidth="2" 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </div>
-            <h3 className="font-medium">Accumulators</h3>
-          </div>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="sm" className="p-0 h-6 w-6">
-                  <Info className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p className="max-w-xs">
-                  Aprenda más sobre este tipo de operación
-                </p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
-
-        {/* Growth Rate */}
+        {/* Trade Duration */}
         <div className="mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <label className="text-sm font-medium">Tasa de crecimiento</label>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="sm" className="p-0 h-6 w-6">
-                    <Info className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p className="max-w-xs">
-                    Seleccione la tasa de crecimiento para su operación
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-          <div className="grid grid-cols-5 gap-1">
-            {growthRates.map((rate) => (
-              <Button
-                key={rate.value}
-                variant={selectedRate === rate.value ? "default" : "outline"}
-                className={cn(
-                  "h-8 text-sm font-medium",
-                  selectedRate === rate.value ? "" : "bg-muted/30"
-                )}
-                onClick={() => setSelectedRate(rate.value)}
-              >
-                {rate.label}
-              </Button>
-            ))}
-          </div>
-        </div>
-
-        {/* Investment Amount */}
-        <div className="mb-6">
-          <label className="block text-sm font-medium mb-2">Inversión</label>
-          <div className="flex items-center">
-            <Button
-              variant="outline"
+          <label className="text-sm font-medium text-muted-foreground mb-2 block">Duración</label>
+          <div className="flex gap-2">
+            <Button 
+              variant={durationUnit === 'minute' ? "default" : "outline"}
               size="sm"
-              className="h-10 px-3 rounded-r-none"
-              onClick={() => {
-                const currentAmount = parseFloat(amount) || 0;
-                if (currentAmount > 1) {
-                  setAmount((currentAmount - 1).toString());
-                }
-              }}
+              onClick={() => setDurationUnit('minute')}
+              className="flex-1"
             >
-              −
+              Minutos
             </Button>
-            <Input
-              type="text"
-              id="investment-amount"
-              name="investment-amount"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ''))}
-              className="h-10 text-center border-x-0 rounded-none focus-visible:ring-0 focus-visible:ring-offset-0"
+            <Button
+              variant={durationUnit === 'hour' ? "default" : "outline"}
+              size="sm"
+              onClick={() => setDurationUnit('hour')}
+              className="flex-1"
+            >
+              Horas
+            </Button>
+            <Button
+              variant={durationUnit === 'day' ? "default" : "outline"}
+              size="sm"
+              onClick={() => setDurationUnit('day')}
+              className="flex-1"
+            >
+              Días
+            </Button>
+        </div>
+
+          <div className="mt-2 flex gap-4 items-center">
+            <Slider 
+              value={[duration]} 
+              min={1}
+              max={durationUnit === 'minute' ? 60 : durationUnit === 'hour' ? 24 : 30}
+              step={1}
+              onValueChange={(value) => setDuration(value[0])}
+              className="flex-1"
             />
-            <div className="px-3 h-10 flex items-center justify-center border border-input border-l-0 rounded-none">
-              USD
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-10 px-3 rounded-l-none"
-              onClick={() => {
-                const currentAmount = parseFloat(amount) || 0;
-                setAmount((currentAmount + 1).toString());
-              }}
-            >
-              +
-            </Button>
+            <Input 
+              type="number"
+              value={duration}
+              onChange={(e) => setDuration(Number(e.target.value))}
+              className="w-20"
+            />
           </div>
         </div>
 
-        {/* Take Profit */}
-        <div className="flex items-center mb-6">
-          <Checkbox
-            id="take-profit"
-            checked={takeProfitEnabled}
-            onCheckedChange={() => setTakeProfitEnabled(!takeProfitEnabled)}
-            className="h-4 w-4"
-          />
-          <label htmlFor="take-profit" className="ml-2 text-sm font-medium">
-            Take profit
-          </label>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="sm" className="p-0 h-6 w-6 ml-1">
-                  <Info className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p className="max-w-xs">
-                  Cerrar automáticamente la operación al alcanzar el objetivo de beneficio
-                </p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
-
-        {/* Payment Details */}
-        <div className="space-y-2 mb-6">
-          <div className="flex items-center justify-between">
-            <span className="text-sm">Pago máximo</span>
-            <span className="font-medium">{formatCurrency(calculateMaxPayout())} USD</span>
+        {/* Potential Return */}
+        <div className="p-3 bg-secondary rounded-lg mb-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <p className="text-sm font-medium">Retorno potencial</p>
+              <p className="text-xs text-muted-foreground">Estimación aproximada</p>
           </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm">Máximo de ticks</span>
-            <span className="font-medium">85 ticks</span>
+            <p className="text-lg font-bold">{formatCurrency(potentialReturn)}</p>
           </div>
         </div>
 
-        {/* Buy Button */}
+        {/* Execute Trade Button */}
+        <div className="flex flex-col gap-4">
         <Button 
-          className="w-full bg-[#05A6AA] hover:bg-[#048D91] text-white font-medium h-12"
-          onClick={handleBuy}
+            onClick={handlePlaceTrade}
+            disabled={isSubmitting}
+            className={cn(
+              "w-full py-6 text-lg font-semibold shadow-lg transition-all",
+              tradeDirection === 'up' 
+                ? "bg-green-500 hover:bg-green-600 text-white" 
+                : "bg-red-500 hover:bg-red-600 text-white",
+              isSubmitting && "opacity-80"
+            )}
         >
-          <svg 
-            viewBox="0 0 24 24" 
-            className="h-5 w-5 mr-2" 
-            fill="none" 
-            stroke="currentColor" 
-            strokeWidth="2" 
-            strokeLinecap="round" 
-            strokeLinejoin="round"
-          >
-            <polyline points="8 17 12 21 16 17" />
-            <line x1="12" y1="12" x2="12" y2="21" />
-            <path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29" />
-          </svg>
-          Comprar
+            {isSubmitting ? (
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="animate-pulse h-5 w-5" />
+                <span>Procesando...</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                {tradeDirection === 'up' ? (
+                  <ArrowUpCircle className="h-5 w-5" />
+                ) : (
+                  <ArrowDownCircle className="h-5 w-5" />
+                )}
+                <span>Ejecutar {tradeDirection === 'up' ? 'Compra' : 'Venta'}</span>
+              </div>
+            )}
         </Button>
-      </CardContent>
+          
+          <p className="text-xs text-center text-muted-foreground">
+            Al ejecutar esta operación, aceptas los términos y condiciones del servicio
+          </p>
+        </div>
+      </div>
     </Card>
   );
 };

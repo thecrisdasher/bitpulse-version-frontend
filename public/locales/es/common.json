@@ -1,0 +1,43 @@
+{
+  "app": {
+    "title": "BitPulse",
+    "subtitle": "La plataforma de trading más moderna"
+  },
+  "nav": {
+    "home": "Inicio",
+    "markets": "Mercados",
+    "trading": "Trading",
+    "portfolio": "Portafolio",
+    "settings": "Ajustes",
+    "search": "Buscar"
+  },
+  "markets": {
+    "crypto": "Criptomonedas",
+    "forex": "Divisas",
+    "stocks": "Acciones",
+    "commodities": "Materias primas",
+    "indices": "Índices",
+    "topGainers": "Mayores Subidas",
+    "topLosers": "Mayores Bajadas",
+    "trending": "Tendencia"
+  },
+  "actions": {
+    "buy": "Comprar",
+    "sell": "Vender",
+    "deposit": "Depositar",
+    "withdraw": "Retirar"
+  },
+  "language": {
+    "select": "Seleccionar idioma",
+    "es": "Español",
+    "en": "Inglés"
+  },
+  "auth": {
+    "login": "Iniciar sesión",
+    "register": "Registrarse",
+    "logout": "Cerrar sesión"
+  },
+  "common": {
+    "liveUpdates": "Actualizaciones en vivo"
+  }
+} 

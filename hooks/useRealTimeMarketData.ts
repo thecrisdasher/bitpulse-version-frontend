@@ -254,9 +254,16 @@ export function useBatchRealTimeMarketData(
 // Clean up all WebSocket connections when app unmounts
 export function useCleanupWebSockets() {
   useEffect(() => {
+    // No cleanup needed on mount
     return () => {
-      // This hook was using a non-existent cleanupWebSockets function
-      // Since cleanupFunctions is not accessible here, we can remove this empty hook
+      // Import the websocketService directly to access the closeAll method
+      if (typeof window !== 'undefined') {
+        import('@/lib/api/websocketService').then(({ websocketService }) => {
+          websocketService.closeAll();
+        }).catch(err => {
+          console.error('Failed to cleanup WebSockets:', err);
+        });
+      }
     };
   }, []);
 }

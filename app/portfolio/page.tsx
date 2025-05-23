@@ -6,11 +6,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { PieChart, BarChart, ArrowUpRight, ArrowDownRight, Plus, Wallet, History } from "lucide-react"
+import { PieChart, BarChart, ArrowUpRight, ArrowDownRight, Plus, Wallet, History, TrendingUp, Clock } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
 import { cryptocurrencies } from "@/lib/mockData"
 import PriceChart from "@/components/PriceChart"
 import PortfolioTracker from "@/components/PortfolioTracker"
+import OpenPositions from "@/components/OpenPositions"
+import { useTradePositions } from "@/contexts/TradePositionsContext"
+import { Badge } from "@/components/ui/badge"
 
 // Mock portfolio data
 const mockPortfolio = [
@@ -45,6 +48,9 @@ export default function PortfolioPage() {
     monthly: 15.3, 
     allTime: 45.7 
   })
+  
+  // Obtener las posiciones abiertas del contexto
+  const { positions, removePosition } = useTradePositions();
   
   // Calcular valores actuales del portfolio
   useEffect(() => {
@@ -144,6 +150,39 @@ export default function PortfolioPage() {
             </Card>
           </div>
           
+          {/* Sección de posiciones abiertas */}
+          {positions.length > 0 && (
+            <div className="mb-8">
+              <Card>
+                <CardHeader>
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                      <CardTitle>Posiciones Abiertas</CardTitle>
+                      <Badge variant="secondary" className="ml-2">
+                        {positions.length}
+                      </Badge>
+                    </div>
+                    <Button variant="outline" size="sm" asChild>
+                      <a href="/" className="flex items-center gap-1">
+                        <TrendingUp className="h-4 w-4" />
+                        <span>Operar</span>
+                      </a>
+                    </Button>
+                  </div>
+                  <CardDescription>
+                    Operaciones activas en diversos mercados
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <OpenPositions 
+                    positions={positions}
+                    onClosePosition={removePosition}
+                  />
+                </CardContent>
+              </Card>
+            </div>
+          )}
+          
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
             <Card className="lg:col-span-2">
               <CardHeader>
@@ -189,6 +228,10 @@ export default function PortfolioPage() {
               <TabsTrigger value="transactions">
                 <History className="h-4 w-4 mr-2" />
                 Transacciones
+              </TabsTrigger>
+              <TabsTrigger value="positions">
+                <Clock className="h-4 w-4 mr-2" />
+                Historial de Operaciones
               </TabsTrigger>
             </TabsList>
             
@@ -274,6 +317,46 @@ export default function PortfolioPage() {
                       ))}
                     </TableBody>
                   </Table>
+                </CardContent>
+              </Card>
+            </TabsContent>
+            
+            <TabsContent value="positions" className="mt-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Historial de Operaciones</CardTitle>
+                  <CardDescription>
+                    Registro de operaciones pasadas
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {positions.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <p>No hay operaciones para mostrar</p>
+                      <p className="text-sm mt-2">Las operaciones cerradas aparecerán aquí</p>
+                    </div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Mercado</TableHead>
+                          <TableHead>Tipo</TableHead>
+                          <TableHead>Precio Apertura</TableHead>
+                          <TableHead>Precio Cierre</TableHead>
+                          <TableHead>Ganancia</TableHead>
+                          <TableHead>Fecha</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {/* Aquí se mostraría el historial real de operaciones cerradas */}
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center text-muted-foreground">
+                            Aún no hay operaciones cerradas para mostrar
+                          </TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>

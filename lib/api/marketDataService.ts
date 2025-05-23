@@ -726,6 +726,51 @@ const getSyntheticName = (symbol: string): string => {
 };
 
 /**
+ * Obtener datos de acciones (stocks) individuales
+ */
+export const getStockData = async (symbol: string): Promise<MarketData> => {
+  try {
+    const cacheKey = `stocks-${symbol.toLowerCase()}`;
+  
+    // Verificar si hay datos en caché (localStorage)
+    const cachedData = getCachedMarketData(symbol, 'stocks');
+    if (cachedData) {
+      // Si hay datos en caché, guardar en memoria
+      dataCache[cacheKey] = {
+        data: cachedData,
+        timestamp: Date.now(),
+        ttl: CACHE_TTL.DEFAULT
+      };
+      return cachedData;
+    }
+    
+    // Verificar caché en memoria
+    if (isCacheValid(symbol, 'stocks', CACHE_TTL.DEFAULT)) {
+      return dataCache[cacheKey].data;
+    }
+    
+    // Para stocks, siempre usamos datos simulados por ahora
+    const mockData = generateRealisticMarketData(symbol, 'stocks');
+    
+    // Guardar en caché local y memoria
+    cacheMarketData(symbol, 'stocks', mockData, CACHE_TTL.DEFAULT);
+    dataCache[cacheKey] = {
+      data: mockData,
+      timestamp: Date.now(),
+      ttl: CACHE_TTL.DEFAULT
+    };
+    
+    return mockData;
+  } catch (error) {
+    console.error(`Error obteniendo datos de acción ${symbol}:`, error);
+    
+    // Si hay algún error, siempre usar datos simulados
+    const mockData = generateRealisticMarketData(symbol, 'stocks');
+    return mockData;
+  }
+};
+
+/**
  * Función principal para obtener datos de mercado
  */
 export const getMarketData = async (
@@ -734,37 +779,82 @@ export const getMarketData = async (
   baseValue?: number
 ): Promise<MarketData> => {
   try {
-    let data: MarketData;
+    // Normalize category names to support a broader range of inputs
+    const normalizedCategory = 
+      category.toLowerCase() === 'cripto' ? 'criptomonedas' :
+      category.toLowerCase() === 'volatility' || 
+      category.toLowerCase() === 'boom' || 
+      category.toLowerCase() === 'crash' ? 'sinteticos' : 
+      category.toLowerCase();
     
-    switch (category) {
-      case 'criptomonedas':
-        data = await getCryptoMarketData(symbol);
-        break;
-      case 'forex':
-        data = await getForexMarketData(symbol);
-        break;
-      case 'indices':
-        data = await getStockIndexData(symbol);
-        break;
-      case 'materias-primas':
-        data = await getCommodityData(symbol);
-        break;
-      case 'derivados':
-      case 'sinteticos':
-      case 'baskets':
-        data = await getSyntheticMarketData(symbol, baseValue || 10000);
-        break;
-      default:
-        throw new Error(`Categoría no soportada: ${category}`);
+    // Skip API calls and directly use simulated data if the instrument or category requires it
+    if (
+      FORCE_MOCK_DATA ||
+      symbol.includes('volatility') ||
+      symbol.includes('boom') ||
+      symbol.includes('crash') ||
+      normalizedCategory === 'sinteticos' ||
+      normalizedCategory === 'derivados' ||
+      normalizedCategory === 'baskets' ||
+      normalizedCategory === 'stocks'  // Añadir stocks a las categorías que usan datos simulados
+    ) {
+      return generateAndCacheSimulatedData(symbol, normalizedCategory);
     }
     
-    return data;
-  } catch (error) {
-    console.error(`Error en getMarketData:`, error);
+    let data: MarketData;
     
-    // Si todo falla, usar datos simulados
-    const mockData = generateRealisticMarketData(symbol, category);
-    return mockData;
+    try {
+      // Try to get data from API
+      switch (normalizedCategory) {
+        case 'criptomonedas':
+          data = await getCryptoMarketData(symbol);
+          break;
+        case 'forex':
+          data = await getForexMarketData(symbol);
+          break;
+        case 'indices':
+          data = await getStockIndexData(symbol);
+          break;
+        case 'materias-primas':
+          data = await getCommodityData(symbol);
+          break;
+        case 'stocks':
+          data = await getStockData(symbol);
+          break;
+        case 'sinteticos':
+        case 'derivados':
+        case 'baskets':
+          data = await getSyntheticMarketData(symbol, baseValue || 10000);
+          break;
+        default:
+          // For unknown categories, use simulated data
+          console.warn(`Categoría no reconocida: ${normalizedCategory}, usando datos simulados`);
+          return generateAndCacheSimulatedData(symbol, 'sinteticos');
+      }
+      
+      return data;
+    } catch (error: any) {
+      // Check if this is our special signal to use simulated data
+      if (error && error.message === 'Se necesitan datos simulados') {
+        console.log(`Usando datos simulados para ${symbol} (${normalizedCategory})`);
+        return generateAndCacheSimulatedData(symbol, normalizedCategory);
+      }
+      
+      // Rethrow any other errors to be caught by the outer catch block
+      throw error;
+    }
+  } catch (error) {
+    console.error(`Error en getMarketData para ${symbol} (${category}):`, error);
+    
+    // Last resort - if everything fails, use simulated data
+    const normalizedCategory = 
+      category.toLowerCase() === 'cripto' ? 'criptomonedas' :
+      category.toLowerCase() === 'volatility' || 
+      category.toLowerCase() === 'boom' || 
+      category.toLowerCase() === 'crash' ? 'sinteticos' : 
+      category.toLowerCase();
+      
+    return generateAndCacheSimulatedData(symbol, normalizedCategory);
   }
 };
 

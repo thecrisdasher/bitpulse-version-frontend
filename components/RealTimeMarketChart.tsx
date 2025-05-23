@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
-import { TrendingUp, TrendingDown, Star, ChevronDown } from "lucide-react";
+import { TrendingUp, TrendingDown, Star, ChevronDown, DollarSign, ArrowUpDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
@@ -17,6 +17,28 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { AreaChartIcon, LineChartIcon, CandleChartIcon, BarChartIcon } from "@/components/icons/icons";
+import {
+  AppleIcon,
+  NvidiaIcon,
+  MicrosoftIcon,
+  GoogleIcon,
+  AmazonIcon,
+  MetaIcon,
+  TeslaIcon,
+  AdobeIcon,
+  NetflixIcon,
+  DisneyIcon,
+  CocaColaIcon,
+  PepsiIcon,
+  JohnsonIcon,
+  VisaIcon,
+  MastercardIcon
+} from "@/components/icons/StockIcons";
+import TradeControlPanel from "@/components/TradeControlPanel";
+import OpenPositions, { TradePosition } from "@/components/OpenPositions";
+import { v4 as uuidv4 } from 'uuid';
+import { useTradePositions } from "@/contexts/TradePositionsContext";
+import { Badge } from "@/components/ui/badge";
 
 // Dynamically import the chart client to avoid SSR issues
 const RealTimeMarketChartClient = dynamic(
@@ -25,7 +47,7 @@ const RealTimeMarketChartClient = dynamic(
 );
 
 // Types
-type MarketCategory = "volatility" | "boom" | "crash" | "cripto" | "forex" | "materias-primas" | "indices";
+type MarketCategory = "volatility" | "boom" | "crash" | "cripto" | "forex" | "materias-primas" | "indices" | "stocks";
 type TimeRange = "1h" | "24h" | "7d" | "30d";
 type ChartType = "area" | "candle" | "line" | "bar";
 
@@ -71,35 +93,98 @@ const MARKET_CATEGORIES: { [key in MarketCategory]: { name: string; icon: React.
   forex: { name: "Forex", icon: <TrendingUp className="w-4 h-4" />, color: "hsl(207, 90%, 61%)" },
   "materias-primas": { name: "Materias Primas", icon: <TrendingUp className="w-4 h-4" />, color: "hsl(43, 95%, 47%)" },
   indices: { name: "Índices Stock", icon: <TrendingUp className="w-4 h-4" />, color: "hsl(210, 20%, 80%)" },
+  stocks: { name: "Acciones", icon: <DollarSign className="w-4 h-4" />, color: "hsl(160, 84%, 39%)" },
 };
 
 // Market configurations (reducido para mejorar rendimiento)
 const MARKETS: MarketItem[] = [
-  // Volatility indices (reducidos)
-  { id: "volatility-100", name: "Índice Volatility 100", category: "volatility", label: "100", baseValue: 623, color: "hsl(338, 90%, 56%)" },
-  { id: "volatility-100-1s", name: "Índice Volatility 100 (1s)", category: "volatility", label: "100", showInRealTime: true, baseValue: 631.36, color: "hsl(338, 90%, 56%)" },
-  { id: "volatility-50", name: "Índice Volatility 50", category: "volatility", label: "50", baseValue: 420, color: "hsl(338, 90%, 56%)" },
+  // Volatility indices
+  { id: "volatility-10", name: "Índice Volatility 10", category: "volatility", label: "10", baseValue: 12.45, color: "hsl(338, 90%, 56%)" },
+  { id: "volatility-25", name: "Índice Volatility 25", category: "volatility", label: "25", baseValue: 31.28, color: "hsl(338, 90%, 56%)" },
+  { id: "volatility-50", name: "Índice Volatility 50", category: "volatility", label: "50", baseValue: 42.65, color: "hsl(338, 90%, 56%)" },
+  { id: "volatility-75", name: "Índice Volatility 75", category: "volatility", label: "75", baseValue: 52.18, color: "hsl(338, 90%, 56%)" },
+  { id: "volatility-100", name: "Índice Volatility 100", category: "volatility", label: "100", baseValue: 62.35, color: "hsl(338, 90%, 56%)" },
+  { id: "volatility-100-1s", name: "Índice Volatility 100 (1s)", category: "volatility", label: "100", showInRealTime: true, baseValue: 63.14, color: "hsl(338, 90%, 56%)" },
+  { id: "volatility-150", name: "Índice Volatility 150", category: "volatility", label: "150", baseValue: 85.22, color: "hsl(338, 90%, 56%)" },
+  { id: "volatility-200", name: "Índice Volatility 200", category: "volatility", label: "200", baseValue: 105.45, color: "hsl(338, 90%, 56%)" },
   
-  // Boom indices (reducidos)
-  { id: "boom-500", name: "Índice Boom 500", category: "boom", label: "500", baseValue: 500, color: "hsl(143, 85%, 52%)" },
-  { id: "boom-1000", name: "Índice Boom 1000", category: "boom", label: "1000", baseValue: 1000, color: "hsl(143, 85%, 52%)" },
+  // Boom indices
+  { id: "boom-300", name: "Índice Boom 300", category: "boom", label: "300", baseValue: 30.28, color: "hsl(143, 85%, 52%)" },
+  { id: "boom-500", name: "Índice Boom 500", category: "boom", label: "500", baseValue: 50.35, color: "hsl(143, 85%, 52%)" },
+  { id: "boom-1000", name: "Índice Boom 1000", category: "boom", label: "1000", baseValue: 100.18, color: "hsl(143, 85%, 52%)" },
+  { id: "boom-1000-1s", name: "Índice Boom 1000 (1s)", category: "boom", label: "1K", showInRealTime: true, baseValue: 102.05, color: "hsl(143, 85%, 52%)" },
   
-  // Crash indices (reducidos)
-  { id: "crash-300", name: "Índice Crash 300", category: "crash", label: "300", baseValue: 300, color: "hsl(0, 85%, 52%)" },
-  { id: "crash-500", name: "Índice Crash 500", category: "crash", label: "500", baseValue: 500, color: "hsl(0, 85%, 52%)" },
+  // Crash indices
+  { id: "crash-300", name: "Índice Crash 300", category: "crash", label: "300", baseValue: 30.28, color: "hsl(0, 85%, 52%)" },
+  { id: "crash-500", name: "Índice Crash 500", category: "crash", label: "500", baseValue: 50.35, color: "hsl(0, 85%, 52%)" },
+  { id: "crash-1000", name: "Índice Crash 1000", category: "crash", label: "1000", baseValue: 100.18, color: "hsl(0, 85%, 52%)" },
+  { id: "crash-1000-1s", name: "Índice Crash 1000 (1s)", category: "crash", label: "1K", showInRealTime: true, baseValue: 98.05, color: "hsl(0, 85%, 52%)" },
   
   // Cryptocurrencies
-  { id: "bitcoin", name: "Bitcoin (BTC)", category: "cripto", baseValue: 29000, color: "hsl(41, 98%, 49%)" },
-  { id: "ethereum", name: "Ethereum (ETH)", category: "cripto", baseValue: 1800, color: "hsl(207, 90%, 61%)" },
+  { id: "bitcoin", name: "Bitcoin (BTC/USD)", category: "cripto", baseValue: 111291.22, color: "hsl(41, 98%, 49%)" },
+  { id: "ethereum", name: "Ethereum (ETH/USD)", category: "cripto", baseValue: 2657.98, color: "hsl(207, 90%, 61%)" },
+  { id: "litecoin", name: "Litecoin (LTC/USD)", category: "cripto", baseValue: 68.75, color: "hsl(214, 5%, 65%)" },
+  { id: "ripple", name: "Ripple (XRP/USD)", category: "cripto", baseValue: 0.48, color: "hsl(208, 100%, 58%)" },
+  { id: "bitcoin-cash", name: "Bitcoin Cash (BCH/USD)", category: "cripto", baseValue: 244.32, color: "hsl(144, 63%, 41%)" },
+  { id: "cardano", name: "Cardano (ADA/USD)", category: "cripto", baseValue: 0.36, color: "hsl(203, 100%, 33%)" },
+  { id: "polkadot", name: "Polkadot (DOT/USD)", category: "cripto", baseValue: 5.32, color: "hsl(336, 91%, 65%)" },
+  { id: "solana", name: "Solana (SOL/USD)", category: "cripto", baseValue: 91.58, color: "hsl(249, 100%, 65%)" },
+  { id: "dogecoin", name: "Dogecoin (DOGE/USD)", category: "cripto", baseValue: 0.10, color: "hsl(45, 93%, 58%)" },
+  { id: "shiba-inu", name: "Shiba Inu (SHIB/USD)", category: "cripto", baseValue: 0.000018, color: "hsl(28, 93%, 54%)" },
+  { id: "chainlink", name: "Chainlink (LINK/USD)", category: "cripto", baseValue: 11.75, color: "hsl(225, 100%, 60%)" },
+  { id: "polygon", name: "Polygon (MATIC/USD)", category: "cripto", baseValue: 0.53, color: "hsl(265, 85%, 60%)" },
   
   // Commodities
-  { id: "gold", name: "Gold", category: "materias-primas", baseValue: 2400, color: "hsl(43, 95%, 47%)" },
+  { id: "gold", name: "Oro (XAU/USD)", category: "materias-primas", baseValue: 2415.35, color: "hsl(43, 95%, 47%)" },
+  { id: "silver", name: "Plata (XAG/USD)", category: "materias-primas", baseValue: 28.45, color: "hsl(0, 0%, 75%)" },
+  { id: "copper", name: "Cobre (HG/USD)", category: "materias-primas", baseValue: 4.18, color: "hsl(26, 90%, 40%)" },
+  { id: "oil", name: "Petróleo Crudo (OIL/USD)", category: "materias-primas", baseValue: 82.67, color: "hsl(215, 80%, 30%)" },
+  { id: "natural-gas", name: "Gas Natural (NG/USD)", category: "materias-primas", baseValue: 2.18, color: "hsl(195, 90%, 40%)" },
+  { id: "platinum", name: "Platino (PL/USD)", category: "materias-primas", baseValue: 975.28, color: "hsl(210, 20%, 70%)" },
   
   // Forex
-  { id: "eurusd", name: "EUR/USD", category: "forex", baseValue: 1.08, color: "hsl(207, 90%, 61%)" },
+  { id: "eurusd", name: "EUR/USD", category: "forex", baseValue: 1.0835, color: "hsl(207, 90%, 61%)" },
+  { id: "gbpusd", name: "GBP/USD", category: "forex", baseValue: 1.2718, color: "hsl(207, 90%, 61%)" },
+  { id: "usdjpy", name: "USD/JPY", category: "forex", baseValue: 155.82, color: "hsl(207, 90%, 61%)" },
+  { id: "audusd", name: "AUD/USD", category: "forex", baseValue: 0.6752, color: "hsl(207, 90%, 61%)" },
+  { id: "usdcad", name: "USD/CAD", category: "forex", baseValue: 1.3724, color: "hsl(207, 90%, 61%)" },
+  { id: "usdchf", name: "USD/CHF", category: "forex", baseValue: 0.9128, color: "hsl(207, 90%, 61%)" },
+  { id: "nzdusd", name: "NZD/USD", category: "forex", baseValue: 0.6125, color: "hsl(207, 90%, 61%)" },
+  { id: "eurjpy", name: "EUR/JPY", category: "forex", baseValue: 168.45, color: "hsl(207, 90%, 61%)" },
+  { id: "eurgbp", name: "EUR/GBP", category: "forex", baseValue: 0.8517, color: "hsl(207, 90%, 61%)" },
+  { id: "usdmxn", name: "USD/MXN", category: "forex", baseValue: 17.28, color: "hsl(207, 90%, 61%)" },
+  { id: "usdbrl", name: "USD/BRL", category: "forex", baseValue: 5.14, color: "hsl(207, 90%, 61%)" },
+  { id: "usdcop", name: "USD/COP", category: "forex", baseValue: 3952, color: "hsl(207, 90%, 61%)" },
   
   // Stock indices
-  { id: "us500", name: "US 500", category: "indices", baseValue: 5300, color: "hsl(210, 20%, 80%)" },
+  { id: "us500", name: "US 500 (S&P 500)", category: "indices", baseValue: 5318.25, color: "hsl(210, 20%, 80%)" },
+  { id: "ustec", name: "US TECH 100 (NASDAQ)", category: "indices", baseValue: 18572.84, color: "hsl(210, 20%, 80%)" },
+  { id: "us30", name: "US 30 (Dow Jones)", category: "indices", baseValue: 39125.15, color: "hsl(210, 20%, 80%)" },
+  { id: "uk100", name: "UK 100 (FTSE 100)", category: "indices", baseValue: 8242.18, color: "hsl(210, 20%, 80%)" },
+  { id: "germany40", name: "Germany 40 (DAX)", category: "indices", baseValue: 18042.35, color: "hsl(210, 20%, 80%)" },
+  { id: "france40", name: "France 40 (CAC 40)", category: "indices", baseValue: 7958.65, color: "hsl(210, 20%, 80%)" },
+  { id: "japan225", name: "Japan 225 (Nikkei)", category: "indices", baseValue: 38242.8, color: "hsl(210, 20%, 80%)" },
+  { id: "australia200", name: "Australia 200 (ASX)", category: "indices", baseValue: 7835.42, color: "hsl(210, 20%, 80%)" },
+  { id: "china50", name: "China 50", category: "indices", baseValue: 11823.15, color: "hsl(210, 20%, 80%)" },
+  { id: "india50", name: "India 50 (Nifty)", category: "indices", baseValue: 22534.8, color: "hsl(210, 20%, 80%)" },
+  { id: "brazil50", name: "Brazil 50 (Bovespa)", category: "indices", baseValue: 125218.65, color: "hsl(210, 20%, 80%)" },
+
+  // Acciones individuales (stocks)
+  { id: "aapl", name: "Apple Inc. (AAPL)", category: "stocks", baseValue: 208.42, color: "hsl(160, 84%, 39%)", icon: <AppleIcon className="w-4 h-4" /> },
+  { id: "nvda", name: "NVIDIA Corp. (NVDA)", category: "stocks", baseValue: 126.26, color: "hsl(160, 84%, 39%)", icon: <NvidiaIcon className="w-4 h-4" /> },
+  { id: "msft", name: "Microsoft Corp. (MSFT)", category: "stocks", baseValue: 428.15, color: "hsl(160, 84%, 39%)", icon: <MicrosoftIcon className="w-4 h-4" /> },
+  { id: "googl", name: "Alphabet Inc. (GOOGL)", category: "stocks", baseValue: 174.38, color: "hsl(160, 84%, 39%)", icon: <GoogleIcon className="w-4 h-4" /> },
+  { id: "amzn", name: "Amazon.com Inc. (AMZN)", category: "stocks", baseValue: 183.95, color: "hsl(160, 84%, 39%)", icon: <AmazonIcon className="w-4 h-4" /> },
+  { id: "meta", name: "Meta Platforms Inc. (META)", category: "stocks", baseValue: 567.33, color: "hsl(160, 84%, 39%)", icon: <MetaIcon className="w-4 h-4" /> },
+  { id: "tsla", name: "Tesla Inc. (TSLA)", category: "stocks", baseValue: 230.82, color: "hsl(160, 84%, 39%)", icon: <TeslaIcon className="w-4 h-4" /> },
+  { id: "adbe", name: "Adobe Inc. (ADBE)", category: "stocks", baseValue: 517.75, color: "hsl(160, 84%, 39%)", icon: <AdobeIcon className="w-4 h-4" /> },
+  { id: "nflx", name: "Netflix Inc. (NFLX)", category: "stocks", baseValue: 762.92, color: "hsl(160, 84%, 39%)", icon: <NetflixIcon className="w-4 h-4" /> },
+  { id: "dis", name: "Walt Disney Co. (DIS)", category: "stocks", baseValue: 114.02, color: "hsl(160, 84%, 39%)", icon: <DisneyIcon className="w-4 h-4" /> },
+  { id: "ko", name: "Coca-Cola Co. (KO)", category: "stocks", baseValue: 65.82, color: "hsl(160, 84%, 39%)", icon: <CocaColaIcon className="w-4 h-4" /> },
+  { id: "pep", name: "PepsiCo Inc. (PEP)", category: "stocks", baseValue: 173.24, color: "hsl(160, 84%, 39%)", icon: <PepsiIcon className="w-4 h-4" /> },
+  { id: "jnj", name: "Johnson & Johnson (JNJ)", category: "stocks", baseValue: 152.31, color: "hsl(160, 84%, 39%)", icon: <JohnsonIcon className="w-4 h-4" /> },
+  { id: "v", name: "Visa Inc. (V)", category: "stocks", baseValue: 276.51, color: "hsl(160, 84%, 39%)", icon: <VisaIcon className="w-4 h-4" /> },
+  { id: "ma", name: "Mastercard Inc. (MA)", category: "stocks", baseValue: 461.16, color: "hsl(160, 84%, 39%)", icon: <MastercardIcon className="w-4 h-4" /> },
 ];
 
 // Time periods
@@ -145,6 +230,7 @@ const generateMarketData = (marketConfig: MarketItem, timeRange: TimeRange) => {
                      timeRange === "24h" ? 24 : 
                      timeRange === "7d" ? 7 : 30;
   
+  // Usar la hora actual exacta del usuario
   const now = new Date();
   const data = [];
   
@@ -152,14 +238,23 @@ const generateMarketData = (marketConfig: MarketItem, timeRange: TimeRange) => {
   let currentValue = marketConfig.baseValue * (1 + (Math.random() * 0.1 - 0.05));
   
   for (let i = dataPoints; i >= 0; i--) {
+    // Crear una nueva fecha exacta para cada punto
     const date = new Date();
     
     if (timeRange === "1h") {
-      date.setMinutes(now.getMinutes() - i);
+      // Para periodos de 1h, ir reduciendo minutos
+      date.setMinutes(date.getMinutes() - i);
+      // Asegurar que incluye segundos exactos
+      date.setSeconds(now.getSeconds());
     } else if (timeRange === "24h") {
-      date.setHours(now.getHours() - i);
+      // Para periodos de 24h, ir reduciendo horas
+      date.setHours(date.getHours() - i);
+    } else if (timeRange === "7d") {
+      // Para periodos de 7d, ir reduciendo días
+      date.setDate(date.getDate() - i);
     } else {
-      date.setDate(now.getDate() - i);
+      // Para periodos de 30d, ir reduciendo días
+      date.setDate(date.getDate() - i);
     }
     
     // Add some randomness to create a realistic looking chart
@@ -184,6 +279,7 @@ const generateCandlestickData = (marketConfig: MarketItem, timeRange: TimeRange)
                     timeRange === "24h" ? 24 : 
                     timeRange === "7d" ? 7 : 30;
   
+  // Usar la hora actual exacta del usuario
   const now = new Date();
   const data: CandlestickDataPoint[] = [];
   
@@ -191,14 +287,23 @@ const generateCandlestickData = (marketConfig: MarketItem, timeRange: TimeRange)
   let currentValue = marketConfig.baseValue * (1 + (Math.random() * 0.1 - 0.05));
   
   for (let i = dataPoints; i >= 0; i--) {
+    // Crear una nueva fecha exacta para cada vela
     const date = new Date();
     
     if (timeRange === "1h") {
-      date.setMinutes(now.getMinutes() - i);
+      // Para periodos de 1h, reducir minutos
+      date.setMinutes(date.getMinutes() - i);
+      // Mantener los mismos segundos que ahora
+      date.setSeconds(now.getSeconds());
     } else if (timeRange === "24h") {
-      date.setHours(now.getHours() - i);
+      // Para periodos de 24h, reducir horas
+      date.setHours(date.getHours() - i);
+    } else if (timeRange === "7d") {
+      // Para periodos de 7d, reducir días
+      date.setDate(date.getDate() - i);
     } else {
-      date.setDate(now.getDate() - i);
+      // Para periodos de 30d, reducir días
+      date.setDate(date.getDate() - i);
     }
     
     // Calculate open, high, low, close
@@ -246,17 +351,134 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
   const [chartData, setChartData] = useState<any[]>([]);
   const [candlestickData, setCandlestickData] = useState<CandlestickDataPoint[]>([]);
   const updateIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [showTradingPanel, setShowTradingPanel] = useState(false);
   
-  // Set client-side rendering flag
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
+  // Estado para controlar si los datos son simulados o reales
+  const [isSimulatedData, setIsSimulatedData] = useState<boolean>(true);
+  
+  // Usar el contexto de posiciones en lugar del estado local
+  const { positions, addPosition, removePosition } = useTradePositions();
+  
+  // Animation ref for trading panel transition
+  const chartHeightRef = useRef<number>(400);
+  const [chartContainerHeight, setChartContainerHeight] = useState<number>(400);
+  
+  // Trading mode toggle
+  const toggleTradingPanel = () => {
+    setShowTradingPanel(!showTradingPanel);
+    
+    // Adjust chart height with animation when trading panel is shown/hidden
+    if (!showTradingPanel) {
+      // Shrink chart when showing trading panel
+      setChartContainerHeight(240);
+    } else {
+      // Restore chart height when hiding trading panel
+      setChartContainerHeight(400);
+    }
+  };
   
   // Current market configuration (memoized)
   const currentMarketConfig = useMemo(() => 
     MARKETS.find(m => m.id === currentMarket) || MARKETS[0], 
     [currentMarket]
   );
+  
+  // Replace random price generation with stable initial value
+  const [currentPrice, setCurrentPrice] = useState(0);
+  
+  // Verificar si los datos son simulados basado en el mercado actual y la configuración
+  useEffect(() => {
+    // Importar FORCE_MOCK_DATA de apiConfig para determinar si estamos en modo simulación
+    import('@/lib/api/apiConfig').then(({ FORCE_MOCK_DATA, NO_WEBSOCKET_SUPPORT }) => {
+      // Los datos son simulados si:
+      // 1. FORCE_MOCK_DATA está activado, o
+      // 2. El mercado actual está en la lista de NO_WEBSOCKET_SUPPORT, o
+      // 3. El mercado es sintético (solo categorías volatility, boom, crash)
+      const syntheticCategories = ['volatility', 'boom', 'crash'];
+      const isSyntheticMarket = syntheticCategories.includes(currentMarketConfig.category);
+      const noWebSocketSupport = NO_WEBSOCKET_SUPPORT.some(id => currentMarketConfig.id.includes(id));
+      
+      // Si es una criptomoneda, forex o índice real, mostrarlo como datos reales
+      const isRealMarketData = !FORCE_MOCK_DATA && 
+                             !isSyntheticMarket && 
+                             !noWebSocketSupport &&
+                             ['cripto', 'forex', 'indices', 'materias-primas'].includes(currentMarketConfig.category);
+      
+      setIsSimulatedData(!isRealMarketData);
+    });
+  }, [currentMarketConfig]);
+
+  // Initialize price after component mounts (client-side only)
+  useEffect(() => {
+    // Set initial price to base value without randomness for initial render
+    setCurrentPrice(currentMarketConfig.baseValue);
+    
+    // After a short delay, start using random values
+    const timer = setTimeout(() => {
+      // Now we can safely use random to adjust the price
+      const randomPrice = Math.round(currentMarketConfig.baseValue * (1 + (Math.random() * 0.05 - 0.025)) * 100) / 100;
+      setCurrentPrice(randomPrice);
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, [currentMarketConfig]);
+  
+  // Handle trade placement and add to open positions
+  const handlePlaceTrade = (direction: 'up' | 'down', stake: number, totalAmount: number, duration: {value: number, unit: 'minute' | 'hour' | 'day'} = {value: 1, unit: 'minute'}) => {
+    // Create new position
+    const newPosition = {
+      marketId: currentMarketConfig.id,
+      marketName: currentMarketConfig.name,
+      marketColor: currentMarketConfig.color,
+      direction,
+      openPrice: currentPrice,
+      currentPrice: currentPrice,
+      amount: totalAmount,
+      stake,
+      openTime: new Date(),
+      duration: duration,
+      profit: 0,
+      profitPercentage: 0,
+    };
+    
+    // Usar el método del contexto para añadir la posición
+    addPosition(newPosition);
+    
+    // Close the trading panel
+    setShowTradingPanel(false);
+  };
+  
+  // Close a position
+  const handleClosePosition = (positionId: string) => {
+    // Usar el método del contexto para eliminar la posición
+    removePosition(positionId);
+  };
+  
+  // Format currency
+  const formatCurrency = (amount: number): string => {
+    return new Intl.NumberFormat('es-CO', {
+      style: 'currency',
+      currency: 'COP',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(amount);
+  };
+  
+  // Calculate the milliseconds for a duration
+  const getDurationInMs = (duration: { value: number; unit: string }): number => {
+    const multipliers: Record<string, number> = {
+      'minute': 60 * 1000,
+      'hour': 60 * 60 * 1000,
+      'day': 24 * 60 * 60 * 1000
+    };
+    
+    return duration.value * (multipliers[duration.unit] || 0);
+  };
+  
+  // Set client-side rendering flag
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
   
   // Generate and update chart data when market or time range changes
   useEffect(() => {
@@ -273,7 +495,7 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
   useEffect(() => {
     if (!realTimeEnabled || !isClient || !currentMarketConfig) return;
     
-    // Clear any existing interval
+    // Clear any existing interval for chart updates
     if (updateIntervalRef.current) {
       clearInterval(updateIntervalRef.current);
     }
@@ -281,7 +503,8 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
     // Create smoother updates with appropriate interval
     const updateInterval = currentMarketConfig.showInRealTime ? 500 : 2000;
     
-    updateIntervalRef.current = setInterval(() => {
+    const chartUpdateInterval = setInterval(() => {
+      // Usar la fecha actual exacta
       const now = new Date();
       
       if (chartType === 'area' || chartType === 'line') {
@@ -295,8 +518,11 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
         const change = (Math.random() * changeMultiplier * 2 - changeMultiplier) * latestValue;
         const newValue = Math.round((latestValue + change) * 100) / 100;
         
-        // Use Unix timestamp for precise time
+        // Use Unix timestamp for precise time - usar el tiempo actual real
         const time = Math.floor(now.getTime() / 1000);
+        
+        // Actualizamos el precio actual del mercado para reflejar el último valor
+        setCurrentPrice(newValue);
         
         // Add new point and remove oldest if needed
         setChartData(prev => {
@@ -332,6 +558,9 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
           const high = Math.round((Math.max(open, close) + highOffset) * 100) / 100;
           const low = Math.round((Math.min(open, close) - lowOffset) * 100) / 100;
           
+          // Actualizamos el precio actual del mercado para reflejar el cierre actual
+          setCurrentPrice(close);
+          
           setCandlestickData(prev => {
             const newData = [...prev, { time, open, high, low, close }];
             const maxPoints = 100;
@@ -348,6 +577,9 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
           const newHigh = Math.max(latestCandle.high, newClose);
           const newLow = Math.min(latestCandle.low, newClose);
           
+          // Actualizamos el precio actual del mercado para reflejar el cierre actual
+          setCurrentPrice(newClose);
+          
           setCandlestickData(prev => {
             const newData = [...prev];
             newData[newData.length - 1] = {
@@ -362,9 +594,13 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
       }
     }, updateInterval);
     
+    // Store reference to clear later
+    updateIntervalRef.current = chartUpdateInterval;
+    
     return () => {
       if (updateIntervalRef.current) {
         clearInterval(updateIntervalRef.current);
+        updateIntervalRef.current = null;
       }
     };
   }, [realTimeEnabled, isClient, currentMarketConfig, chartType, chartData, candlestickData]);
@@ -417,9 +653,15 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
         )} 
           style={{ backgroundColor: market.id === currentMarket ? `${market.color}30` : 'transparent' }}
         >
-          <span className="text-xs font-semibold" style={{ color: market.color }}>
-            {market.label || market.id.substring(0, 3).toUpperCase()}
-          </span>
+          {market.icon ? (
+            <span className="text-xs" style={{ color: market.color }}>
+              {market.icon}
+            </span>
+          ) : (
+            <span className="text-xs font-semibold" style={{ color: market.color }}>
+              {market.label || market.id.substring(0, 3).toUpperCase()}
+            </span>
+          )}
         </div>
         <div className="flex flex-col">
           <span className="text-sm font-medium">{market.name}</span>
@@ -494,28 +736,54 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
   ];
 
   return (
-    <Card className="mb-4">
+    <div className="space-y-4">
+      <Card className="mb-4 overflow-hidden transition-all duration-300">
       <CardHeader className="p-4 pb-0 flex flex-row items-center justify-between">
         <CardTitle className="text-lg font-medium flex items-center gap-2">
           <div 
             className="w-8 h-8 flex items-center justify-center rounded"
             style={{ backgroundColor: currentMarketConfig.color + "20" }}
           >
-            <span 
-              className="font-bold text-sm"
-              style={{ color: currentMarketConfig.color }}
-            >
-              {currentMarketConfig.label || currentMarketConfig.id.substring(0, 3).toUpperCase()}
-            </span>
+            {currentMarketConfig.icon ? (
+              <span style={{ color: currentMarketConfig.color }}>
+                {currentMarketConfig.icon}
+              </span>
+            ) : (
+              <span 
+                className="font-bold text-sm"
+                style={{ color: currentMarketConfig.color }}
+              >
+                {currentMarketConfig.label || currentMarketConfig.id.substring(0, 3).toUpperCase()}
+              </span>
+            )}
           </div>
           <div className="flex flex-col">
+              <div className="flex items-center gap-2">
             <span>{currentMarketConfig.name}</span>
+                {/* Badge para indicar si los datos son reales o simulados */}
+                <Badge 
+                  variant={isSimulatedData ? "secondary" : "default"}
+                  className={cn(
+                    "px-1.5 py-0 text-[10px] font-medium",
+                    isSimulatedData 
+                      ? "bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-500/20" 
+                      : "bg-green-500/20 text-green-700 dark:text-green-400 hover:bg-green-500/20"
+                  )}
+                >
+                  {isSimulatedData ? "SIMULADO" : "DATOS REALES"}
+                </Badge>
+              </div>
             <div className="flex gap-1 items-center">
               {currentMarketConfig.showInRealTime && (
                 <span className="text-xs px-1 py-0.5 rounded bg-red-500 text-white w-fit">1s</span>
               )}
-              <span className="text-xs text-muted-foreground">(Datos simulados)</span>
-            </div>
+                <span className="text-xs text-muted-foreground">
+                  {isSimulatedData 
+                    ? "(Precios generados para fines de demostración)"
+                    : "(Datos de mercado en tiempo real)"
+                  }
+                </span>
+              </div>
           </div>
         </CardTitle>
         <div className="flex items-center gap-2">
@@ -569,9 +837,8 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
                     </div>
                   )}
                   
-                  {/* Categorías (mostrando solo algunas para mejorar rendimiento) */}
+                    {/* Categorías */}
                   {Object.entries(MARKET_CATEGORIES)
-                    .filter(([category]) => ['volatility', 'cripto', 'forex'].includes(category))
                     .map(([category, info]) => {
                       const categoryMarkets = groupedMarkets[category as MarketCategory] || [];
                       if (categoryMarkets.length === 0) return null;
@@ -584,7 +851,19 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
                             {info.name}
                           </DropdownMenuLabel>
                           <DropdownMenuGroup>
-                            {categoryMarkets.map(market => renderMarketItem(market))}
+                              {categoryMarkets.slice(0, 10).map(market => renderMarketItem(market))}
+                              {categoryMarkets.length > 10 && (
+                                <div className="py-1 px-3 text-center">
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="text-xs text-muted-foreground w-full"
+                                    onClick={() => setSearchQuery(info.name.toLowerCase())}
+                                  >
+                                    Ver más ({categoryMarkets.length - 10} mercados)
+                                  </Button>
+                                </div>
+                              )}
                           </DropdownMenuGroup>
                         </div>
                       );
@@ -597,28 +876,28 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
       </CardHeader>
       <CardContent className="p-4">
         <div className="mb-3 flex items-center justify-between">
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* Chart Type Selector */}
-            <div className="flex items-center bg-secondary rounded-md mr-2">
-              {chartTypeOptions.map((type) => (
-                <Button
-                  key={type.id}
-                  variant="ghost"
-                  size="sm"
-                  className={cn(
-                    "h-8 px-2 rounded-md flex items-center gap-1",
-                    chartType === type.id && "bg-muted"
-                  )}
-                  onClick={() => setChartType(type.id as ChartType)}
-                  title={type.label}
-                >
-                  {type.icon}
-                  <span className="hidden sm:inline">{type.label}</span>
-                </Button>
-              ))}
-            </div>
-            
-            {/* Time Range Selector */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Chart Type Selector */}
+              <div className="flex items-center bg-secondary rounded-md mr-2">
+                {chartTypeOptions.map((type) => (
+                  <Button
+                    key={type.id}
+                    variant="ghost"
+                    size="sm"
+                    className={cn(
+                      "h-8 px-2 rounded-md flex items-center gap-1",
+                      chartType === type.id && "bg-muted"
+                    )}
+                    onClick={() => setChartType(type.id as ChartType)}
+                    title={type.label}
+                  >
+                    {type.icon}
+                    <span className="hidden sm:inline">{type.label}</span>
+                  </Button>
+                ))}
+              </div>
+              
+              {/* Time Range Selector */}
             <div className="flex items-center bg-secondary rounded-md">
               {TIME_RANGES.map((range) => (
                 <Button
@@ -647,11 +926,16 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
           </div>
           <div className="flex items-center gap-2">
             <Button 
-              variant="outline" 
+                variant={showTradingPanel ? "default" : "outline"}
               size="sm"
-              className="h-8"
-            >
-              Reset Zoom
+                className={cn(
+                  "h-8 gap-1",
+                  showTradingPanel && "bg-primary"
+                )}
+                onClick={toggleTradingPanel}
+              >
+                <ArrowUpDown className="w-4 h-4" />
+                <span className="hidden sm:inline">Operar</span>
             </Button>
             <Button 
               variant={realTimeEnabled ? "default" : "outline"} 
@@ -667,20 +951,45 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
             </Button>
           </div>
         </div>
-        <div className="h-[400px] w-full border border-border rounded-md p-3 bg-card">
+
+          {/* Chart Container - With animated height transition */}
+          <div 
+            className="w-full border border-border rounded-md p-3 bg-card overflow-hidden transition-all duration-300 ease-in-out" 
+            style={{ height: `${chartContainerHeight}px` }}
+          >
           {isClient ? (
-            <RealTimeMarketChartClient 
-              data={chartType === 'candle' || chartType === 'bar' ? candlestickData : chartData}
-              chartType={chartType}
-              colors={chartColors}
-              height={400}
+              <RealTimeMarketChartClient 
+                data={chartType === 'candle' || chartType === 'bar' ? candlestickData : chartData}
+                chartType={chartType}
+                colors={chartColors}
+                height={chartContainerHeight}
+                isSimulatedData={isSimulatedData}
             />
           ) : (
             <ChartPlaceholder />
           )}
         </div>
+
+          {/* Trading Panel */}
+          <TradeControlPanel 
+            marketName={currentMarketConfig.name}
+            marketPrice={currentPrice}
+            marketColor={currentMarketConfig.color}
+            isVisible={showTradingPanel}
+            onClose={() => setShowTradingPanel(false)}
+            onPlaceTrade={handlePlaceTrade}
+          />
       </CardContent>
     </Card>
+      
+      {/* Open Positions */}
+      {positions.length > 0 && (
+        <OpenPositions 
+          positions={positions}
+          onClosePosition={handleClosePosition}
+        />
+      )}
+    </div>
   );
 };
 

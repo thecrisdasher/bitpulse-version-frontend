@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const path = require('path');
+const { i18n } = require('./next-i18next.config');
 
 const nextConfig = {
   reactStrictMode: false,
@@ -24,6 +25,7 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  i18n,
   webpack: (config, { dev, isServer }) => {
     // Excluir módulos problemáticos
     config.externals = [...(config.externals || []), { canvas: 'canvas' }];

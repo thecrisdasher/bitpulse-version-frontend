@@ -20,6 +20,7 @@ interface ChartProps {
   };
   width?: number;
   height?: number;
+  isSimulatedData?: boolean;
 }
 
 // Format date to YYYY-MM-DD format required by lightweight-charts
@@ -68,11 +69,12 @@ const RealTimeMarketChartClient: React.FC<ChartProps> = ({
   },
   width = 500,
   height = 300,
+  isSimulatedData = false,
 }) => {
   // Refs for elements and chart instance
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<any>(null);
-  const seriesRef = useRef<any>(null);
+  const seriesRef = useRef<any>(null); 
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
   const initializedRef = useRef<boolean>(false);
   const chartTypeRef = useRef<string>(chartType);
@@ -108,7 +110,19 @@ const RealTimeMarketChartClient: React.FC<ChartProps> = ({
         timeScale: {
           borderColor: 'rgba(197, 203, 206, 0.4)',
           timeVisible: true,
-          secondsVisible: false,
+          secondsVisible: true,
+          tickMarkFormatter: (time: any) => {
+            const date = new Date(time * 1000);
+            
+            const timeOptions = {
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit',
+              hour12: false
+            };
+            
+            return date.toLocaleTimeString(navigator.language, timeOptions as Intl.DateTimeFormatOptions);
+          },
         },
         rightPriceScale: {
           borderColor: 'rgba(197, 203, 206, 0.4)',
@@ -125,8 +139,8 @@ const RealTimeMarketChartClient: React.FC<ChartProps> = ({
         case 'line':
           series = chart.addSeries(LineSeries, {
             color: colors.lineColor,
-            lineWidth: 2,
-          });
+        lineWidth: 2,
+      });
           break;
         
         case 'candle':
@@ -167,7 +181,7 @@ const RealTimeMarketChartClient: React.FC<ChartProps> = ({
       // Set initial data if available
       if (data && data.length > 0) {
         series.setData(data);
-        chart.timeScale().fitContent();
+      chart.timeScale().fitContent();
       }
       
       // Setup resize handler
@@ -357,15 +371,41 @@ const RealTimeMarketChartClient: React.FC<ChartProps> = ({
   }, [colors, chartType]);
 
   return (
-    <div 
-      ref={chartContainerRef} 
+      <div 
+        ref={chartContainerRef} 
       style={{ 
         width: '100%', 
         height: '100%',
-        minHeight: '300px'
+        minHeight: '300px',
+        position: 'relative' 
       }}
-    />
+    >
+      {/* Marca de agua para datos simulados */}
+      {isSimulatedData ? (
+        <div 
+          className="absolute bottom-2 right-2 text-xs font-semibold py-1 px-2 rounded 
+                     bg-yellow-500/10 text-yellow-700 dark:text-yellow-400
+                     pointer-events-none z-10 opacity-80 uppercase tracking-wide"
+          style={{
+            backdropFilter: 'blur(2px)'
+          }}
+        >
+          Datos Simulados
+        </div>
+      ) : (
+        <div 
+          className="absolute bottom-2 right-2 text-xs font-semibold py-1 px-2 rounded 
+                     bg-green-500/10 text-green-700 dark:text-green-400
+                     pointer-events-none z-10 opacity-80 uppercase tracking-wide"
+          style={{
+            backdropFilter: 'blur(2px)'
+          }}
+        >
+          Datos Reales
+        </div>
+      )}
+    </div>
   );
 };
 
-export default RealTimeMarketChartClient; 
+export default RealTimeMarketChartClient;
