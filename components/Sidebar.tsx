@@ -1,6 +1,6 @@
 "use client"
 
-import { Home, TrendingUp, BarChart2, PlusCircle, Settings, Wallet, HelpCircle, CandlestickChart, LineChart } from "lucide-react"
+import { Home, TrendingUp, BarChart2, PlusCircle, Settings, Wallet, HelpCircle, CandlestickChart, LineChart, MessageSquare } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { cryptocurrencies } from "@/lib/mockData"
@@ -102,6 +102,18 @@ const Sidebar = () => {
             >
               <BarChart2 size={18} />
               Statistics
+            </Link>
+          </li>
+          <li>
+            <Link 
+              href="/chat" 
+              className={cn(
+                "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+                pathname === "/chat" ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+              )}
+            >
+              <MessageSquare size={18} />
+              Chat en Vivo
             </Link>
           </li>
         </ul>

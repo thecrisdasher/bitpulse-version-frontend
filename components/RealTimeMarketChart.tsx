@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
-import { TrendingUp, TrendingDown, Star, ChevronDown, DollarSign, ArrowUpDown, Layers, ZoomOut, ZoomIn, RefreshCw } from "lucide-react";
+import { TrendingUp, TrendingDown, Star, ChevronDown, DollarSign, ArrowUpDown, Layers, ZoomOut, ZoomIn, RefreshCw, ChevronLeft, ChevronRight, SkipBack, SkipForward, CalendarIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
@@ -39,6 +39,7 @@ import OpenPositions, { TradePosition } from "@/components/OpenPositions";
 import { v4 as uuidv4 } from 'uuid';
 import { useTradePositions } from "@/contexts/TradePositionsContext";
 import { Badge } from "@/components/ui/badge";
+import { useBitstampData } from "@/hooks/useBitstampData";
 import {
   Dialog,
   DialogContent,
@@ -66,6 +67,9 @@ import {
 import {
   Switch,
 } from "@/components/ui/switch";
+import {
+  Calendar,
+} from "@/components/ui/calendar";
 
 // Dynamically import the chart client to avoid SSR issues
 const RealTimeMarketChartClient = dynamic(
@@ -77,6 +81,7 @@ const RealTimeMarketChartClient = dynamic(
 type MarketCategory = "volatility" | "boom" | "crash" | "cripto" | "forex" | "materias-primas" | "indices" | "stocks";
 type TimeRange = "1h" | "24h" | "7d" | "30d";
 type ChartType = "area" | "candle" | "line" | "bar";
+type DataSource = "SIMULADO" | "BITSTAMP" | "COINGECKO" | "BINANCE" | "AUTO";
 
 // Tipos adicionales para los niveles
 interface ChartLevel {
@@ -233,6 +238,48 @@ const TIME_RANGES = [
   { id: "30d" as TimeRange, label: "30D" }, 
 ];
 
+// Data source configurations
+const DATA_SOURCES = [
+  { 
+    id: "AUTO" as DataSource, 
+    label: "Automático", 
+    description: "Selecciona la mejor fuente disponible",
+    icon: "🔄",
+    priority: 1
+  },
+  { 
+    id: "BITSTAMP" as DataSource, 
+    label: "Bitstamp", 
+    description: "Datos reales de Bitstamp (solo criptomonedas)",
+    icon: "₿",
+    priority: 2,
+    supportedCategories: ["cripto"]
+  },
+  { 
+    id: "COINGECKO" as DataSource, 
+    label: "CoinGecko", 
+    description: "Datos de CoinGecko API",
+    icon: "🦎",
+    priority: 3,
+    supportedCategories: ["cripto"]
+  },
+  { 
+    id: "BINANCE" as DataSource, 
+    label: "Binance", 
+    description: "Datos de Binance API",
+    icon: "🟡",
+    priority: 4,
+    supportedCategories: ["cripto"]
+  },
+  { 
+    id: "SIMULADO" as DataSource, 
+    label: "Simulado", 
+    description: "Datos generados para demostración",
+    icon: "🎲",
+    priority: 5
+  }
+];
+
 // Colores predeterminados para niveles
 const LEVEL_COLORS = {
   soporte: "hsl(143, 85%, 52%)",  // Verde para soporte
@@ -279,13 +326,27 @@ const ChartPlaceholder = () => (
 );
 
 // Generate market data based on market configuration and time range
-const generateMarketData = (marketConfig: MarketItem, timeRange: TimeRange) => {
+const generateMarketData = (marketConfig: MarketItem, timeRange: TimeRange, timeOffsetValue: number = 0) => {
   const dataPoints = timeRange === "1h" ? 60 : 
                      timeRange === "24h" ? 24 : 
                      timeRange === "7d" ? 7 : 30;
   
-  // Usar la hora actual exacta del usuario
+  // Usar la hora actual exacta del usuario con offset
   const now = new Date();
+  
+  // Aplicar offset temporal basado en el rango de tiempo
+  if (timeOffsetValue > 0) {
+    if (timeRange === "1h") {
+      now.setMinutes(now.getMinutes() - (timeOffsetValue * 60)); // Retroceder horas
+    } else if (timeRange === "24h") {
+      now.setHours(now.getHours() - (timeOffsetValue * 24)); // Retroceder días
+    } else if (timeRange === "7d") {
+      now.setDate(now.getDate() - (timeOffsetValue * 7)); // Retroceder semanas
+    } else {
+      now.setDate(now.getDate() - (timeOffsetValue * 30)); // Retroceder meses
+    }
+  }
+  
   const data = [];
   
   // Base value with some randomness
@@ -328,13 +389,27 @@ const generateMarketData = (marketConfig: MarketItem, timeRange: TimeRange) => {
 };
 
 // Generate candlestick data
-const generateCandlestickData = (marketConfig: MarketItem, timeRange: TimeRange) => {
+const generateCandlestickData = (marketConfig: MarketItem, timeRange: TimeRange, timeOffsetValue: number = 0) => {
   const dataPoints = timeRange === "1h" ? 60 : 
                     timeRange === "24h" ? 24 : 
                     timeRange === "7d" ? 7 : 30;
   
-  // Usar la hora actual exacta del usuario
+  // Usar la hora actual exacta del usuario con offset
   const now = new Date();
+  
+  // Aplicar offset temporal basado en el rango de tiempo
+  if (timeOffsetValue > 0) {
+    if (timeRange === "1h") {
+      now.setMinutes(now.getMinutes() - (timeOffsetValue * 60)); // Retroceder horas
+    } else if (timeRange === "24h") {
+      now.setHours(now.getHours() - (timeOffsetValue * 24)); // Retroceder días
+    } else if (timeRange === "7d") {
+      now.setDate(now.getDate() - (timeOffsetValue * 7)); // Retroceder semanas
+    } else {
+      now.setDate(now.getDate() - (timeOffsetValue * 30)); // Retroceder meses
+    }
+  }
+  
   const data: CandlestickDataPoint[] = [];
   
   // Base value with some randomness
@@ -407,8 +482,17 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
   const updateIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [showTradingPanel, setShowTradingPanel] = useState(false);
   
+  // Estado para fuente de datos
+  const [dataSource, setDataSource] = useState<DataSource>("AUTO");
+  
   // Estado para controlar si los datos son simulados o reales
   const [isSimulatedData, setIsSimulatedData] = useState<boolean>(true);
+  
+  // Estado para navegación temporal
+  const [timeOffset, setTimeOffset] = useState<number>(0); // Offset en unidades de tiempo hacia atrás
+  const [isHistoricalMode, setIsHistoricalMode] = useState<boolean>(false);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [showCalendar, setShowCalendar] = useState<boolean>(false);
   
   // Usar el contexto de posiciones en lugar del estado local
   const { positions, addPosition, removePosition } = useTradePositions();
@@ -462,46 +546,71 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
     MARKETS.find(m => m.id === currentMarket) || MARKETS[0], 
     [currentMarket]
   );
+
+  // Determinar la fuente de datos efectiva
+  const effectiveDataSource = useMemo(() => {
+    if (dataSource === "AUTO") {
+      // Lógica automática: usar Bitstamp para criptos soportadas, simulado para el resto
+      if (currentMarketConfig.category === "cripto") {
+        return "BITSTAMP";
+      }
+      return "SIMULADO";
+    }
+    
+    // Verificar si la fuente seleccionada soporta la categoría actual
+    const sourceConfig = DATA_SOURCES.find(s => s.id === dataSource);
+    if (sourceConfig?.supportedCategories && 
+        !sourceConfig.supportedCategories.includes(currentMarketConfig.category)) {
+      // Si la fuente no soporta la categoría, usar simulado
+      return "SIMULADO";
+    }
+    
+    return dataSource;
+  }, [dataSource, currentMarketConfig.category]);
+
+  // Hook de Bitstamp (solo se usa cuando la fuente efectiva es Bitstamp)
+  const shouldUseBitstamp = effectiveDataSource === "BITSTAMP";
+  const bitstampData = useBitstampData({
+    symbol: shouldUseBitstamp ? currentMarket : "bitcoin", // Usar un valor por defecto cuando no se necesita
+    timeRange,
+    chartType,
+    realTimeEnabled: shouldUseBitstamp && realTimeEnabled && !isHistoricalMode,
+    timeOffset,
+    isHistoricalMode
+  });
+
+  // Determinar si debemos hacer fallback a datos simulados
+  const shouldFallbackToSimulated = useMemo(() => {
+    return effectiveDataSource === "BITSTAMP" && 
+           bitstampData.error && 
+           !bitstampData.isLoading;
+  }, [effectiveDataSource, bitstampData.error, bitstampData.isLoading]);
   
   // Replace random price generation with stable initial value
   const [currentPrice, setCurrentPrice] = useState(0);
   
-  // Verificar si los datos son simulados basado en el mercado actual y la configuración
+  // Verificar si los datos son simulados basado en la fuente efectiva
   useEffect(() => {
-    // Importar FORCE_MOCK_DATA de apiConfig para determinar si estamos en modo simulación
-    import('@/lib/api/apiConfig').then(({ FORCE_MOCK_DATA, NO_WEBSOCKET_SUPPORT }) => {
-      // Los datos son simulados si:
-      // 1. FORCE_MOCK_DATA está activado, o
-      // 2. El mercado actual está en la lista de NO_WEBSOCKET_SUPPORT, o
-      // 3. El mercado es sintético (solo categorías volatility, boom, crash)
-      const syntheticCategories = ['volatility', 'boom', 'crash'];
-      const isSyntheticMarket = syntheticCategories.includes(currentMarketConfig.category);
-      const noWebSocketSupport = NO_WEBSOCKET_SUPPORT.some(id => currentMarketConfig.id.includes(id));
-      
-      // Si es una criptomoneda, forex o índice real, mostrarlo como datos reales
-      const isRealMarketData = !FORCE_MOCK_DATA && 
-                             !isSyntheticMarket && 
-                             !noWebSocketSupport &&
-                             ['cripto', 'forex', 'indices', 'materias-primas'].includes(currentMarketConfig.category);
-      
-      setIsSimulatedData(!isRealMarketData);
-    });
-  }, [currentMarketConfig]);
+    // Los datos son simulados si la fuente es SIMULADO o si hay fallback
+    const isSimulated = effectiveDataSource === "SIMULADO" || Boolean(shouldFallbackToSimulated);
+    setIsSimulatedData(isSimulated);
+  }, [effectiveDataSource, shouldFallbackToSimulated]);
 
   // Initialize price after component mounts (client-side only)
   useEffect(() => {
-    // Set initial price to base value without randomness for initial render
-    setCurrentPrice(currentMarketConfig.baseValue);
-    
-    // After a short delay, start using random values
-    const timer = setTimeout(() => {
-      // Now we can safely use random to adjust the price
-      const randomPrice = Math.round(currentMarketConfig.baseValue * (1 + (Math.random() * 0.05 - 0.025)) * 100) / 100;
-      setCurrentPrice(randomPrice);
-    }, 100);
-    
-    return () => clearTimeout(timer);
-  }, [currentMarketConfig]);
+    if (!shouldUseBitstamp) {
+      // Solo establecer precio inicial para datos simulados
+      setCurrentPrice(currentMarketConfig.baseValue);
+      
+      // After a short delay, start using random values
+      const timer = setTimeout(() => {
+        const randomPrice = Math.round(currentMarketConfig.baseValue * (1 + (Math.random() * 0.05 - 0.025)) * 100) / 100;
+        setCurrentPrice(randomPrice);
+      }, 100);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [currentMarketConfig.baseValue, shouldUseBitstamp]);
   
   // Handle trade placement and add to open positions
   const handlePlaceTrade = (direction: 'up' | 'down', stake: number, totalAmount: number, duration: {value: number, unit: 'minute' | 'hour' | 'day'} = {value: 1, unit: 'minute'}) => {
@@ -562,18 +671,46 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
   
   // Generate and update chart data when market or time range changes
   useEffect(() => {
-    if (isClient && currentMarketConfig) {
-      const newData = generateMarketData(currentMarketConfig, timeRange);
+    if (!isClient || !currentMarketConfig) return;
+
+    if (shouldUseBitstamp && bitstampData.isSupported && !shouldFallbackToSimulated) {
+      // Usar datos de Bitstamp solo si están disponibles y no hay errores
+      if (!bitstampData.isLoading && !bitstampData.error && bitstampData.data.length > 0) {
+        setChartData(bitstampData.data);
+        setCandlestickData(bitstampData.candlestickData);
+        if (bitstampData.currentPrice > 0) {
+          setCurrentPrice(bitstampData.currentPrice);
+        }
+      }
+    } else {
+      // Usar datos simulados (fallback o por defecto)
+      const newData = generateMarketData(currentMarketConfig, timeRange, timeOffset);
       setChartData(newData);
       
-      const newCandleData = generateCandlestickData(currentMarketConfig, timeRange);
+      const newCandleData = generateCandlestickData(currentMarketConfig, timeRange, timeOffset);
       setCandlestickData(newCandleData);
+      
+      // Establecer precio inicial para datos simulados
+      if (newData.length > 0) {
+        setCurrentPrice(newData[newData.length - 1].value);
+      }
     }
-  }, [isClient, currentMarketConfig, timeRange, generateCandlestickData]);
+  }, [
+    isClient, 
+    currentMarketConfig.id, 
+    timeRange, 
+    timeOffset, 
+    shouldUseBitstamp,
+    shouldFallbackToSimulated,
+    bitstampData.isLoading, 
+    bitstampData.error, 
+    bitstampData.data.length,
+    bitstampData.currentPrice
+  ]);
   
-  // Update data in real-time if enabled with more fluid updates
+  // Update data in real-time if enabled with more fluid updates (solo para datos simulados)
   useEffect(() => {
-    if (!realTimeEnabled || !isClient || !currentMarketConfig) return;
+    if (!realTimeEnabled || !isClient || !currentMarketConfig || isHistoricalMode || shouldUseBitstamp) return;
     
     // Clear any existing interval for chart updates
     if (updateIntervalRef.current) {
@@ -602,7 +739,7 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
         const time = Math.floor(now.getTime() / 1000);
         
         // Actualizamos el precio actual del mercado para reflejar el último valor
-        setCurrentPrice(newValue);
+        setCurrentPrice(prevPrice => newValue);
         
         // Add new point and remove oldest if needed
         setChartData(prev => {
@@ -639,7 +776,7 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
           const low = Math.round((Math.min(open, close) - lowOffset) * 100) / 100;
           
           // Actualizamos el precio actual del mercado para reflejar el cierre actual
-          setCurrentPrice(close);
+          setCurrentPrice(prevPrice => close);
           
           setCandlestickData(prev => {
             const newData = [...prev, { time, open, high, low, close }];
@@ -658,7 +795,7 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
           const newLow = Math.min(latestCandle.low, newClose);
           
           // Actualizamos el precio actual del mercado para reflejar el cierre actual
-          setCurrentPrice(newClose);
+          setCurrentPrice(prevPrice => newClose);
           
           setCandlestickData(prev => {
             const newData = [...prev];
@@ -683,7 +820,7 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
         updateIntervalRef.current = null;
       }
     };
-  }, [realTimeEnabled, isClient, currentMarketConfig, chartType, chartData, candlestickData]);
+  }, [realTimeEnabled, isClient, currentMarketConfig, chartType, chartData, candlestickData, isHistoricalMode]);
   
   // Filtered markets by search (memoized)
   const filteredMarkets = useMemo(() => 
@@ -712,7 +849,13 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
   // Handle time range change (memoized)
   const handleTimeRangeChange = useCallback((range: TimeRange) => {
     setTimeRange(range);
-  }, []);
+    // Resetear al presente cuando se cambia el rango de tiempo para evitar inconsistencias
+    if (isHistoricalMode) {
+      setTimeOffset(0);
+      setIsHistoricalMode(false);
+      setSelectedDate(undefined);
+    }
+  }, [isHistoricalMode]);
 
   // Toggle price levels (memoized)
   const togglePriceLevels = useCallback(() => {
@@ -881,6 +1024,133 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
     }
   }, [resetZoomRef]);
 
+  // Funciones de navegación temporal
+  const handleTimeNavigation = useCallback((direction: 'back' | 'forward') => {
+    setTimeOffset(prev => {
+      const newOffset = direction === 'back' ? prev + 1 : Math.max(0, prev - 1);
+      setIsHistoricalMode(newOffset > 0);
+      
+      // Actualizar la fecha seleccionada basada en el nuevo offset
+      if (newOffset === 0) {
+        setSelectedDate(undefined);
+      } else {
+        const newDate = new Date();
+        if (timeRange === "1h") {
+          newDate.setHours(newDate.getHours() - newOffset);
+        } else if (timeRange === "24h") {
+          newDate.setDate(newDate.getDate() - newOffset);
+        } else if (timeRange === "7d") {
+          newDate.setDate(newDate.getDate() - (newOffset * 7));
+        } else {
+          newDate.setDate(newDate.getDate() - (newOffset * 30));
+        }
+        setSelectedDate(newDate);
+      }
+      
+      return newOffset;
+    });
+  }, [timeRange]);
+
+  const handleGoToPresent = useCallback(() => {
+    setTimeOffset(0);
+    setIsHistoricalMode(false);
+    setSelectedDate(undefined);
+    setShowCalendar(false);
+  }, []);
+
+  const handleJumpBack = useCallback(() => {
+    setTimeOffset(prev => {
+      const newOffset = prev + 5; // Saltar 5 unidades hacia atrás
+      setIsHistoricalMode(true);
+      
+      // Actualizar la fecha seleccionada
+      const newDate = new Date();
+      if (timeRange === "1h") {
+        newDate.setHours(newDate.getHours() - newOffset);
+      } else if (timeRange === "24h") {
+        newDate.setDate(newDate.getDate() - newOffset);
+      } else if (timeRange === "7d") {
+        newDate.setDate(newDate.getDate() - (newOffset * 7));
+      } else {
+        newDate.setDate(newDate.getDate() - (newOffset * 30));
+      }
+      setSelectedDate(newDate);
+      
+      return newOffset;
+    });
+  }, [timeRange]);
+
+  // Función para navegar a una fecha específica
+  const handleDateSelect = useCallback((date: Date | undefined) => {
+    if (!date) return;
+    
+    const now = new Date();
+    const diffInMs = now.getTime() - date.getTime();
+    
+    // Calcular el offset basado en el rango de tiempo actual
+    let newOffset = 0;
+    if (timeRange === "1h") {
+      newOffset = Math.floor(diffInMs / (60 * 60 * 1000)); // Diferencia en horas
+    } else if (timeRange === "24h") {
+      newOffset = Math.floor(diffInMs / (24 * 60 * 60 * 1000)); // Diferencia en días
+    } else if (timeRange === "7d") {
+      newOffset = Math.floor(diffInMs / (7 * 24 * 60 * 60 * 1000)); // Diferencia en semanas
+    } else {
+      newOffset = Math.floor(diffInMs / (30 * 24 * 60 * 60 * 1000)); // Diferencia en meses
+    }
+    
+    // Solo permitir fechas en el pasado
+    if (newOffset > 0) {
+      setTimeOffset(newOffset);
+      setIsHistoricalMode(true);
+      setSelectedDate(date);
+    }
+    
+    setShowCalendar(false);
+  }, [timeRange]);
+
+  // Función para obtener la fecha actual basada en el offset
+  const getCurrentDisplayDate = useCallback(() => {
+    if (timeOffset === 0) return new Date();
+    
+    const now = new Date();
+    if (timeRange === "1h") {
+      now.setHours(now.getHours() - timeOffset);
+    } else if (timeRange === "24h") {
+      now.setDate(now.getDate() - timeOffset);
+    } else if (timeRange === "7d") {
+      now.setDate(now.getDate() - (timeOffset * 7));
+    } else {
+      now.setDate(now.getDate() - (timeOffset * 30));
+    }
+    return now;
+  }, [timeOffset, timeRange]);
+
+  // Función para formatear la fecha de visualización
+  const formatDisplayDate = useCallback((date: Date) => {
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+    
+    if (isToday) {
+      return "Hoy";
+    }
+    
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const isYesterday = date.toDateString() === yesterday.toDateString();
+    
+    if (isYesterday) {
+      return "Ayer";
+    }
+    
+    // Para fechas más antiguas, mostrar fecha completa
+    return date.toLocaleDateString('es-ES', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  }, []);
+
   return (
     <div className="space-y-4">
       <Card className="mb-4 overflow-hidden transition-all duration-300">
@@ -906,17 +1176,22 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
           <div className="flex flex-col">
               <div className="flex items-center gap-2">
             <span>{currentMarketConfig.name}</span>
-                {/* Badge para indicar si los datos son reales o simulados */}
+                {/* Badge para indicar la fuente de datos actual */}
                 <Badge 
                   variant={isSimulatedData ? "secondary" : "default"}
                   className={cn(
                     "px-1.5 py-0 text-[10px] font-medium",
-                    isSimulatedData 
+                    isSimulatedData
                       ? "bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-500/20" 
+                      : effectiveDataSource === "BITSTAMP"
+                      ? "bg-blue-500/20 text-blue-700 dark:text-blue-400 hover:bg-blue-500/20"
                       : "bg-green-500/20 text-green-700 dark:text-green-400 hover:bg-green-500/20"
                   )}
                 >
-                  {isSimulatedData ? "SIMULADO" : "DATOS REALES"}
+                  {shouldFallbackToSimulated 
+                    ? "SIMULADO (FALLBACK)" 
+                    : DATA_SOURCES.find(s => s.id === effectiveDataSource)?.label.toUpperCase()
+                  }
                 </Badge>
               </div>
             <div className="flex gap-1 items-center">
@@ -924,10 +1199,16 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
                 <span className="text-xs px-1 py-0.5 rounded bg-red-500 text-white w-fit">1s</span>
               )}
                 <span className="text-xs text-muted-foreground">
-                  {isSimulatedData 
+                  {shouldFallbackToSimulated
+                    ? "(Fallback a datos simulados - Error en Bitstamp)"
+                    : isSimulatedData 
                     ? "(Precios generados para fines de demostración)"
+                    : effectiveDataSource === "BITSTAMP"
+                    ? "(Datos reales de Bitstamp Exchange)"
                     : "(Datos de mercado en tiempo real)"
                   }
+                  {effectiveDataSource === "BITSTAMP" && bitstampData.isLoading && " - Cargando..."}
+                  {effectiveDataSource === "BITSTAMP" && bitstampData.error && !shouldFallbackToSimulated && " - Error de conexión"}
                 </span>
             </div>
           </div>
@@ -1023,6 +1304,77 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
       <CardContent className="p-4">
         <div className="mb-3 flex items-center justify-between">
             <div className="flex items-center gap-2 flex-wrap">
+              {/* Data Source Selector */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-8 gap-1">
+                    <span className="text-sm">
+                      {DATA_SOURCES.find(s => s.id === effectiveDataSource)?.icon}
+                    </span>
+                    <span className="hidden sm:inline">
+                      {DATA_SOURCES.find(s => s.id === effectiveDataSource)?.label}
+                    </span>
+                    <span className="sm:hidden">Fuente</span>
+                    <ChevronDown className="h-3 w-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-64">
+                  <DropdownMenuLabel>Fuente de Datos</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {DATA_SOURCES.map((source) => {
+                    const isSupported = !source.supportedCategories || 
+                                      source.supportedCategories.includes(currentMarketConfig.category);
+                    const isSelected = dataSource === source.id;
+                    const isEffective = effectiveDataSource === source.id;
+                    
+                    return (
+                      <DropdownMenuItem
+                        key={source.id}
+                        onClick={() => setDataSource(source.id)}
+                        disabled={!isSupported}
+                        className={cn(
+                          "flex flex-col items-start gap-1 p-3",
+                          isSelected && "bg-accent",
+                          !isSupported && "opacity-50"
+                        )}
+                      >
+                        <div className="flex items-center gap-2 w-full">
+                          <span className="text-base">{source.icon}</span>
+                          <span className="font-medium">{source.label}</span>
+                          {isSelected && <Badge variant="secondary" className="ml-auto text-xs">Seleccionado</Badge>}
+                          {isEffective && !isSelected && <Badge variant="outline" className="ml-auto text-xs">Activo</Badge>}
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          {source.description}
+                        </span>
+                        {!isSupported && (
+                          <span className="text-xs text-red-500">
+                            No compatible con {MARKET_CATEGORIES[currentMarketConfig.category].name}
+                          </span>
+                        )}
+                      </DropdownMenuItem>
+                    );
+                  })}
+                  <DropdownMenuSeparator />
+                  <div className="p-2 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-1 mb-1">
+                      <span className="font-medium">Fuente actual:</span>
+                      <span>{DATA_SOURCES.find(s => s.id === effectiveDataSource)?.label}</span>
+                    </div>
+                    {effectiveDataSource === "BITSTAMP" && bitstampData.lastUpdate && (
+                      <div className="text-xs text-green-600">
+                        Última actualización: {bitstampData.lastUpdate.toLocaleTimeString()}
+                      </div>
+                    )}
+                    {effectiveDataSource === "BITSTAMP" && bitstampData.error && (
+                      <div className="text-xs text-red-500">
+                        Error: {bitstampData.error}
+                      </div>
+                    )}
+                  </div>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
               {/* Chart Type Selector */}
               <div className="flex items-center bg-secondary rounded-md mr-2">
                 {chartTypeOptions.map((type) => (
@@ -1084,11 +1436,12 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
                 <span className="hidden sm:inline">Operar</span>
             </Button>
             <Button
-              variant={realTimeEnabled ? "default" : "outline"}
+              variant={realTimeEnabled && !isHistoricalMode ? "default" : "outline"}
               size="sm"
               onClick={toggleRealTime}
               className="gap-1 h-8"
-              title={realTimeEnabled ? "Desactivar tiempo real" : "Activar tiempo real"}
+              title={isHistoricalMode ? "No disponible en modo histórico" : (realTimeEnabled ? "Desactivar tiempo real" : "Activar tiempo real")}
+              disabled={isHistoricalMode}
             >
               <span className={cn(
                 "relative flex h-2 w-2 mr-1",
@@ -1106,16 +1459,186 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
               <span>Tiempo real</span>
             </Button>
             
-            {/* Botón para resetear zoom */}
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-8 w-8"
-              onClick={handleResetZoom}
-              title="Resetear zoom"
-            >
-              <RefreshCw className="h-4 w-4" />
-            </Button>
+            {/* Controles de navegación temporal */}
+            <div className="flex items-center border rounded-md">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 rounded-none border-r"
+                onClick={handleJumpBack}
+                title="Saltar 5 períodos atrás"
+                disabled={false}
+              >
+                <SkipBack className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 rounded-none border-r"
+                onClick={() => handleTimeNavigation('back')}
+                title="Ir un período atrás"
+                disabled={false}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 rounded-none border-r"
+                onClick={() => handleTimeNavigation('forward')}
+                title="Ir un período adelante"
+                disabled={timeOffset === 0}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 rounded-none"
+                onClick={handleGoToPresent}
+                title="Ir al presente"
+                disabled={timeOffset === 0}
+              >
+                <SkipForward className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {/* Selector de fecha histórica */}
+            <Popover open={showCalendar} onOpenChange={setShowCalendar}>
+              <PopoverTrigger asChild>
+                                  <Button
+                    variant={isHistoricalMode ? "default" : "outline"}
+                    size="sm"
+                    className={cn(
+                      "gap-2 h-8 relative",
+                      isHistoricalMode && "bg-orange-500/20 text-orange-700 dark:text-orange-400 hover:bg-orange-500/30"
+                    )}
+                    title="Seleccionar fecha específica"
+                  >
+                  <CalendarIcon className="h-4 w-4" />
+                  <span className="text-xs">
+                    {isHistoricalMode 
+                      ? formatDisplayDate(getCurrentDisplayDate())
+                      : "Fecha"
+                    }
+                  </span>
+                  {isHistoricalMode && (
+                    <span className="text-xs opacity-70">(-{timeOffset})</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                <div className="p-3">
+                  <div className="space-y-3">
+                    <div className="text-sm font-medium">Navegar a fecha específica</div>
+                    <div className="text-xs text-muted-foreground">
+                      Selecciona una fecha para ver los datos históricos del mercado
+                    </div>
+                    
+                    {/* Atajos rápidos */}
+                    <div className="grid grid-cols-2 gap-1 mb-3">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => {
+                          const yesterday = new Date();
+                          yesterday.setDate(yesterday.getDate() - 1);
+                          handleDateSelect(yesterday);
+                        }}
+                      >
+                        Ayer
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => {
+                          const lastWeek = new Date();
+                          lastWeek.setDate(lastWeek.getDate() - 7);
+                          handleDateSelect(lastWeek);
+                        }}
+                      >
+                        Hace 1 semana
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => {
+                          const lastMonth = new Date();
+                          lastMonth.setMonth(lastMonth.getMonth() - 1);
+                          handleDateSelect(lastMonth);
+                        }}
+                      >
+                        Hace 1 mes
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => {
+                          const lastYear = new Date();
+                          lastYear.setFullYear(lastYear.getFullYear() - 1);
+                          handleDateSelect(lastYear);
+                        }}
+                      >
+                        Hace 1 año
+                      </Button>
+                    </div>
+
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate || getCurrentDisplayDate()}
+                      onSelect={handleDateSelect}
+                      disabled={(date) => date > new Date() || date < new Date('2020-01-01')}
+                      initialFocus
+                      className="rounded-md border"
+                    />
+                    
+                    <div className="flex items-center justify-between pt-2 border-t">
+                      <div className="text-xs text-muted-foreground">
+                        Rango: {timeRange === "1h" ? "Horas" : timeRange === "24h" ? "Días" : timeRange === "7d" ? "Semanas" : "Meses"}
+                      </div>
+                      {isHistoricalMode && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleGoToPresent}
+                          className="h-7 text-xs"
+                        >
+                          Ir al presente
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            {/* Botón para actualizar datos (Bitstamp) o resetear zoom */}
+            {effectiveDataSource === "BITSTAMP" ? (
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={bitstampData.refreshData}
+                title="Actualizar datos de Bitstamp"
+                disabled={bitstampData.isLoading}
+              >
+                <RefreshCw className={cn("h-4 w-4", bitstampData.isLoading && "animate-spin")} />
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={handleResetZoom}
+                title="Resetear zoom"
+              >
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         </div>
 
@@ -1125,6 +1648,37 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
             style={{ height: `${chartContainerHeight}px` }}
           >
           {isClient ? (
+            effectiveDataSource === "BITSTAMP" && bitstampData.isLoading ? (
+              <div className="w-full h-full bg-muted/30 animate-pulse rounded-md flex flex-col items-center justify-center">
+                <div className="text-center p-6 max-w-md">
+                  <div className="text-xl font-semibold mb-2">Conectando con Bitstamp...</div>
+                  <div className="text-sm text-muted-foreground mb-4">
+                    Obteniendo datos reales de {currentMarketConfig.name}
+                  </div>
+                  <div className="w-full h-2 bg-muted/50 rounded overflow-hidden">
+                    <div className="h-full bg-blue-500/60 animate-[grow_2s_ease-in-out_infinite]" style={{width: '70%'}}/>
+                  </div>
+                </div>
+              </div>
+            ) : effectiveDataSource === "BITSTAMP" && bitstampData.error ? (
+              <div className="w-full h-full bg-muted/30 rounded-md flex flex-col items-center justify-center">
+                <div className="text-center p-6 max-w-md">
+                  <div className="text-xl font-semibold mb-2 text-red-500">Error de conexión</div>
+                  <div className="text-sm text-muted-foreground mb-4">
+                    {bitstampData.error}
+                  </div>
+                  <Button 
+                    onClick={bitstampData.refreshData}
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                    Reintentar
+                  </Button>
+                </div>
+              </div>
+            ) : (
               <RealTimeMarketChartClient 
                 data={chartType === 'candle' || chartType === 'bar' ? candlestickData : chartData}
                 chartType={chartType}
@@ -1135,6 +1689,7 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
                 showLevels={showLevels}
                 onReady={handleChartReady}
               />
+            )
           ) : (
             <ChartPlaceholder />
           )}

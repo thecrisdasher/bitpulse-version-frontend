@@ -264,9 +264,20 @@ export const apiClient = {
               backoff = HTTP_CONFIG.INITIAL_BACKOFF;
               
               if (nextProvider === 'MOCK') {
-                const mockError: RetryableError = new Error('Se necesitan datos simulados');
-                mockError.isRetryable = false;
-                throw mockError;
+                console.log('Cambiando a datos simulados para', instrument || category);
+                
+                // Importar el servicio de datos simulados
+                const { getMockMarketData } = await import('../services/mockDataService');
+                const mockData = getMockMarketData(instrument || category || 'BTC');
+                
+                // Crear una respuesta simulada en formato fetch
+                const mockResponse = new Response(JSON.stringify(mockData), {
+                  status: 200,
+                  statusText: 'OK',
+                  headers: { 'Content-Type': 'application/json' }
+                });
+                
+                return await createAxiosResponseFromFetch(mockResponse, config);
               }
               
               continue;
@@ -354,13 +365,25 @@ export const apiClient = {
           retries = HTTP_CONFIG.RETRY_ATTEMPTS;
           backoff = HTTP_CONFIG.INITIAL_BACKOFF;
           
-          // Si el siguiente proveedor es MOCK, lanzar un error especial
+          // Si el siguiente proveedor es MOCK, usar datos simulados
           if (nextProvider === 'MOCK') {
             console.log('Cambiando a datos simulados para', instrument || category);
-            const mockError: RetryableError = new Error('Se necesitan datos simulados');
-            mockError.isRetryable = false;
-            mockError.originalError = axiosError;
-            throw mockError;
+            
+            // Importar el servicio de datos simulados
+            const { getMockMarketData } = await import('../services/mockDataService');
+            const mockData = getMockMarketData(instrument || category || 'BTC');
+            
+            // Crear una respuesta simulada en formato axios
+            const mockResponse: AxiosResponse = {
+              data: mockData,
+              status: 200,
+              statusText: 'OK',
+              headers: {},
+              config: config as any,
+              request: {}
+            };
+            
+            return mockResponse;
           }
           
           continue;

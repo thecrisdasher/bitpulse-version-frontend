@@ -14,6 +14,7 @@ export const API_KEYS = {
 export const API_URLS = {
   COIN_GECKO: 'https://api.coingecko.com/api/v3',
   BINANCE: 'https://api.binance.com',
+  BITSTAMP: 'https://www.bitstamp.net/api/v2',
   TWELVE_DATA: 'https://api.twelvedata.com',
   COINCAP: 'https://api.coincap.io/v2',
   ALPHA_VANTAGE: 'https://www.alphavantage.co/query',
@@ -26,6 +27,7 @@ export const API_URLS = {
 export const PROXY_URLS = {
   COIN_GECKO: '/proxy/coingecko',
   BINANCE: '/proxy/binance',
+  BITSTAMP: '/proxy/bitstamp',
   TWELVE_DATA: '/proxy/twelvedata',
   COINCAP: '/proxy/coincap',
   POLYGON_IO: '/proxy/polygon',
@@ -53,7 +55,7 @@ export const WEBSOCKET_CONFIG = {
 
 // APIs a usar por tipo de instrumento
 export const API_PROVIDERS = {
-  CRYPTO: ['COIN_GECKO', 'COINCAP', 'BINANCE', 'MOCK'],
+  CRYPTO: ['BITSTAMP', 'COIN_GECKO', 'COINCAP', 'BINANCE', 'MOCK'],
   FOREX: ['TWELVE_DATA', 'ALPHA_VANTAGE', 'YAHOO_FINANCE', 'MOCK'],
   INDICES: ['TWELVE_DATA', 'POLYGON_IO', 'YAHOO_FINANCE', 'MOCK'],
   COMMODITIES: ['TWELVE_DATA', 'ALPHA_VANTAGE', 'YAHOO_FINANCE', 'MOCK'],
@@ -64,10 +66,21 @@ export const API_PROVIDERS = {
 // Mapeo de instrumentos específicos a proveedores preferenciales
 export const INSTRUMENT_API_MAPPING: Record<string, string[]> = {
   // Criptomonedas
-  'BTC': ['BINANCE', 'COIN_GECKO', 'MOCK'],
-  'ETH': ['BINANCE', 'COIN_GECKO', 'MOCK'],
-  'BTC/USD': ['BINANCE', 'COIN_GECKO', 'MOCK'],
-  'ETH/USD': ['BINANCE', 'COIN_GECKO', 'MOCK'],
+  'bitcoin': ['BITSTAMP', 'COIN_GECKO', 'BINANCE', 'MOCK'],
+  'ethereum': ['BITSTAMP', 'COIN_GECKO', 'BINANCE', 'MOCK'],
+  'litecoin': ['BITSTAMP', 'COIN_GECKO', 'BINANCE', 'MOCK'],
+  'ripple': ['BITSTAMP', 'COIN_GECKO', 'BINANCE', 'MOCK'],
+  'bitcoin-cash': ['BITSTAMP', 'COIN_GECKO', 'BINANCE', 'MOCK'],
+  'cardano': ['BITSTAMP', 'COIN_GECKO', 'BINANCE', 'MOCK'],
+  'polkadot': ['BITSTAMP', 'COIN_GECKO', 'BINANCE', 'MOCK'],
+  'solana': ['BITSTAMP', 'COIN_GECKO', 'BINANCE', 'MOCK'],
+  'dogecoin': ['BITSTAMP', 'COIN_GECKO', 'BINANCE', 'MOCK'],
+  'chainlink': ['BITSTAMP', 'COIN_GECKO', 'BINANCE', 'MOCK'],
+  'polygon': ['BITSTAMP', 'COIN_GECKO', 'BINANCE', 'MOCK'],
+  'BTC': ['BITSTAMP', 'COIN_GECKO', 'BINANCE', 'MOCK'],
+  'ETH': ['BITSTAMP', 'COIN_GECKO', 'BINANCE', 'MOCK'],
+  'BTC/USD': ['BITSTAMP', 'COIN_GECKO', 'BINANCE', 'MOCK'],
+  'ETH/USD': ['BITSTAMP', 'COIN_GECKO', 'BINANCE', 'MOCK'],
   // Forex
   'EUR/USD': ['TWELVE_DATA', 'YAHOO_FINANCE', 'MOCK'],
   // Índices
