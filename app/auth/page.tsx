@@ -173,39 +173,41 @@ export default function AuthPage() {
             </motion.div>
 
             {/* Form content with enhanced page transitions */}
-            <AnimatePresence mode="wait">
-              <TabsContent value="login" className="space-y-4">
-                <motion.div
-                  key="login"
-                  initial={{ opacity: 0, x: activeTab === 'login' ? 0 : -30, rotateY: -5 }}
-                  animate={{ opacity: 1, x: 0, rotateY: 0 }}
-                  exit={{ opacity: 0, x: 30, rotateY: 5 }}
-                  transition={{ 
-                    duration: 0.4, 
-                    ease: [0.4, 0, 0.2, 1],
-                    staggerChildren: 0.05
-                  }}
-                >
-                  <LoginForm />
-                </motion.div>
-              </TabsContent>
-
-              <TabsContent value="register" className="space-y-4">
-                <motion.div
-                  key="register"
-                  initial={{ opacity: 0, x: activeTab === 'register' ? 0 : 30, rotateY: 5 }}
-                  animate={{ opacity: 1, x: 0, rotateY: 0 }}
-                  exit={{ opacity: 0, x: -30, rotateY: -5 }}
-                  transition={{ 
-                    duration: 0.4, 
-                    ease: [0.4, 0, 0.2, 1],
-                    staggerChildren: 0.05
-                  }}
-                >
-                  <RegisterForm />
-                </motion.div>
-              </TabsContent>
-            </AnimatePresence>
+            <div className="space-y-4">
+              <AnimatePresence mode="wait">
+                {activeTab === 'login' && (
+                  <motion.div
+                    key="login-form"
+                    initial={{ opacity: 0, x: -30, rotateY: -5 }}
+                    animate={{ opacity: 1, x: 0, rotateY: 0 }}
+                    exit={{ opacity: 0, x: 30, rotateY: 5 }}
+                    transition={{ 
+                      duration: 0.4, 
+                      ease: [0.4, 0, 0.2, 1],
+                      staggerChildren: 0.05
+                    }}
+                  >
+                    <LoginForm />
+                  </motion.div>
+                )}
+                
+                {activeTab === 'register' && (
+                  <motion.div
+                    key="register-form"
+                    initial={{ opacity: 0, x: 30, rotateY: 5 }}
+                    animate={{ opacity: 1, x: 0, rotateY: 0 }}
+                    exit={{ opacity: 0, x: -30, rotateY: -5 }}
+                    transition={{ 
+                      duration: 0.4, 
+                      ease: [0.4, 0, 0.2, 1],
+                      staggerChildren: 0.05
+                    }}
+                  >
+                    <RegisterForm />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </Tabs>
 
           {/* Decorative bottom element */}

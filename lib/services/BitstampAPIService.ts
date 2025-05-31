@@ -161,13 +161,13 @@ export class BitstampAPIService {
         // If 404, try the old endpoint
         if (error.message?.includes('404')) {
           console.log('New endpoint failed, trying legacy endpoint...');
-          return await this.makeRequest({
-            endpoint: `/ohlc/${symbol.toLowerCase()}/`,
-            params: {
-              step: step.toString(),
-              limit: limit.toString()
-            }
-          });
+      return await this.makeRequest({
+        endpoint: `/ohlc/${symbol.toLowerCase()}/`,
+        params: {
+          step: step.toString(),
+          limit: limit.toString()
+        }
+      });
         }
         throw error;
       }
