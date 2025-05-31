@@ -4,6 +4,8 @@ import { Inter } from "next/font/google"
 import type React from "react"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/toaster"
+import { Toaster as SonnerToaster } from "sonner"
+import { AuthProvider } from "@/contexts/AuthContext"
 import { TradePositionsProvider } from "@/contexts/TradePositionsContext"
 import { LanguageProvider } from "@/contexts/LanguageContext"
 import { languages } from "./i18n/settings"
@@ -12,7 +14,7 @@ const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "BitPulse Trading",
-  description: "La plataforma de trading más moderna",
+  description: "La plataforma de trading más moderna con autenticación segura",
   generator: 'v0.dev'
 }
 
@@ -34,10 +36,18 @@ export default function RootLayout({
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <LanguageProvider initialLocale={lng as 'es' | 'en'}>
-            <TradePositionsProvider>
-              {children}
-              <Toaster />
-            </TradePositionsProvider>
+            <AuthProvider>
+              <TradePositionsProvider>
+                {children}
+                <Toaster />
+                <SonnerToaster 
+                  position="top-right"
+                  richColors
+                  closeButton
+                  duration={4000}
+                />
+              </TradePositionsProvider>
+            </AuthProvider>
           </LanguageProvider>
         </ThemeProvider>
       </body>
