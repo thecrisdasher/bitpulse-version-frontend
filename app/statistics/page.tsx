@@ -25,6 +25,7 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { useTradePositions } from "@/contexts/TradePositionsContext";
 import Sidebar from "@/components/Sidebar";
+import { InteractivePerformanceChart } from "@/components/advanced-statistics/InteractivePerformanceChart";
 
 // Tipos
 interface TradingStats {
@@ -134,10 +135,15 @@ const StatisticsPage = () => {
         <main className="flex-1 p-6">
           <div className="container mx-auto max-w-7xl">
             <div className="mb-8">
-              <h1 className="text-3xl font-bold mb-2">Estadísticas de Trading</h1>
+              <h1 className="text-3xl font-bold mb-2">Estadísticas de Trading Avanzadas</h1>
               <p className="text-muted-foreground">
-                Análisis detallado de tu rendimiento y métricas de trading
+                Análisis detallado de tu rendimiento con inteligencia artificial y métricas avanzadas
               </p>
+            </div>
+
+            {/* Nuevo componente de análisis interactivo */}
+            <div className="mb-8">
+              <InteractivePerformanceChart />
             </div>
 
             {/* Estadísticas en tiempo real */}

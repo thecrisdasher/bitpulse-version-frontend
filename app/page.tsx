@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label"
 import { LanguageSelector } from "@/components/LanguageSelector"
 import { useTranslation } from '@/app/i18n/client'
 import dynamic from "next/dynamic"
+import { AIOpportunityWidget, PersonalStreakWidget, AchievementsWidget, HotMarketWidget, SmartAlertsWidget, DailyChallengeWidget } from '@/components/DashboardWidgets'
 
 // Importación normal en lugar de dinámica para evitar errores
 import RealTimeMarketChart from "@/components/RealTimeMarketChart"
@@ -322,6 +323,23 @@ export default function CryptoDashboard() {
           </div>
           
           <MarketOverviewBanner liveUpdates={liveUpdates} />
+          
+          {/* Nuevos Widgets Inteligentes */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+            <AIOpportunityWidget />
+            <PersonalStreakWidget />
+            <AchievementsWidget />
+          </div>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <HotMarketWidget />
+            <SmartAlertsWidget />
+          </div>
+          
+          <div className="mb-6">
+            <DailyChallengeWidget />
+          </div>
+
           <BentoGrid liveUpdates={liveUpdates} cryptoData={cryptoData} />
           <Tabs defaultValue="all" className="space-y-4 mt-8">
             <TabsList className="bg-card">
