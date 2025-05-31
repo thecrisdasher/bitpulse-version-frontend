@@ -1,5 +1,40 @@
 import { BitstampOHLC } from './bitstampService';
 
+export interface MarketAdvice {
+  type: 'BUY' | 'SELL' | 'HOLD' | 'WAIT';
+  urgency: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  confidence: number;
+  reasoning: string[];
+  riskLevel: 'CONSERVATIVE' | 'MODERATE' | 'AGGRESSIVE';
+  timeHorizon: 'SHORT' | 'MEDIUM' | 'LONG';
+  entryStrategy: string;
+  exitStrategy: string;
+}
+
+export interface VolatilityAnalysis {
+  current: number;
+  average30d: number;
+  trend: 'INCREASING' | 'DECREASING' | 'STABLE';
+  percentile: number;
+  interpretation: string;
+  tradingImplications: string[];
+}
+
+export interface TrendAnalysis {
+  primary: 'BULLISH' | 'BEARISH' | 'SIDEWAYS';
+  secondary: 'BULLISH' | 'BEARISH' | 'SIDEWAYS';
+  strength: number;
+  duration: number;
+  momentum: number;
+  supports: number[];
+  resistances: number[];
+  keyLevels: {
+    strongSupport: number;
+    strongResistance: number;
+    breakoutLevel: number;
+  };
+}
+
 export interface MarketAnalysis {
   bestEntryPoint: {
     price: number;
@@ -20,6 +55,12 @@ export interface MarketAnalysis {
     score: number;
     reason: string[];
   }[];
+  marketAdvice: MarketAdvice;
+  volatilityAnalysis: VolatilityAnalysis;
+  trendAnalysis: TrendAnalysis;
+  keyInsights: string[];
+  riskWarnings: string[];
+  opportunityAlerts: string[];
 }
 
 class MarketAnalysisService {
@@ -208,16 +249,345 @@ class MarketAnalysisService {
   }
 
   /**
+   * Genera consejos específicos de mercado
+   */
+  private generateMarketAdvice(data: BitstampOHLC[]): MarketAdvice {
+    const prices = data.map(d => d.close);
+    const volumes = data.map(d => d.volume);
+    const lastPrice = prices[prices.length - 1];
+    
+    // Calcular indicadores
+    const rsi = this.calculateRSI(prices);
+    const { upper, lower, middle } = this.calculateBollingerBands(prices);
+    const ema20 = this.calculateEMA(prices, 20);
+    const ema50 = this.calculateEMA(prices, 50);
+    const volatility = this.calculateVolatility(prices);
+    const volumeProfile = this.analyzeVolumeProfile(volumes);
+    const macd = this.calculateMACD(prices);
+    
+    // Determinar acción recomendada
+    let type: MarketAdvice['type'] = 'HOLD';
+    let urgency: MarketAdvice['urgency'] = 'LOW';
+    let confidence = 50;
+    const reasoning: string[] = [];
+    let riskLevel: MarketAdvice['riskLevel'] = 'MODERATE';
+    let timeHorizon: MarketAdvice['timeHorizon'] = 'MEDIUM';
+    
+    // Análisis de señales de compra
+    if (rsi < 30 && lastPrice <= lower && ema20 > ema50 && volumeProfile > 1.3) {
+      type = 'BUY';
+      urgency = 'HIGH';
+      confidence = 85;
+      reasoning.push('RSI en zona de sobreventa con soporte de Bollinger');
+      reasoning.push('Tendencia alcista confirmada por EMAs');
+      reasoning.push('Volumen superior al promedio confirma la señal');
+      riskLevel = 'MODERATE';
+      timeHorizon = 'SHORT';
+    }
+    // Análisis de señales de venta
+    else if (rsi > 70 && lastPrice >= upper && ema20 < ema50 && volumeProfile > 1.3) {
+      type = 'SELL';
+      urgency = 'HIGH';
+      confidence = 80;
+      reasoning.push('RSI en zona de sobrecompra con resistencia de Bollinger');
+      reasoning.push('Tendencia bajista confirmada por EMAs');
+      reasoning.push('Alto volumen confirma presión vendedora');
+      riskLevel = 'CONSERVATIVE';
+      timeHorizon = 'SHORT';
+    }
+    // Señales de espera
+    else if (volatility > 0.05 || (rsi > 45 && rsi < 55)) {
+      type = 'WAIT';
+      urgency = 'MEDIUM';
+      confidence = 60;
+      reasoning.push('Mercado en zona neutral, esperar confirmación');
+      if (volatility > 0.05) {
+        reasoning.push('Alta volatilidad requiere precaución');
+        urgency = 'HIGH';
+      }
+      riskLevel = 'CONSERVATIVE';
+      timeHorizon = 'SHORT';
+    }
+    // Mantener posición
+    else {
+      type = 'HOLD';
+      urgency = 'LOW';
+      confidence = 70;
+      reasoning.push('Condiciones estables, mantener estrategia actual');
+      riskLevel = 'MODERATE';
+      timeHorizon = 'MEDIUM';
+    }
+    
+    // Estrategias específicas
+    const entryStrategy = this.generateEntryStrategy(type, rsi, lastPrice, ema20, ema50);
+    const exitStrategy = this.generateExitStrategy(type, lastPrice, upper, lower, volatility);
+    
+    return {
+      type,
+      urgency,
+      confidence,
+      reasoning,
+      riskLevel,
+      timeHorizon,
+      entryStrategy,
+      exitStrategy
+    };
+  }
+
+  /**
+   * Análisis detallado de volatilidad
+   */
+  private analyzeVolatility(data: BitstampOHLC[]): VolatilityAnalysis {
+    const prices = data.map(d => d.close);
+    const currentVolatility = this.calculateVolatility(prices.slice(-20));
+    const average30d = this.calculateVolatility(prices);
+    
+    // Calcular tendencia de volatilidad
+    const recent = this.calculateVolatility(prices.slice(-10));
+    const previous = this.calculateVolatility(prices.slice(-30, -10));
+    
+    let trend: VolatilityAnalysis['trend'];
+    if (recent > previous * 1.1) {
+      trend = 'INCREASING';
+    } else if (recent < previous * 0.9) {
+      trend = 'DECREASING';
+    } else {
+      trend = 'STABLE';
+    }
+    
+    // Calcular percentil
+    const volatilities = [];
+    for (let i = 20; i < prices.length; i++) {
+      volatilities.push(this.calculateVolatility(prices.slice(i - 20, i)));
+    }
+    volatilities.sort((a, b) => a - b);
+    const percentile = (volatilities.indexOf(currentVolatility) / volatilities.length) * 100;
+    
+    // Interpretación
+    let interpretation = '';
+    const tradingImplications: string[] = [];
+    
+    if (currentVolatility < 0.015) {
+      interpretation = 'Volatilidad baja - Mercado estable';
+      tradingImplications.push('Ideal para estrategias de largo plazo');
+      tradingImplications.push('Menor riesgo, menores oportunidades de ganancia rápida');
+    } else if (currentVolatility < 0.03) {
+      interpretation = 'Volatilidad moderada - Condiciones normales';
+      tradingImplications.push('Equilibrio entre riesgo y oportunidad');
+      tradingImplications.push('Apropiado para la mayoría de estrategias');
+    } else {
+      interpretation = 'Volatilidad alta - Mercado inestable';
+      tradingImplications.push('Alto potencial de ganancias y pérdidas');
+      tradingImplications.push('Requiere gestión de riesgo estricta');
+      tradingImplications.push('Ideal para trading intradía');
+    }
+    
+    return {
+      current: currentVolatility,
+      average30d,
+      trend,
+      percentile,
+      interpretation,
+      tradingImplications
+    };
+  }
+
+  /**
+   * Análisis profundo de tendencia
+   */
+  private analyzeTrend(data: BitstampOHLC[]): TrendAnalysis {
+    const prices = data.map(d => d.close);
+    const highs = data.map(d => d.high);
+    const lows = data.map(d => d.low);
+    
+    // Tendencias primaria y secundaria
+    const ema20 = this.calculateEMA(prices, 20);
+    const ema50 = this.calculateEMA(prices, 50);
+    const ema200 = this.calculateEMA(prices, 200);
+    
+    let primary: TrendAnalysis['primary'];
+    let secondary: TrendAnalysis['secondary'];
+    
+    // Tendencia primaria (largo plazo)
+    if (ema50 > ema200 * 1.02) {
+      primary = 'BULLISH';
+    } else if (ema50 < ema200 * 0.98) {
+      primary = 'BEARISH';
+    } else {
+      primary = 'SIDEWAYS';
+    }
+    
+    // Tendencia secundaria (corto plazo)
+    if (ema20 > ema50 * 1.01) {
+      secondary = 'BULLISH';
+    } else if (ema20 < ema50 * 0.99) {
+      secondary = 'BEARISH';
+    } else {
+      secondary = 'SIDEWAYS';
+    }
+    
+    // Calcular fuerza de tendencia
+    const strength = this.calculateTrendStrength(prices, ema20, ema50, ema200);
+    
+    // Calcular duración de tendencia
+    const duration = this.calculateTrendDuration(prices, ema20, ema50);
+    
+    // Calcular momentum
+    const rsi = this.calculateRSI(prices);
+    const macd = this.calculateMACD(prices);
+    const momentum = (rsi + Math.abs(macd.histogram) * 100) / 2;
+    
+    // Encontrar soportes y resistencias
+    const supports = this.findSupportLevels(data);
+    const resistances = this.findResistanceLevels(data);
+    
+    // Niveles clave
+    const strongSupport = Math.min(...supports.slice(0, 3));
+    const strongResistance = Math.max(...resistances.slice(0, 3));
+    const breakoutLevel = primary === 'BULLISH' ? strongResistance : strongSupport;
+    
+    return {
+      primary,
+      secondary,
+      strength,
+      duration,
+      momentum,
+      supports,
+      resistances,
+      keyLevels: {
+        strongSupport,
+        strongResistance,
+        breakoutLevel
+      }
+    };
+  }
+
+  /**
+   * Genera insights clave del mercado
+   */
+  private generateKeyInsights(data: BitstampOHLC[], advice: MarketAdvice, volatilityAnalysis: VolatilityAnalysis, trendAnalysis: TrendAnalysis): string[] {
+    const insights: string[] = [];
+    const lastPrice = data[data.length - 1].close;
+    
+    // Insight sobre correlación precio-volumen
+    const volumeProfile = this.analyzeVolumeProfile(data.map(d => d.volume));
+    if (volumeProfile > 1.5 && trendAnalysis.primary === 'BULLISH') {
+      insights.push('🚀 Fuerte correlación precio-volumen sugiere continuación alcista');
+    }
+    
+    // Insight sobre divergencias
+    const rsi = this.calculateRSI(data.map(d => d.close));
+    if (trendAnalysis.primary === 'BULLISH' && rsi < 40) {
+      insights.push('⚠️ Divergencia bajista en RSI - Posible corrección próxima');
+    }
+    
+    // Insight sobre volatilidad
+    if (volatilityAnalysis.trend === 'DECREASING' && volatilityAnalysis.current < 0.02) {
+      insights.push('📉 Compresión de volatilidad - Posible movimiento explosivo próximo');
+    }
+    
+    // Insight sobre niveles clave
+    const distanceToResistance = ((trendAnalysis.keyLevels.strongResistance - lastPrice) / lastPrice) * 100;
+    if (Math.abs(distanceToResistance) < 3) {
+      insights.push(`🎯 Precio cerca de resistencia clave en $${trendAnalysis.keyLevels.strongResistance.toFixed(2)}`);
+    }
+    
+    // Insight sobre momentum
+    if (trendAnalysis.momentum > 80 && advice.type === 'BUY') {
+      insights.push('⚡ Momentum extremadamente fuerte - Entrada con potencial de ganancias rápidas');
+    }
+    
+    return insights;
+  }
+
+  /**
+   * Genera alertas de riesgo
+   */
+  private generateRiskWarnings(data: BitstampOHLC[], volatilityAnalysis: VolatilityAnalysis, trendAnalysis: TrendAnalysis): string[] {
+    const warnings: string[] = [];
+    
+    // Advertencia por alta volatilidad
+    if (volatilityAnalysis.current > 0.05) {
+      warnings.push('🔴 ALTA VOLATILIDAD: Use stops ajustados y reduzca el tamaño de posición');
+    }
+    
+    // Advertencia por soporte débil
+    if (trendAnalysis.supports.length < 2) {
+      warnings.push('⚠️ SOPORTE DÉBIL: Riesgo elevado de caída brusca');
+    }
+    
+    // Advertencia por momentum extremo
+    if (trendAnalysis.momentum > 90) {
+      warnings.push('🚨 MOMENTUM EXTREMO: Posible agotamiento de tendencia - Tome ganancias');
+    }
+    
+    // Advertencia por volumen bajo
+    const volumeProfile = this.analyzeVolumeProfile(data.map(d => d.volume));
+    if (volumeProfile < 0.5) {
+      warnings.push('📊 VOLUMEN BAJO: Movimientos pueden ser falsos - Espere confirmación');
+    }
+    
+    return warnings;
+  }
+
+  /**
+   * Genera alertas de oportunidad
+   */
+  private generateOpportunityAlerts(data: BitstampOHLC[], advice: MarketAdvice, trendAnalysis: TrendAnalysis): string[] {
+    const alerts: string[] = [];
+    const lastPrice = data[data.length - 1].close;
+    
+    // Oportunidad de ruptura
+    const distanceToBreakout = ((trendAnalysis.keyLevels.breakoutLevel - lastPrice) / lastPrice) * 100;
+    if (Math.abs(distanceToBreakout) < 2) {
+      alerts.push(`🚀 RUPTURA INMINENTE: Precio cerca del nivel de breakout $${trendAnalysis.keyLevels.breakoutLevel.toFixed(2)}`);
+    }
+    
+    // Oportunidad de rebote
+    const distanceToSupport = ((lastPrice - trendAnalysis.keyLevels.strongSupport) / lastPrice) * 100;
+    if (distanceToSupport < 3 && advice.confidence > 70) {
+      alerts.push('💎 OPORTUNIDAD DE REBOTE: Precio cerca de soporte fuerte con alta confianza');
+    }
+    
+    // Oportunidad de tendencia
+    if (trendAnalysis.primary === trendAnalysis.secondary && trendAnalysis.strength > 75) {
+      alerts.push('📈 TENDENCIA ALINEADA: Todas las timeframes en la misma dirección');
+    }
+    
+    return alerts;
+  }
+
+  /**
    * Analiza el mercado y retorna recomendaciones completas
    */
   public analyzeMarket(
     currentPairData: BitstampOHLC[],
     allPairsData: Record<string, BitstampOHLC[]>
   ): MarketAnalysis {
+    const bestEntryPoint = this.calculateBestEntry(currentPairData);
+    const marketCondition = this.analyzeMarketCondition(currentPairData);
+    const bestCrypto = this.analyzeBestCryptos(allPairsData);
+    
+    // Nuevos análisis
+    const marketAdvice = this.generateMarketAdvice(currentPairData);
+    const volatilityAnalysis = this.analyzeVolatility(currentPairData);
+    const trendAnalysis = this.analyzeTrend(currentPairData);
+    
+    // Generar insights y alertas
+    const keyInsights = this.generateKeyInsights(currentPairData, marketAdvice, volatilityAnalysis, trendAnalysis);
+    const riskWarnings = this.generateRiskWarnings(currentPairData, volatilityAnalysis, trendAnalysis);
+    const opportunityAlerts = this.generateOpportunityAlerts(currentPairData, marketAdvice, trendAnalysis);
+
     return {
-      bestEntryPoint: this.calculateBestEntry(currentPairData),
-      marketCondition: this.analyzeMarketCondition(currentPairData),
-      bestCrypto: this.analyzeBestCryptos(allPairsData)
+      bestEntryPoint,
+      marketCondition,
+      bestCrypto,
+      marketAdvice,
+      volatilityAnalysis,
+      trendAnalysis,
+      keyInsights,
+      riskWarnings,
+      opportunityAlerts
     };
   }
 
@@ -390,6 +760,90 @@ class MarketAnalysisService {
     }
     
     return Math.min(risk, 100);
+  }
+
+  // Nuevos métodos auxiliares
+  private generateEntryStrategy(type: MarketAdvice['type'], rsi: number, price: number, ema20: number, ema50: number): string {
+    switch (type) {
+      case 'BUY':
+        if (rsi < 30) {
+          return 'Entrada escalonada: 40% ahora, 30% si baja 2%, 30% si baja 4%';
+        } else {
+          return 'Entrada en ruptura: Comprar al superar resistencia con volumen';
+        }
+      case 'SELL':
+        return 'Venta gradual: 50% ahora, 50% en el siguiente rebote';
+      case 'WAIT':
+        return 'Esperar confirmación: Observar ruptura de niveles clave con volumen';
+      default:
+        return 'Mantener posición actual y monitorear señales de cambio';
+    }
+  }
+
+  private generateExitStrategy(type: MarketAdvice['type'], price: number, upper: number, lower: number, volatility: number): string {
+    const stopLossDistance = volatility > 0.03 ? '3%' : '2%';
+    const takeProfitDistance = volatility > 0.03 ? '6%' : '4%';
+    
+    switch (type) {
+      case 'BUY':
+        return `Stop Loss: ${stopLossDistance} debajo del precio actual. Take Profit: ${takeProfitDistance} arriba o en resistencia`;
+      case 'SELL':
+        return `Stop Loss: ${stopLossDistance} arriba del precio actual. Take Profit: ${takeProfitDistance} abajo o en soporte`;
+      default:
+        return `Stop Loss dinámico: ${stopLossDistance} del precio promedio de entrada`;
+    }
+  }
+
+  private calculateTrendDuration(prices: number[], ema20: number, ema50: number): number {
+    // Simplificado: calcular cuántas velas la tendencia ha sido consistente
+    let duration = 0;
+    const isUptrend = ema20 > ema50;
+    
+    for (let i = prices.length - 1; i > 0; i--) {
+      const currentEma20 = this.calculateEMA(prices.slice(0, i), 20);
+      const currentEma50 = this.calculateEMA(prices.slice(0, i), 50);
+      const currentIsUptrend = currentEma20 > currentEma50;
+      
+      if (currentIsUptrend === isUptrend) {
+        duration++;
+      } else {
+        break;
+      }
+    }
+    
+    return duration;
+  }
+
+  private findSupportLevels(data: BitstampOHLC[]): number[] {
+    const lows = data.map(d => d.low);
+    const supports: number[] = [];
+    
+    // Encontrar mínimos locales
+    for (let i = 2; i < lows.length - 2; i++) {
+      if (lows[i] < lows[i-1] && lows[i] < lows[i-2] && 
+          lows[i] < lows[i+1] && lows[i] < lows[i+2]) {
+        supports.push(lows[i]);
+      }
+    }
+    
+    // Ordenar por relevancia (precio más alto = soporte más fuerte en tendencia alcista)
+    return supports.sort((a, b) => b - a).slice(0, 5);
+  }
+
+  private findResistanceLevels(data: BitstampOHLC[]): number[] {
+    const highs = data.map(d => d.high);
+    const resistances: number[] = [];
+    
+    // Encontrar máximos locales
+    for (let i = 2; i < highs.length - 2; i++) {
+      if (highs[i] > highs[i-1] && highs[i] > highs[i-2] && 
+          highs[i] > highs[i+1] && highs[i] > highs[i+2]) {
+        resistances.push(highs[i]);
+      }
+    }
+    
+    // Ordenar por relevancia (precio más bajo = resistencia más fuerte en tendencia bajista)
+    return resistances.sort((a, b) => a - b).slice(0, 5);
   }
 }
 

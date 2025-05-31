@@ -24,7 +24,19 @@ import {
   CheckCircle,
   Clock,
   DollarSign,
-  Percent
+  Percent,
+  Brain,
+  Eye,
+  AlertCircle,
+  Lightbulb,
+  TrendingFlat,
+  ArrowUp,
+  ArrowDown,
+  Minus,
+  ShoppingCart,
+  Trash2,
+  Pause,
+  Clock3
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useMarketAnalysis } from '@/lib/hooks/useMarketAnalysis';
@@ -74,6 +86,305 @@ const TrendIndicator = ({ trend }: { trend: 'ALCISTA' | 'BAJISTA' | 'LATERAL' })
       <Icon className={cn("h-4 w-4", color)} />
       <span className={color}>{label}</span>
     </Badge>
+  );
+};
+
+const AdviceCard = ({ advice }: { advice: any }) => {
+  const getAdviceConfig = (type: string) => {
+    const configs = {
+      BUY: {
+        icon: ShoppingCart,
+        color: 'text-green-500',
+        bg: 'bg-green-500/10',
+        border: 'border-green-500/20',
+        label: 'COMPRAR'
+      },
+      SELL: {
+        icon: Trash2,
+        color: 'text-red-500',
+        bg: 'bg-red-500/10',
+        border: 'border-red-500/20',
+        label: 'VENDER'
+      },
+      HOLD: {
+        icon: Pause,
+        color: 'text-blue-500',
+        bg: 'bg-blue-500/10',
+        border: 'border-blue-500/20',
+        label: 'MANTENER'
+      },
+      WAIT: {
+        icon: Clock3,
+        color: 'text-orange-500',
+        bg: 'bg-orange-500/10',
+        border: 'border-orange-500/20',
+        label: 'ESPERAR'
+      }
+    };
+    return configs[type as keyof typeof configs];
+  };
+
+  const config = getAdviceConfig(advice.type);
+
+  return (
+    <Card className={cn("transition-all hover:shadow-lg", config.border)}>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className={cn("p-3 rounded-xl", config.bg)}>
+              <config.icon className={cn("h-6 w-6", config.color)} />
+            </div>
+            <div>
+              <CardTitle className="text-xl">{config.label}</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Confianza: {advice.confidence}% • {advice.urgency.toLowerCase()}
+              </p>
+            </div>
+          </div>
+          <div className="text-right">
+            <Badge variant={advice.urgency === 'HIGH' ? "destructive" : "secondary"}>
+              {advice.riskLevel}
+            </Badge>
+            <p className="text-xs text-muted-foreground mt-1">
+              {advice.timeHorizon} plazo
+            </p>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div>
+          <p className="text-sm font-medium mb-2">Análisis:</p>
+          {advice.reasoning.map((reason: string, index: number) => (
+            <div key={index} className="flex items-start gap-2 mb-1">
+              <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+              <p className="text-sm text-muted-foreground">{reason}</p>
+            </div>
+          ))}
+        </div>
+        
+        <div className="grid grid-cols-1 gap-3">
+          <div className="p-3 bg-muted/50 rounded-lg">
+            <p className="text-xs font-medium text-muted-foreground mb-1">Estrategia de Entrada</p>
+            <p className="text-sm">{advice.entryStrategy}</p>
+          </div>
+          <div className="p-3 bg-muted/50 rounded-lg">
+            <p className="text-xs font-medium text-muted-foreground mb-1">Estrategia de Salida</p>
+            <p className="text-sm">{advice.exitStrategy}</p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+const VolatilityCard = ({ volatilityAnalysis }: { volatilityAnalysis: any }) => {
+  const getTrendIcon = (trend: string) => {
+    switch (trend) {
+      case 'INCREASING': return <ArrowUp className="h-4 w-4 text-red-500" />;
+      case 'DECREASING': return <ArrowDown className="h-4 w-4 text-green-500" />;
+      default: return <Minus className="h-4 w-4 text-gray-500" />;
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-3">
+          <Activity className="h-5 w-5" />
+          Análisis de Volatilidad
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="text-center">
+            <p className="text-sm text-muted-foreground">Actual</p>
+            <p className="text-2xl font-bold">
+              {(volatilityAnalysis.current * 100).toFixed(2)}%
+            </p>
+          </div>
+          <div className="text-center">
+            <p className="text-sm text-muted-foreground">Promedio 30d</p>
+            <p className="text-2xl font-bold">
+              {(volatilityAnalysis.average30d * 100).toFixed(2)}%
+            </p>
+          </div>
+        </div>
+        
+        <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+          <span className="text-sm font-medium">Tendencia</span>
+          <div className="flex items-center gap-2">
+            {getTrendIcon(volatilityAnalysis.trend)}
+            <span className="text-sm">{volatilityAnalysis.trend}</span>
+          </div>
+        </div>
+
+        <div>
+          <p className="text-sm font-medium mb-2">Interpretación:</p>
+          <p className="text-sm text-muted-foreground mb-3">
+            {volatilityAnalysis.interpretation}
+          </p>
+          
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground">Implicaciones para Trading:</p>
+            {volatilityAnalysis.tradingImplications.map((implication: string, index: number) => (
+              <div key={index} className="flex items-start gap-2">
+                <div className="w-1.5 h-1.5 bg-primary rounded-full mt-2 flex-shrink-0" />
+                <p className="text-xs text-muted-foreground">{implication}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+const TrendCard = ({ trendAnalysis }: { trendAnalysis: any }) => {
+  const getTrendColor = (trend: string) => {
+    switch (trend) {
+      case 'BULLISH': return 'text-green-500';
+      case 'BEARISH': return 'text-red-500';
+      default: return 'text-gray-500';
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-3">
+          <BarChart3 className="h-5 w-5" />
+          Análisis de Tendencia Completo
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="text-center">
+            <p className="text-sm text-muted-foreground">Tendencia Primaria</p>
+            <p className={cn("text-lg font-bold", getTrendColor(trendAnalysis.primary))}>
+              {trendAnalysis.primary}
+            </p>
+          </div>
+          <div className="text-center">
+            <p className="text-sm text-muted-foreground">Tendencia Secundaria</p>
+            <p className={cn("text-lg font-bold", getTrendColor(trendAnalysis.secondary))}>
+              {trendAnalysis.secondary}
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-4 text-center">
+          <div>
+            <p className="text-sm text-muted-foreground">Fuerza</p>
+            <p className="text-xl font-bold">{trendAnalysis.strength}%</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Duración</p>
+            <p className="text-xl font-bold">{trendAnalysis.duration}</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Momentum</p>
+            <p className="text-xl font-bold">{trendAnalysis.momentum.toFixed(1)}</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3">
+          <div className="p-3 bg-green-500/10 rounded-lg">
+            <p className="text-sm font-medium text-green-700 mb-1">Soporte Fuerte</p>
+            <p className="text-lg font-bold text-green-600">
+              ${trendAnalysis.keyLevels.strongSupport.toFixed(2)}
+            </p>
+          </div>
+          <div className="p-3 bg-red-500/10 rounded-lg">
+            <p className="text-sm font-medium text-red-700 mb-1">Resistencia Fuerte</p>
+            <p className="text-lg font-bold text-red-600">
+              ${trendAnalysis.keyLevels.strongResistance.toFixed(2)}
+            </p>
+          </div>
+          <div className="p-3 bg-blue-500/10 rounded-lg">
+            <p className="text-sm font-medium text-blue-700 mb-1">Nivel de Ruptura</p>
+            <p className="text-lg font-bold text-blue-600">
+              ${trendAnalysis.keyLevels.breakoutLevel.toFixed(2)}
+            </p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+const AlertsSection = ({ insights, warnings, opportunities }: { 
+  insights: string[], 
+  warnings: string[], 
+  opportunities: string[] 
+}) => {
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Insights Clave */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-3 text-blue-600">
+            <Lightbulb className="h-5 w-5" />
+            Insights Clave
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {insights.length > 0 ? insights.map((insight, index) => (
+              <div key={index} className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg">
+                <Brain className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                <p className="text-sm">{insight}</p>
+              </div>
+            )) : (
+              <p className="text-sm text-muted-foreground">Sin insights disponibles</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Alertas de Riesgo */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-3 text-red-600">
+            <AlertTriangle className="h-5 w-5" />
+            Alertas de Riesgo
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {warnings.length > 0 ? warnings.map((warning, index) => (
+              <div key={index} className="flex items-start gap-3 p-3 bg-red-50 dark:bg-red-950/20 rounded-lg">
+                <AlertCircle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
+                <p className="text-sm">{warning}</p>
+              </div>
+            )) : (
+              <p className="text-sm text-muted-foreground">Sin alertas de riesgo</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Oportunidades */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-3 text-green-600">
+            <Eye className="h-5 w-5" />
+            Oportunidades
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {opportunities.length > 0 ? opportunities.map((opportunity, index) => (
+              <div key={index} className="flex items-start gap-3 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg">
+                <Target className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <p className="text-sm">{opportunity}</p>
+              </div>
+            )) : (
+              <p className="text-sm text-muted-foreground">Sin oportunidades detectadas</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 
@@ -294,10 +605,11 @@ export default function ValoresPage() {
 
       {analysis && (
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="overview">Resumen</TabsTrigger>
+            <TabsTrigger value="advice">Consejos</TabsTrigger>
             <TabsTrigger value="signals">Señales</TabsTrigger>
-            <TabsTrigger value="market">Mercado</TabsTrigger>
+            <TabsTrigger value="analysis">Análisis</TabsTrigger>
             <TabsTrigger value="ranking">Ranking</TabsTrigger>
           </TabsList>
 
@@ -337,54 +649,17 @@ export default function ValoresPage() {
               />
             </div>
 
-            {/* Condición del mercado */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-3">
-                  <BarChart3 className="h-5 w-5" />
-                  Condición del Mercado
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="text-center">
-                    <p className="text-sm text-muted-foreground mb-2">Tendencia</p>
-                    <TrendIndicator trend={analysis.marketCondition.trend} />
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm text-muted-foreground mb-2">Fuerza</p>
-                    <div className="flex items-center justify-center gap-2">
-                      <div className="w-full bg-secondary rounded-full h-2">
-                        <div 
-                          className="bg-primary h-2 rounded-full transition-all duration-300"
-                          style={{ width: `${analysis.marketCondition.strength}%` }}
-                        />
-                      </div>
-                      <span className="text-sm font-medium min-w-[3rem]">
-                        {analysis.marketCondition.strength}%
-                      </span>
-                    </div>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm text-muted-foreground mb-2">Timeframe</p>
-                    <Badge variant="outline" className="px-3 py-1">
-                      <Clock className="h-4 w-4 mr-2" />
-                      {analysis.bestEntryPoint.timeframe}
-                    </Badge>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            {/* Alertas y insights */}
+            <AlertsSection 
+              insights={analysis.keyInsights}
+              warnings={analysis.riskWarnings}
+              opportunities={analysis.opportunityAlerts}
+            />
           </TabsContent>
 
-          <TabsContent value="signals" className="space-y-6">
+          <TabsContent value="advice" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <SignalCard
-                type="entry"
-                confidence={analysis.bestEntryPoint.confidence}
-                reasons={analysis.bestEntryPoint.reason}
-                action={() => console.log('Abrir posición')}
-              />
+              <AdviceCard advice={analysis.marketAdvice} />
               
               <Card>
                 <CardHeader>
@@ -426,66 +701,59 @@ export default function ValoresPage() {
             </div>
           </TabsContent>
 
-          <TabsContent value="market" className="space-y-6">
+          <TabsContent value="signals" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <SignalCard
+                type="entry"
+                confidence={analysis.bestEntryPoint.confidence}
+                reasons={analysis.bestEntryPoint.reason}
+                action={() => console.log('Abrir posición')}
+              />
+              
               <Card>
                 <CardHeader>
-                  <CardTitle>Análisis de Tendencia</CardTitle>
+                  <CardTitle className="flex items-center gap-3">
+                    <BarChart3 className="h-5 w-5" />
+                    Condición del Mercado
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span>Dirección</span>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="text-center">
+                      <p className="text-sm text-muted-foreground mb-2">Tendencia</p>
                       <TrendIndicator trend={analysis.marketCondition.trend} />
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span>Fuerza</span>
-                      <span className="font-medium">{analysis.marketCondition.strength}%</span>
+                    <div className="text-center">
+                      <p className="text-sm text-muted-foreground mb-2">Fuerza</p>
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="w-full bg-secondary rounded-full h-2">
+                          <div 
+                            className="bg-primary h-2 rounded-full transition-all duration-300"
+                            style={{ width: `${analysis.marketCondition.strength}%` }}
+                          />
+                        </div>
+                        <span className="text-sm font-medium min-w-[3rem]">
+                          {analysis.marketCondition.strength}%
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span>Volatilidad</span>
-                      <Badge variant={analysis.marketCondition.volatility > 3 ? "destructive" : "secondary"}>
-                        {analysis.marketCondition.volatility.toFixed(2)}%
+                    <div className="text-center">
+                      <p className="text-sm text-muted-foreground mb-2">Timeframe</p>
+                      <Badge variant="outline" className="px-3 py-1">
+                        <Clock className="h-4 w-4 mr-2" />
+                        {analysis.bestEntryPoint.timeframe}
                       </Badge>
                     </div>
                   </div>
                 </CardContent>
               </Card>
+            </div>
+          </TabsContent>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Gestión de Riesgo</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span>Nivel de Riesgo</span>
-                      <Badge variant={analysis.marketCondition.risk > 70 ? "destructive" : "secondary"}>
-                        {analysis.marketCondition.risk > 70 ? 'Alto' : 
-                         analysis.marketCondition.risk > 40 ? 'Medio' : 'Bajo'}
-                      </Badge>
-                    </div>
-                    <div className="w-full bg-secondary rounded-full h-2">
-                      <div 
-                        className={cn(
-                          "h-2 rounded-full transition-all duration-300",
-                          analysis.marketCondition.risk > 70 ? "bg-red-500" : 
-                          analysis.marketCondition.risk > 40 ? "bg-yellow-500" : "bg-green-500"
-                        )}
-                        style={{ width: `${analysis.marketCondition.risk}%` }}
-                      />
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {analysis.marketCondition.risk > 70 ? 
-                        'Condiciones de alto riesgo. Considere reducir el tamaño de posición.' :
-                        analysis.marketCondition.risk > 40 ?
-                        'Riesgo moderado. Use gestión de capital apropiada.' :
-                        'Condiciones de bajo riesgo. Entorno favorable para trading.'
-                      }
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
+          <TabsContent value="analysis" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <VolatilityCard volatilityAnalysis={analysis.volatilityAnalysis} />
+              <TrendCard trendAnalysis={analysis.trendAnalysis} />
             </div>
           </TabsContent>
 
