@@ -63,6 +63,50 @@ const generateMockData = (days = 30, baseValue = 100) => {
   return data;
 };
 
+// Helper function to validate and format chart data
+const validateChartData = (data: any[]): any[] => {
+  return data
+    .map(item => {
+      // Ensure time is a valid number
+      const time = typeof item.time === 'string' ? parseInt(item.time) : item.time;
+      if (isNaN(time) || time <= 0) {
+        console.warn('Invalid time value in chart data:', item);
+        return null;
+      }
+
+      // For area/line charts
+      if ('value' in item) {
+        const value = parseFloat(item.value);
+        if (isNaN(value)) {
+          console.warn('Invalid value in chart data:', item);
+          return null;
+        }
+        return { time, value };
+      }
+
+      // For candlestick/bar charts
+      if ('open' in item && 'high' in item && 'low' in item && 'close' in item) {
+        const open = parseFloat(item.open);
+        const high = parseFloat(item.high);
+        const low = parseFloat(item.low);
+        const close = parseFloat(item.close);
+        const volume = item.volume ? parseFloat(item.volume) : undefined;
+
+        if (isNaN(open) || isNaN(high) || isNaN(low) || isNaN(close)) {
+          console.warn('Invalid OHLC values in chart data:', item);
+          return null;
+        }
+
+        return { time, open, high, low, close, ...(volume !== undefined && { volume }) };
+      }
+
+      console.warn('Invalid data format:', item);
+      return null;
+    })
+    .filter((item): item is NonNullable<typeof item> => item !== null)
+    .sort((a, b) => a.time - b.time);
+};
+
 // Chart Component
 const RealTimeMarketChartClient: React.FC<ChartProps> = ({
   data = [],
@@ -234,8 +278,13 @@ const RealTimeMarketChartClient: React.FC<ChartProps> = ({
       
       // Set initial data if available
       if (data && data.length > 0) {
-        series.setData(data);
-        chart.timeScale().fitContent();
+        const validatedData = validateChartData(data);
+        if (validatedData.length > 0) {
+          series.setData(validatedData);
+          chart.timeScale().fitContent();
+        } else {
+          console.warn('No valid data points after validation');
+        }
       }
       
       // Add price levels if available
@@ -351,8 +400,13 @@ const RealTimeMarketChartClient: React.FC<ChartProps> = ({
           // Only update if we can access chart options (chart is not disposed)
           const options = chartRef.current.options();
           if (options) {
-            seriesRef.current.setData(data);
-            chartRef.current.timeScale().fitContent();
+            const validatedData = validateChartData(data);
+            if (validatedData.length > 0) {
+              seriesRef.current.setData(validatedData);
+              chartRef.current.timeScale().fitContent();
+            } else {
+              console.warn('No valid data points after validation');
+            }
           }
         } catch (err) {
           // Chart is disposed, reinitialize if needed

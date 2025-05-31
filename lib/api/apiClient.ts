@@ -74,31 +74,43 @@ const isFetchRetryableError = (status: number, error?: any): boolean => {
  * Obtener URL base para un proveedor, considerando proxies en desarrollo
  */
 export const getBaseUrl = (provider: string, useProxy: boolean = isLocalDevelopment): string => {
-  const providerKey = provider.toUpperCase() as keyof typeof API_URLS;
-  
-  if (useProxy && isLocalDevelopment) {
-    return PROXY_URLS[providerKey] || API_URLS[providerKey];
+  if (useProxy) {
+    // Usar el proxy local en desarrollo
+    return isLocalDevelopment ? 'http://localhost:3004/proxy' : '/api/proxy';
   }
-  
-  return API_URLS[providerKey] || '';
+
+  // URLs base por proveedor
+  switch (provider) {
+    case 'BITSTAMP':
+      return 'https://www.bitstamp.net/api/v2';
+    case 'COIN_GECKO':
+      return 'https://api.coingecko.com/api/v3';
+    case 'BINANCE':
+      return 'https://api.binance.com/api/v3';
+    case 'YAHOO_FINANCE':
+      return 'https://query2.finance.yahoo.com/v8/finance';
+    default:
+      return '';
+  }
 };
 
 /**
  * Formatea la URL completa para una solicitud
  */
 export const formatApiUrl = (url: string, provider: string, useProxy: boolean = isLocalDevelopment): string => {
-  // Si ya es una URL completa, devolverla
-  if (url.startsWith('http://') || url.startsWith('https://')) {
-    return url;
-  }
-  
-  // Obtener URL base para el proveedor
   const baseUrl = getBaseUrl(provider, useProxy);
   
-  // Limpiar barras diagonales duplicadas
-  const cleanUrl = url.startsWith('/') ? url.substring(1) : url;
-  
-  return `${baseUrl}/${cleanUrl}`;
+  if (useProxy) {
+    // Para Bitstamp a través del proxy, mantener la estructura original
+    if (provider === 'BITSTAMP') {
+      return `${baseUrl}/bitstamp${url}`;
+    }
+    // Para otros proveedores, usar el formato del proxy
+    return `${baseUrl}/${provider.toLowerCase()}${url}`;
+  }
+
+  // Sin proxy, usar la URL directa
+  return `${baseUrl}${url}`;
 };
 
 /**
@@ -195,7 +207,7 @@ export const apiClient = {
       useProxy = isLocalDevelopment,
       skipRetry = false,
       timeout = HTTP_CONFIG.DEFAULT_TIMEOUT,
-      useFetch = false, // Usar fetch como alternativa
+      useFetch = false,
       ...restConfig
     } = config;
     
@@ -213,8 +225,13 @@ export const apiClient = {
       try {
         // Configurar encabezados comunes
         const commonHeaders = {
-          'Cache-Control': 'no-cache',
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
           'Pragma': 'no-cache',
+          'User-Agent': 'BitPulse/1.0',
+          'Origin': typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000',
+          'Referer': typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'
         };
         
         // Si se solicitó usar fetch nativo en lugar de axios
@@ -226,7 +243,9 @@ export const apiClient = {
               ...commonHeaders,
               ...(restConfig.headers as Record<string, string> || {})
             },
-            signal: AbortSignal.timeout(timeout), // Use AbortSignal instead of timeout
+            credentials: 'omit',
+            mode: 'cors',
+            signal: AbortSignal.timeout(timeout),
             body: restConfig.data ? 
               (typeof restConfig.data === 'string' ? restConfig.data : JSON.stringify(restConfig.data)) 
               : undefined

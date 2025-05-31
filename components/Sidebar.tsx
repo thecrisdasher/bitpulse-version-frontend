@@ -57,6 +57,18 @@ const Sidebar = () => {
           </li>
           <li>
             <Link 
+              href="/valores" 
+              className={cn(
+                "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+                pathname === "/valores" ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+              )}
+            >
+              <TrendingUp size={18} />
+              Análisis Técnico
+            </Link>
+          </li>
+          <li>
+            <Link 
               href="/trending" 
               className={cn(
                 "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",

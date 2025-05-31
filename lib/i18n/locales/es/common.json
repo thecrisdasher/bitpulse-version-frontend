@@ -1,0 +1,18 @@
+{
+  "app": {
+    "title": "BitPulse",
+    "subtitle": "La plataforma de trading más moderna"
+  },
+  "nav": {
+    "home": "Inicio",
+    "markets": "Mercados",
+    "trading": "Trading",
+    "portfolio": "Portafolio",
+    "settings": "Ajustes",
+    "search": "Buscar"
+  },
+  "loading": "Cargando...",
+  "error": "Error",
+  "retry": "Reintentar",
+  "noData": "No hay datos disponibles"
+} 

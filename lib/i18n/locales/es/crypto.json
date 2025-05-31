@@ -1,0 +1,12 @@
+{
+  "bitcoin": "Bitcoin",
+  "ethereum": "Ethereum",
+  "litecoin": "Litecoin",
+  "ripple": "Ripple",
+  "cardano": "Cardano",
+  "polkadot": "Polkadot",
+  "solana": "Solana",
+  "dogecoin": "Dogecoin",
+  "chainlink": "Chainlink",
+  "polygon": "Polygon"
+} 

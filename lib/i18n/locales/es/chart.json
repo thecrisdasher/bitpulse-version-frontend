@@ -1,0 +1,9 @@
+{
+  "price": "Precio",
+  "volume": "Volumen",
+  "time": "Tiempo",
+  "high": "Máximo",
+  "low": "Mínimo",
+  "open": "Apertura",
+  "close": "Cierre"
+} 
