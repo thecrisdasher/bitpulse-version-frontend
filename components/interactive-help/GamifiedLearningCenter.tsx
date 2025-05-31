@@ -357,7 +357,7 @@ export function GamifiedLearningCenter() {
 
                         {!lesson.locked && !lesson.completed && (
                           <div className="mt-3">
-                            <Button className="w-full" variant="outline">
+                            <Button className="w-full bg-secondary text-secondary-foreground hover:bg-secondary/80">
                               <Play className="w-4 h-4 mr-2" />
                               Comenzar Lección
                             </Button>
@@ -475,7 +475,7 @@ export function GamifiedLearningCenter() {
                   <p className="text-xs text-muted-foreground mb-2">
                     Conecta con otros traders y comparte estrategias
                   </p>
-                  <Button variant="outline" className="w-full">
+                  <Button className="w-full border border-input bg-background hover:bg-accent hover:text-accent-foreground">
                     Unirse al Foro
                   </Button>
                 </div>

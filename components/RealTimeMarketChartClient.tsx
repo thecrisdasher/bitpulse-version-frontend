@@ -1,7 +1,17 @@
 "use client";
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { createChart, ColorType, AreaSeries, LineSeries, CandlestickSeries, BarSeries, Time, IPriceLine } from 'lightweight-charts';
+import { 
+  createChart, 
+  ColorType, 
+  Time, 
+  IPriceLine,
+  LineStyle,
+  AreaSeries,
+  LineSeries,
+  CandlestickSeries,
+  BarSeries
+} from 'lightweight-charts';
 
 // Define types for props
 interface ChartProps {
@@ -230,35 +240,31 @@ const RealTimeMarketChartClient: React.FC<ChartProps> = ({
         },
       });
       
-      // Create appropriate series based on chart type
-      let series: any;
-      
+      // Create series based on chart type
+      let series;
       switch (chartType) {
         case 'line':
           series = chart.addSeries(LineSeries, {
             color: colors.lineColor,
-        lineWidth: 2,
-      });
+            lineWidth: 2,
+          });
           break;
-        
         case 'candle':
           series = chart.addSeries(CandlestickSeries, {
-            upColor: colors.upColor || '#26a69a',
-            downColor: colors.downColor || '#ef5350',
-            borderVisible: false,
-            wickUpColor: colors.wickUpColor || '#26a69a',
-            wickDownColor: colors.wickDownColor || '#ef5350',
+            upColor: colors.upColor,
+            downColor: colors.downColor,
+            borderUpColor: colors.upColor,
+            borderDownColor: colors.downColor,
+            wickUpColor: colors.wickUpColor,
+            wickDownColor: colors.wickDownColor,
           });
           break;
-          
         case 'bar':
           series = chart.addSeries(BarSeries, {
-            upColor: colors.upColor || '#26a69a',
-            downColor: colors.downColor || '#ef5350',
-            thinBars: false,
+            upColor: colors.upColor,
+            downColor: colors.downColor,
           });
           break;
-          
         case 'area':
         default:
           series = chart.addSeries(AreaSeries, {

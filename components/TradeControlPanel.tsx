@@ -2,9 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { CompatButton as Button } from "@/components/ui/compat-button";
 import { Input } from "@/components/ui/input";
-import { ChevronLeft, Info, ArrowUpCircle, ArrowDownCircle, Percent, DollarSign, BarChart4, CheckCircle2 } from "lucide-react";
+import { ChevronLeft, Info, ArrowUpCircle, ArrowDownCircle, Percent, DollarSign, BarChart4, CheckCircle2, Shield, Calculator, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -18,6 +18,9 @@ import { Slider } from "@/components/ui/slider";
 import { Toggle } from "@/components/ui/toggle";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
+import { CompatBadge as Badge } from "@/components/ui/compat-badge";
+import { useTradePositions } from "@/contexts/TradePositionsContext";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface TradeControlPanelProps {
   marketName: string;
@@ -43,17 +46,34 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
 }) => {
   // Trading state
   const [tradeDirection, setTradeDirection] = useState<'up' | 'down'>('up');
-  const [investmentAmount, setInvestmentAmount] = useState<number>(100);
+  const [investmentAmount, setInvestmentAmount] = useState<number>(10000); // Capital total
   const [stakePct, setStakePct] = useState<number>(1);
   const [duration, setDuration] = useState<number>(1);
   const [durationUnit, setDurationUnit] = useState<'minute' | 'hour' | 'day'>('minute');
-  const [isStakePercent, setIsStakePercent] = useState<boolean>(true);
+  const [isStakePercent, setIsStakePercent] = useState<boolean>(false); // Cambiar a fracciones por defecto
   const [potentialReturn, setPotentialReturn] = useState<number>(0);
   const [showChart, setShowChart] = useState<boolean>(true);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   
+  // Risk management state - nuevas variables para gestión de riesgo
+  const [capitalFraction, setCapitalFraction] = useState<number>(0.10); // Fracción de capital (0.10 = 10%)
+  const [leverage, setLeverage] = useState<number>(100); // Apalancamiento
+  const [lotSize, setLotSize] = useState<number>(1.0); // Tamaño del lote
+  
+  // Risk metrics calculations - métricas de riesgo calculadas
+  const [riskMetrics, setRiskMetrics] = useState({
+    marginRequired: 0,
+    freeMargin: 0,
+    marginLevel: 0,
+    positionValue: 0,
+    capitalUsed: 0
+  });
+  
   // Get toast service for notifications
   const { toast } = useToast();
+  
+  // Get trading positions context
+  const { addPosition } = useTradePositions();
   
   // Get real-time market data
   const { data: marketData, isLoading } = useRealTimeMarketData(
@@ -71,6 +91,33 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
       : stakePct;
     setPotentialReturn(stakeAmount * multiplier);
   }, [tradeDirection, investmentAmount, stakePct, isStakePercent]);
+
+  // Calculate risk metrics - nuevo cálculo de métricas de riesgo
+  useEffect(() => {
+    const capitalToUse = investmentAmount * capitalFraction;
+    
+    // Calcular valor de la posición
+    let contractSize = 100000; // Para forex, 1 lote = 100,000 unidades
+    if (marketName.includes('BTC') || marketName.includes('ETH')) {
+      contractSize = 1; // Para crypto, 1 lote = 1 unidad
+    } else if (marketName.includes('XAU')) {
+      contractSize = 100; // Para oro, 1 lote = 100 onzas
+    }
+    
+    const positionValue = marketPrice * contractSize * lotSize;
+    const marginRequired = positionValue / leverage;
+    const effectiveMarginUsed = Math.min(marginRequired, capitalToUse);
+    const freeMargin = investmentAmount - effectiveMarginUsed;
+    const marginLevel = effectiveMarginUsed > 0 ? (freeMargin / effectiveMarginUsed) * 100 : 0;
+    
+    setRiskMetrics({
+      marginRequired: effectiveMarginUsed,
+      freeMargin: Math.max(0, freeMargin),
+      marginLevel: Math.max(0, marginLevel),
+      positionValue,
+      capitalUsed: capitalToUse
+    });
+  }, [investmentAmount, capitalFraction, leverage, lotSize, marketPrice, marketName]);
 
   // Format currency with 2 decimal places
   const formatCurrency = (amount: number): string => {
@@ -90,55 +137,97 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
       ? (investmentAmount * stakePct / 100) 
       : stakePct;
     
-    if (onPlaceTrade) {
-      onPlaceTrade(
-        tradeDirection, 
-        stakeAmount, 
-        investmentAmount, 
-        {value: duration, unit: durationUnit}
-      );
+    try {
+      // Crear la nueva posición usando el contexto
+      const positionId = addPosition({
+        marketName,
+        marketPrice,
+        marketColor,
+        direction: tradeDirection,
+        amount: riskMetrics.capitalUsed,
+        stake: stakeAmount,
+        duration: { value: duration, unit: durationUnit },
+        capitalFraction,
+        lotSize,
+        leverage
+      });
+
+      // Show enhanced toast notification
+      toast({
+        title: tradeDirection === 'up' ? "🚀 Compra Ejecutada" : "📉 Venta Ejecutada",
+        description: (
+          <div className="flex flex-col gap-2">
+            <p className="font-semibold">Operación #{positionId.slice(-6)} creada exitosamente</p>
+            <div className="grid grid-cols-2 gap-2 text-sm bg-muted/50 p-2 rounded">
+              <div className="flex items-center gap-1">
+                <span className="text-muted-foreground">Instrumento:</span>
+                <span className="font-medium">{marketName}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-muted-foreground">Dirección:</span>
+                <span className={cn("font-bold", tradeDirection === 'up' ? "text-green-500" : "text-red-500")}>
+                  {tradeDirection === 'up' ? 'LONG' : 'SHORT'}
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-muted-foreground">Fracción:</span>
+                <span className="font-medium text-blue-500">{(capitalFraction * 100).toFixed(1)}%</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-muted-foreground">Lotes:</span>
+                <span className="font-medium text-purple-500">{lotSize}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-muted-foreground">Margen:</span>
+                <span className="font-medium text-orange-500">${riskMetrics.marginRequired.toFixed(0)}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-muted-foreground">Duración:</span>
+                <span className="font-medium">{duration} {durationUnit}{duration > 1 ? 's' : ''}</span>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              ✅ La posición ha sido agregada a tu cartera de operaciones activas
+            </p>
+          </div>
+        ),
+        action: (
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg"
+            onClick={() => {
+              window.location.href = "/posiciones-abiertas";
+            }}
+          >
+            Ver Posiciones
+          </Button>
+        ),
+      });
+
+      // Call the original callback if provided (for backward compatibility)
+      if (onPlaceTrade) {
+        onPlaceTrade(
+          tradeDirection, 
+          stakeAmount, 
+          investmentAmount, 
+          {value: duration, unit: durationUnit}
+        );
+      }
+    } catch (error) {
+      toast({
+        title: "❌ Error al Ejecutar",
+        description: "No se pudo crear la posición. Verifica tus datos e inténtalo de nuevo.",
+        variant: "destructive",
+      });
+      console.error('Error creating position:', error);
     }
     
-    // Show toast notification instead of alert
-    toast({
-      title: tradeDirection === 'up' ? "Compra ejecutada" : "Venta ejecutada",
-      description: (
-        <div className="flex flex-col gap-1">
-          <p>Operación colocada correctamente:</p>
-          <p>
-            <strong>Instrumento:</strong> {marketName}
-          </p>
-          <p>
-            <strong>Tipo:</strong> {tradeDirection === 'up' ? 'COMPRA' : 'VENTA'}
-          </p>
-          <p>
-            <strong>Monto:</strong> {formatCurrency(stakeAmount)}
-          </p>
-          <p>
-            <strong>Duración:</strong> {duration} {durationUnit}{duration > 1 ? 's' : ''}
-          </p>
-        </div>
-      ),
-      action: (
-        <Button 
-          variant="outline" 
-          size="sm" 
-          className="bg-primary hover:bg-primary/90 text-primary-foreground"
-          onClick={() => {
-            // Dirigir a la página de portfolio
-            window.location.href = "/portfolio";
-          }}
-        >
-          Ver portfolio
-        </Button>
-      ),
-    });
-    
-    // Allow animation to complete
+    // Allow animation to complete and close panel
     setTimeout(() => {
       setIsSubmitting(false);
       onClose();
-    }, 1000);
+    }, 1500);
   };
 
   // Toggle between percentage and fixed amount
@@ -154,239 +243,472 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
   };
 
   return (
-    <Card className={cn(
-      "w-full transition-all duration-300 overflow-hidden",
-      isVisible ? "max-h-[600px] opacity-100" : "max-h-0 opacity-0 pointer-events-none"
-    )}>
-      <div className="p-4">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <div 
-              className="w-3 h-3 rounded-full" 
-              style={{ backgroundColor: marketColor }}
-            />
-            <span className="font-medium">{marketName}</span>
-            <span className="text-lg font-semibold">{formatCurrency(marketPrice)}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Toggle 
-              pressed={showChart} 
-              onPressedChange={setShowChart}
-              size="sm"
-              variant="outline"
-              className="h-8"
-            >
-              <BarChart4 className="w-4 h-4 mr-1" />
-              <span className="text-xs">Gráfico</span>
-            </Toggle>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={onClose}
-              className="h-8 px-2"
-            >
-              Cerrar
-            </Button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          {/* Trade Direction */}
-          <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-muted-foreground">Dirección</label>
-            <div className="flex gap-2">
-              <Button 
-                variant={tradeDirection === 'up' ? "default" : "outline"}
-                className={cn(
-                  "flex-1 gap-2",
-                  tradeDirection === 'up' && "bg-green-500 hover:bg-green-600"
-                )}
-                onClick={() => setTradeDirection('up')}
-              >
-                <ArrowUpCircle className="w-4 h-4" />
-                Comprar
-              </Button>
-              <Button 
-                variant={tradeDirection === 'down' ? "default" : "outline"}
-                className={cn(
-                  "flex-1 gap-2",
-                  tradeDirection === 'down' && "bg-red-500 hover:bg-red-600"
-                )}
-                onClick={() => setTradeDirection('down')}
-              >
-                <ArrowDownCircle className="w-4 h-4" />
-                Vender
-              </Button>
-            </div>
-        </div>
-
-          {/* Investment Amount */}
-          <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-muted-foreground">Inversión total</label>
-            <div className="flex gap-2 items-center">
-              <DollarSign className="w-4 h-4 text-muted-foreground" />
-              <Input 
-                type="number"
-                id="investment-amount"
-                name="investment-amount"
-                value={investmentAmount}
-                onChange={(e) => setInvestmentAmount(Number(e.target.value))}
-                className="flex-1"
-                />
-            </div>
-          </div>
-        </div>
-
-        {/* Stake Amount/Percentage */}
-        <div className="mb-4">
-          <div className="flex items-center justify-between mb-2">
-            <label className="text-sm font-medium text-muted-foreground">
-              {isStakePercent ? 'Porcentaje a invertir' : 'Monto a invertir'}
-            </label>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">
-                {isStakePercent ? 'Porcentaje' : 'Monto fijo'}
-              </span>
-              <Switch 
-                checked={isStakePercent}
-                onCheckedChange={toggleStakeType}
+    <TooltipProvider>
+      <Card className={cn(
+        "w-full transition-all duration-300 overflow-hidden border-0 shadow-none",
+        isVisible ? "max-h-[800px] opacity-100" : "max-h-0 opacity-0 pointer-events-none"
+      )}>
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div 
+                className="w-4 h-4 rounded-full" 
+                style={{ backgroundColor: marketColor }}
               />
+              <div>
+                <span className="font-bold text-lg">{marketName}</span>
+                <span className="text-2xl font-bold ml-4">{formatCurrency(marketPrice)}</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Toggle 
+                pressed={showChart} 
+                onPressedChange={setShowChart}
+                size="sm"
+                variant="outline"
+                className="h-8"
+              >
+                <BarChart4 className="w-4 h-4 mr-1" />
+                <span className="text-xs">Gráfico</span>
+              </Toggle>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={onClose}
+                className="h-8 px-3"
+              >
+                ✕ Cerrar Panel
+              </Button>
             </div>
           </div>
-          
-          <div className="flex gap-4 items-center mb-2">
-            <Slider 
-              value={[stakePct]} 
-              min={isStakePercent ? 1 : 10}
-              max={isStakePercent ? 100 : investmentAmount}
-              step={isStakePercent ? 1 : 10}
-              onValueChange={(value) => setStakePct(value[0])}
-              className="flex-1"
-            />
-            <div className="flex gap-1 items-center min-w-[80px]">
-              {isStakePercent ? (
-                <>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            {/* Sección 1: Configuración Básica */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-primary">⚙️ Configuración Básica</h3>
+              
+              {/* Trade Direction */}
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-medium text-muted-foreground">Dirección</label>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="w-3 h-3 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Selecciona si esperas que el precio suba (Comprar) o baje (Vender)</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+                <div className="flex gap-2">
+                  <Button 
+                    variant={tradeDirection === 'up' ? "default" : "outline"}
+                    className={cn(
+                      "flex-1 gap-2",
+                      tradeDirection === 'up' && "bg-green-500 hover:bg-green-600"
+                    )}
+                    onClick={() => setTradeDirection('up')}
+                  >
+                    <ArrowUpCircle className="w-4 h-4" />
+                    Comprar
+                  </Button>
+                  <Button 
+                    variant={tradeDirection === 'down' ? "default" : "outline"}
+                    className={cn(
+                      "flex-1 gap-2",
+                      tradeDirection === 'down' && "bg-red-500 hover:bg-red-600"
+                    )}
+                    onClick={() => setTradeDirection('down')}
+                  >
+                    <ArrowDownCircle className="w-4 h-4" />
+                    Vender
+                  </Button>
+                </div>
+              </div>
+
+              {/* Investment Amount */}
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-medium text-muted-foreground">Capital Total</label>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="w-3 h-3 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Tu capital total disponible para trading. Base para calcular fracciones y riesgo.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+                <div className="flex gap-2 items-center">
+                  <DollarSign className="w-4 h-4 text-muted-foreground" />
                   <Input 
                     type="number"
-                    value={stakePct}
-                    onChange={(e) => setStakePct(Number(e.target.value))}
-                    className="w-16"
+                    id="investment-amount"
+                    name="investment-amount"
+                    value={investmentAmount}
+                    onChange={(e) => setInvestmentAmount(Number(e.target.value))}
+                    className="flex-1"
                   />
-                  <Percent className="w-4 h-4 text-muted-foreground" />
-                </>
-              ) : (
+                </div>
+              </div>
+
+              {/* Trade Duration */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-medium text-muted-foreground">Duración</label>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="w-3 h-3 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Tiempo que la posición permanecerá abierta antes de cerrarse automáticamente</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+                <div className="flex gap-2">
+                  <Button 
+                    variant={durationUnit === 'minute' ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setDurationUnit('minute')}
+                    className="flex-1"
+                  >
+                    Minutos
+                  </Button>
+                  <Button
+                    variant={durationUnit === 'hour' ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setDurationUnit('hour')}
+                    className="flex-1"
+                  >
+                    Horas
+                  </Button>
+                  <Button
+                    variant={durationUnit === 'day' ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setDurationUnit('day')}
+                    className="flex-1"
+                  >
+                    Días
+                  </Button>
+                </div>
+
+                <div className="flex gap-4 items-center">
+                  <Slider 
+                    value={[duration]} 
+                    min={1}
+                    max={durationUnit === 'minute' ? 60 : durationUnit === 'hour' ? 24 : 30}
+                    step={1}
+                    onValueChange={(value: number[]) => setDuration(value[0])}
+                    className="flex-1"
+                  />
+                  <Input 
+                    type="number"
+                    value={duration}
+                    onChange={(e) => setDuration(Number(e.target.value))}
+                    className="w-20"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Sección 2: Gestión de Riesgo */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-orange-600">🛡️ Gestión de Riesgo</h3>
+              
+              {/* Fracción de Capital */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-1">
+                    <label className="text-xs font-medium text-muted-foreground">
+                      Fracción de Capital (0.01 - 1.00)
+                    </label>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="w-3 h-3 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <div className="max-w-xs">
+                          <p className="font-semibold mb-1">Fracción de Capital</p>
+                          <p className="text-sm">Determina qué porción de tu capital total usar para esta operación.</p>
+                          <div className="mt-2 text-xs space-y-1">
+                            <div>• 0.05 = 5% del capital</div>
+                            <div>• 0.10 = 10% del capital</div>
+                            <div>• 0.25 = 25% del capital</div>
+                          </div>
+                          <p className="text-xs mt-2 text-yellow-400">⚠️ Recomendado: No más del 10% por operación</p>
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <Badge variant="outline" className="text-xs">
+                    {(capitalFraction * 100).toFixed(1)}%
+                  </Badge>
+                </div>
+                <div className="flex gap-2 items-center">
+                  <Input 
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    max="1.00"
+                    value={capitalFraction}
+                    onChange={(e) => setCapitalFraction(parseFloat(e.target.value) || 0.01)}
+                    className="flex-1"
+                    placeholder="0.10"
+                  />
+                  <span className="text-xs text-muted-foreground min-w-[60px]">
+                    ${(investmentAmount * capitalFraction).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+
+              {/* Tamaño del Lote */}
+              <div>
+                <div className="flex items-center gap-1 mb-2">
+                  <label className="text-xs font-medium text-muted-foreground">
+                    Tamaño del Lote
+                  </label>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="w-3 h-3 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <div className="max-w-xs">
+                        <p className="font-semibold mb-1">Tamaño del Lote</p>
+                        <p className="text-sm mb-2">Volumen de la operación expresado en lotes estándar.</p>
+                        <div className="text-xs space-y-1">
+                          <div><strong>Forex:</strong> 1 lote = 100,000 unidades</div>
+                          <div><strong>Crypto:</strong> 1 lote = 1 unidad</div>
+                          <div><strong>Oro:</strong> 1 lote = 100 onzas</div>
+                        </div>
+                        <p className="text-xs mt-2 text-blue-400">ℹ️ Ajusta según tu tolerancia al riesgo</p>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
                 <Input 
                   type="number"
-                  value={stakePct}
-                  onChange={(e) => setStakePct(Number(e.target.value))}
-                  className="w-20"
+                  step="0.01"
+                  min="0.01"
+                  value={lotSize}
+                  onChange={(e) => setLotSize(parseFloat(e.target.value) || 0.01)}
+                  placeholder="1.0"
                 />
-              )}
+              </div>
+
+              {/* Métricas de Riesgo en tiempo real */}
+              <div className="grid grid-cols-2 gap-2">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="p-3 bg-muted rounded text-center cursor-help hover:bg-muted/80 transition-colors">
+                      <div className="text-xs text-muted-foreground flex items-center justify-center gap-1">
+                        <Shield className="w-3 h-3" />
+                        Margen Requerido
+                      </div>
+                      <div className="text-sm font-semibold text-orange-500">
+                        ${riskMetrics.marginRequired.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                      </div>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <div className="max-w-xs">
+                      <p className="font-semibold mb-1">💰 Margen Requerido</p>
+                      <p className="text-sm mb-2">Capital que se reserva como garantía para mantener esta posición abierta.</p>
+                      <div className="text-xs space-y-1">
+                        <div>• Se calcula: Valor Posición ÷ Apalancamiento</div>
+                        <div>• Se bloquea hasta cerrar la operación</div>
+                        <div>• A mayor apalancamiento, menor margen</div>
+                      </div>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="p-3 bg-muted rounded text-center cursor-help hover:bg-muted/80 transition-colors">
+                      <div className="text-xs text-muted-foreground flex items-center justify-center gap-1">
+                        <Calculator className="w-3 h-3" />
+                        Fondos Libres
+                      </div>
+                      <div className="text-sm font-semibold text-green-500">
+                        ${riskMetrics.freeMargin.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                      </div>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <div className="max-w-xs">
+                      <p className="font-semibold mb-1">💵 Fondos Libres</p>
+                      <p className="text-sm mb-2">Capital disponible que no está comprometido en operaciones.</p>
+                      <div className="text-xs space-y-1">
+                        <div>• Capital Total - Margen Usado</div>
+                        <div>• Disponible para nuevas operaciones</div>
+                        <div>• Se actualiza con PnL en tiempo real</div>
+                      </div>
+                      <p className="text-xs mt-2 text-green-400">✅ Mantén siempre fondos de respaldo</p>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="p-3 bg-muted rounded text-center cursor-help hover:bg-muted/80 transition-colors">
+                      <div className="text-xs text-muted-foreground flex items-center justify-center gap-1">
+                        <BarChart3 className="w-3 h-3" />
+                        Nivel de Margen
+                      </div>
+                      <div className={cn(
+                        "text-sm font-semibold",
+                        riskMetrics.marginLevel >= 200 ? "text-green-500" :
+                        riskMetrics.marginLevel >= 100 ? "text-yellow-500" : "text-red-500"
+                      )}>
+                        {riskMetrics.marginLevel.toFixed(1)}%
+                      </div>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <div className="max-w-xs">
+                      <p className="font-semibold mb-1">📊 Nivel de Margen</p>
+                      <p className="text-sm mb-2">Indicador de salud financiera de tu cuenta de trading.</p>
+                      <div className="text-xs space-y-1">
+                        <div className="text-green-400">• &gt;200%: Muy seguro</div>
+                        <div className="text-yellow-400">• 100-200%: Moderado</div>
+                        <div className="text-red-400">• &lt;100%: Riesgo alto</div>
+                      </div>
+                      <p className="text-xs mt-2 text-yellow-400">⚠️ Si baja de 20%, podrías recibir margin call</p>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="p-3 bg-muted rounded text-center cursor-help hover:bg-muted/80 transition-colors">
+                      <div className="text-xs text-muted-foreground flex items-center justify-center gap-1">
+                        <DollarSign className="w-3 h-3" />
+                        Volumen Total
+                      </div>
+                      <div className="text-sm font-semibold text-blue-500">
+                        {(lotSize * (marketName.includes('USD') ? 100000 : 1)).toLocaleString()}
+                      </div>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <div className="max-w-xs">
+                      <p className="font-semibold mb-1">📈 Volumen Total</p>
+                      <p className="text-sm mb-2">Cantidad real de unidades que estarás operando.</p>
+                      <div className="text-xs space-y-1">
+                        <div>• Lotes × Tamaño del Contrato</div>
+                        <div>• Determina la exposición real al mercado</div>
+                        <div>• Impacta directamente en ganancias/pérdidas</div>
+                      </div>
+                      <p className="text-xs mt-2 text-blue-400">ℹ️ Mayor volumen = Mayor riesgo y potencial</p>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+            </div>
+
+            {/* Sección 3: Ejecución */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-green-600">🚀 Ejecución</h3>
+              
+              {/* Potential Return */}
+              <div className="p-4 bg-secondary rounded-lg">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <p className="text-sm font-medium">Retorno potencial</p>
+                    <p className="text-xs text-muted-foreground">Estimación aproximada</p>
+                  </div>
+                  <p className="text-xl font-bold">{formatCurrency(potentialReturn)}</p>
+                </div>
+              </div>
+
+              {/* Execute Trade Button */}
+              <motion.div
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                transition={{ type: "spring", stiffness: 400, damping: 17 }}
+              >
+                <Button 
+                  onClick={handlePlaceTrade}
+                  disabled={isSubmitting}
+                  className={cn(
+                    "w-full py-6 text-lg font-bold shadow-xl transition-all duration-300 relative overflow-hidden",
+                    "border-2 border-transparent hover:shadow-2xl",
+                    tradeDirection === 'up' 
+                      ? "bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white border-green-400" 
+                      : "bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white border-red-400",
+                    isSubmitting && "opacity-90 cursor-not-allowed"
+                  )}
+                >
+                  <AnimatePresence mode="wait">
+                    {isSubmitting ? (
+                      <motion.div 
+                        key="submitting"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        className="flex items-center gap-3"
+                      >
+                        <motion.div
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                        >
+                          <CheckCircle2 className="h-6 w-6" />
+                        </motion.div>
+                        <span>Procesando Operación...</span>
+                      </motion.div>
+                    ) : (
+                      <motion.div 
+                        key="ready"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        className="flex items-center gap-3"
+                      >
+                        <motion.div
+                          whileHover={{ scale: 1.1, rotate: tradeDirection === 'up' ? 5 : -5 }}
+                          transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                        >
+                          {tradeDirection === 'up' ? (
+                            <ArrowUpCircle className="h-6 w-6" />
+                          ) : (
+                            <ArrowDownCircle className="h-6 w-6" />
+                          )}
+                        </motion.div>
+                        <span>
+                          🚀 ABRIR POSICIÓN {tradeDirection === 'up' ? 'LONG' : 'SHORT'}
+                        </span>
+                        <motion.div
+                          className="absolute inset-0 bg-white opacity-0"
+                          whileHover={{ opacity: 0.1 }}
+                          transition={{ duration: 0.3 }}
+                        />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </Button>
+              </motion.div>
+              
+              {/* Info Text */}
+              <motion.div 
+                className="text-center space-y-2"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.3 }}
+              >
+                <p className="text-xs text-muted-foreground">
+                  🔒 Al ejecutar esta operación, aceptas los términos y condiciones del servicio
+                </p>
+                <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                  <Shield className="w-3 h-3" />
+                  <span>Transacción segura y encriptada</span>
+                </div>
+              </motion.div>
             </div>
           </div>
-          
-          {isStakePercent && (
-            <div className="text-sm text-muted-foreground">
-              Monto aproximado: {formatCurrency(investmentAmount * stakePct / 100)}
-            </div>
-          )}
         </div>
-
-        {/* Trade Duration */}
-        <div className="mb-6">
-          <label className="text-sm font-medium text-muted-foreground mb-2 block">Duración</label>
-          <div className="flex gap-2">
-            <Button 
-              variant={durationUnit === 'minute' ? "default" : "outline"}
-              size="sm"
-              onClick={() => setDurationUnit('minute')}
-              className="flex-1"
-            >
-              Minutos
-            </Button>
-            <Button
-              variant={durationUnit === 'hour' ? "default" : "outline"}
-              size="sm"
-              onClick={() => setDurationUnit('hour')}
-              className="flex-1"
-            >
-              Horas
-            </Button>
-            <Button
-              variant={durationUnit === 'day' ? "default" : "outline"}
-              size="sm"
-              onClick={() => setDurationUnit('day')}
-              className="flex-1"
-            >
-              Días
-            </Button>
-        </div>
-
-          <div className="mt-2 flex gap-4 items-center">
-            <Slider 
-              value={[duration]} 
-              min={1}
-              max={durationUnit === 'minute' ? 60 : durationUnit === 'hour' ? 24 : 30}
-              step={1}
-              onValueChange={(value) => setDuration(value[0])}
-              className="flex-1"
-            />
-            <Input 
-              type="number"
-              value={duration}
-              onChange={(e) => setDuration(Number(e.target.value))}
-              className="w-20"
-            />
-          </div>
-        </div>
-
-        {/* Potential Return */}
-        <div className="p-3 bg-secondary rounded-lg mb-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <p className="text-sm font-medium">Retorno potencial</p>
-              <p className="text-xs text-muted-foreground">Estimación aproximada</p>
-          </div>
-            <p className="text-lg font-bold">{formatCurrency(potentialReturn)}</p>
-          </div>
-        </div>
-
-        {/* Execute Trade Button */}
-        <div className="flex flex-col gap-4">
-        <Button 
-            onClick={handlePlaceTrade}
-            disabled={isSubmitting}
-            className={cn(
-              "w-full py-6 text-lg font-semibold shadow-lg transition-all",
-              tradeDirection === 'up' 
-                ? "bg-green-500 hover:bg-green-600 text-white" 
-                : "bg-red-500 hover:bg-red-600 text-white",
-              isSubmitting && "opacity-80"
-            )}
-        >
-            {isSubmitting ? (
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="animate-pulse h-5 w-5" />
-                <span>Procesando...</span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                {tradeDirection === 'up' ? (
-                  <ArrowUpCircle className="h-5 w-5" />
-                ) : (
-                  <ArrowDownCircle className="h-5 w-5" />
-                )}
-                <span>Ejecutar {tradeDirection === 'up' ? 'Compra' : 'Venta'}</span>
-              </div>
-            )}
-        </Button>
-          
-          <p className="text-xs text-center text-muted-foreground">
-            Al ejecutar esta operación, aceptas los términos y condiciones del servicio
-          </p>
-        </div>
-      </div>
-    </Card>
+      </Card>
+    </TooltipProvider>
   );
 };
 

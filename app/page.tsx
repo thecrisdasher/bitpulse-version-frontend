@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import React, { useState, useEffect, useCallback } from "react"
 import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
+import { CompatButton as Button } from "@/components/ui/compat-button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -19,7 +19,8 @@ import { Label } from "@/components/ui/label"
 import { LanguageSelector } from "@/components/LanguageSelector"
 import { useTranslation } from '@/app/i18n/client'
 import dynamic from "next/dynamic"
-import { AIOpportunityWidget, PersonalStreakWidget, AchievementsWidget, HotMarketWidget, SmartAlertsWidget, DailyChallengeWidget } from '@/components/DashboardWidgets'
+import { AIOpportunityWidget, PersonalStreakWidget, AchievementsWidget, HotMarketWidget, SmartAlertsWidget, DailyChallengeWidget, TradingPositionsWidget } from '@/components/DashboardWidgets'
+import { useTradePositions } from "@/contexts/TradePositionsContext"
 
 // Importación normal en lugar de dinámica para evitar errores
 import RealTimeMarketChart from "@/components/RealTimeMarketChart"
@@ -131,6 +132,9 @@ export default function CryptoDashboard() {
   const [isClient, setIsClient] = useState(false)
   const { theme } = useTheme()
 
+  // Get trading context for real integration
+  const { addPosition } = useTradePositions();
+
   // Wait for client-side hydration before rendering favorites
   useEffect(() => {
     setFavList([...favorites])
@@ -175,6 +179,45 @@ export default function CryptoDashboard() {
     setShowTradePanel(false)
   }
 
+  // Handle trade execution from TradeControlPanel
+  const handleTradeExecution = useCallback((
+    direction: 'up' | 'down', 
+    amount: number, 
+    stake: number, 
+    duration: {value: number, unit: 'minute' | 'hour' | 'day'}
+  ) => {
+    if (!selectedInstrument) return;
+
+    try {
+      // Get a good color for the selected instrument
+      const instrumentColor = selectedInstrument.change24h >= 0 ? '#10b981' : '#ef4444';
+      
+      // Create the position using the context
+      addPosition({
+        marketName: selectedInstrument.name,
+        marketPrice: selectedInstrument.price,
+        marketColor: instrumentColor,
+        direction,
+        amount,
+        stake,
+        duration,
+        capitalFraction: 0.10, // Default 10% will be overridden by TradeControlPanel
+        lotSize: 1.0, // Default will be overridden by TradeControlPanel
+        leverage: 100 // Default leverage
+      });
+
+      console.log('Trade executed successfully:', {
+        instrument: selectedInstrument.name,
+        direction,
+        amount,
+        stake,
+        duration
+      });
+    } catch (error) {
+      console.error('Error executing trade:', error);
+    }
+  }, [selectedInstrument, addPosition]);
+
   const renderCryptoList = (cryptos: { 
     id: number;
     name: string;
@@ -202,55 +245,89 @@ export default function CryptoDashboard() {
       </TableHeader>
       <TableBody>
         {cryptos.map((crypto, index) => (
-          <TableRow 
-            key={crypto.id} 
-            className="cursor-pointer"
-            onClick={() => handleCryptoSelection(crypto)}
-          >
-            <TableCell>
-              {isClient && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleFavoriteToggle(crypto.id)
-                  }}
-                >
-                  <Star className={`h-4 w-4 ${favList.includes(crypto.id) ? "text-yellow-500 fill-yellow-500" : ""}`} />
-                </Button>
-              )}
-              {!isClient && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                >
-                  <Star className="h-4 w-4" />
-                </Button>
-              )}
-            </TableCell>
-            <TableCell>{index + 1}</TableCell>
-            <TableCell className="font-medium">
-              {crypto.name}
-              <span className="ml-2 text-muted-foreground">{crypto.symbol}</span>
-            </TableCell>
-            <TableCell>
-              {formatCurrency(crypto.price)}
-            </TableCell>
-            <TableCell className={crypto.change24h >= 0 ? "text-green-500" : "text-red-500"}>
-              {crypto.change24h > 0 ? "+" : ""}
-              {crypto.change24h.toFixed(2)}%
-            </TableCell>
-            <TableCell className={crypto.change7d >= 0 ? "text-green-500" : "text-red-500"}>
-              {crypto.change7d > 0 ? "+" : ""}
-              {crypto.change7d.toFixed(2)}%
-            </TableCell>
-            <TableCell>${formatNumber(crypto.marketCap)}</TableCell>
-            <TableCell>${formatNumber(crypto.volume24h)}</TableCell>
-            <TableCell>
-              {formatNumber(crypto.circulatingSupply)} {crypto.symbol}
-            </TableCell>
-          </TableRow>
+          <React.Fragment key={crypto.id}>
+            <TableRow 
+              className="cursor-pointer hover:bg-muted/50 transition-colors group"
+              onClick={() => handleCryptoSelection(crypto)}
+            >
+              <TableCell>
+                {isClient && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleFavoriteToggle(crypto.id)
+                    }}
+                  >
+                    <Star className={`h-4 w-4 ${favList.includes(crypto.id) ? "text-yellow-500 fill-yellow-500" : ""}`} />
+                  </Button>
+                )}
+                {!isClient && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                  >
+                    <Star className="h-4 w-4" />
+                  </Button>
+                )}
+              </TableCell>
+              <TableCell>{index + 1}</TableCell>
+              <TableCell className="font-medium">
+                <div className="flex items-center gap-2">
+                  <span>{crypto.name}</span>
+                  <span className="ml-2 text-muted-foreground">{crypto.symbol}</span>
+                  <div className="opacity-0 group-hover:opacity-100 transition-opacity ml-auto">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-6 px-2 text-xs bg-primary/10 border-primary/20 text-primary hover:bg-primary hover:text-primary-foreground"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleCryptoSelection(crypto);
+                      }}
+                    >
+                      📈 Operar
+                    </Button>
+                  </div>
+                </div>
+              </TableCell>
+              <TableCell>
+                {formatCurrency(crypto.price)}
+              </TableCell>
+              <TableCell className={crypto.change24h >= 0 ? "text-green-500" : "text-red-500"}>
+                {crypto.change24h > 0 ? "+" : ""}
+                {crypto.change24h.toFixed(2)}%
+              </TableCell>
+              <TableCell className={crypto.change7d >= 0 ? "text-green-500" : "text-red-500"}>
+                {crypto.change7d > 0 ? "+" : ""}
+                {crypto.change7d.toFixed(2)}%
+              </TableCell>
+              <TableCell>${formatNumber(crypto.marketCap)}</TableCell>
+              <TableCell>${formatNumber(crypto.volume24h)}</TableCell>
+              <TableCell>
+                {formatNumber(crypto.circulatingSupply)} {crypto.symbol}
+              </TableCell>
+            </TableRow>
+            
+            {/* Panel de Trading Inline - Se despliega debajo del elemento seleccionado */}
+            {showTradePanel && selectedInstrument && selectedInstrument.id === crypto.id && (
+              <TableRow>
+                <TableCell colSpan={9} className="p-0">
+                  <div className="border-t bg-muted/20">
+                    <TradeControlPanel
+                      marketName={selectedInstrument.name}
+                      marketPrice={selectedInstrument.price}
+                      marketColor={selectedInstrument.change24h >= 0 ? '#10b981' : '#ef4444'}
+                      isVisible={showTradePanel}
+                      onClose={closeTradePanel}
+                      onPlaceTrade={handleTradeExecution}
+                    />
+                  </div>
+                </TableCell>
+              </TableRow>
+            )}
+          </React.Fragment>
         ))}
       </TableBody>
     </Table>
@@ -304,22 +381,10 @@ export default function CryptoDashboard() {
           </div>
         </header>
         <main className="container mx-auto px-4 py-8 flex-1">
-          <div className="flex flex-col md:flex-row gap-4 mb-6">
-            <div className={`flex-1 transition-all duration-300 ${showTradePanel ? 'md:w-2/3' : 'w-full'}`}>
+          <div className="flex flex-col gap-4 mb-6">
+            <div className="w-full">
               <RealTimeMarketChart />
             </div>
-            
-            {showTradePanel && selectedInstrument && (
-              <div className="md:w-1/3 transition-all duration-300 ease-in-out">
-                <TradeControlPanel
-                  marketName={selectedInstrument.name}
-                  marketPrice={selectedInstrument.price}
-                  marketColor="hsl(338, 95%, 51%)"
-                  isVisible={showTradePanel}
-                  onClose={closeTradePanel}
-                />
-              </div>
-            )}
           </div>
           
           <MarketOverviewBanner liveUpdates={liveUpdates} />
@@ -328,15 +393,16 @@ export default function CryptoDashboard() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
             <AIOpportunityWidget />
             <PersonalStreakWidget />
-            <AchievementsWidget />
+            <TradingPositionsWidget />
           </div>
           
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <AchievementsWidget />
             <HotMarketWidget />
-            <SmartAlertsWidget />
           </div>
           
-          <div className="mb-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <SmartAlertsWidget />
             <DailyChallengeWidget />
           </div>
 

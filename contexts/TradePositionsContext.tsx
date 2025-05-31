@@ -1,15 +1,15 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { v4 as uuidv4 } from 'uuid';
 
-// Define the trade position type
-export type TradePosition = {
+// Tipo de posición de trading
+export interface TradePosition {
   id: string;
   marketId: string;
   marketName: string;
   marketColor: string;
   direction: 'up' | 'down';
+  type: 'buy' | 'sell';
   openPrice: number;
   currentPrice: number;
   amount: number;
@@ -21,138 +21,205 @@ export type TradePosition = {
   };
   profit: number;
   profitPercentage: number;
-};
-
-// Define the context type
-type TradePositionsContextType = {
-  positions: TradePosition[];
-  addPosition: (position: Omit<TradePosition, 'id'>) => void;
-  updatePosition: (id: string, updates: Partial<TradePosition>) => void;
-  removePosition: (id: string) => void;
-  clearPositions: () => void;
-};
-
-// Create the context
-const TradePositionsContext = createContext<TradePositionsContextType | null>(null);
-
-// Define props for the provider component
-interface TradePositionsProviderProps {
-  children: ReactNode;
+  // Nuevos campos para gestión de riesgo
+  capitalFraction: number;
+  lotSize: number;
+  leverage: number;
+  marginRequired: number;
+  positionValue: number;
 }
 
-// Create a provider component
-export const TradePositionsProvider: React.FC<TradePositionsProviderProps> = ({ children }) => {
-  // State to store positions
-  const [positions, setPositions] = useState<TradePosition[]>([]);
+// Parámetros para crear una nueva posición
+export interface NewTradeParams {
+  marketName: string;
+  marketPrice: number;
+  marketColor: string;
+  direction: 'up' | 'down';
+  amount: number;
+  stake: number;
+  duration: { value: number; unit: 'minute' | 'hour' | 'day' };
+  capitalFraction: number;
+  lotSize: number;
+  leverage: number;
+}
 
-  // Load positions from localStorage on component mount
-  useEffect(() => {
-    const storedPositions = localStorage.getItem('tradePositions');
-    if (storedPositions) {
-      try {
-        // Parse the JSON and convert date strings back to Date objects
-        const parsedPositions = JSON.parse(storedPositions);
-        const positionsWithDates = parsedPositions.map((pos: any) => ({
-          ...pos,
-          openTime: new Date(pos.openTime)
-        }));
-        setPositions(positionsWithDates);
-      } catch (error) {
-        console.error('Failed to parse stored positions:', error);
-      }
-    }
-  }, []);
+interface TradePositionsContextType {
+  positions: TradePosition[];
+  addPosition: (params: NewTradeParams) => string;
+  removePosition: (id: string) => void;
+  updatePositionPrices: (marketName: string, newPrice: number) => void;
+  getTotalMarginUsed: () => number;
+  getTotalFreeMargin: (totalCapital: number) => number;
+  getTotalMarginLevel: (totalCapital: number) => number;
+  getTotalUnrealizedPnL: () => number;
+}
 
-  // Save positions to localStorage whenever they change
-  useEffect(() => {
-    localStorage.setItem('tradePositions', JSON.stringify(positions));
-  }, [positions]);
+const TradePositionsContext = createContext<TradePositionsContextType | undefined>(undefined);
 
-  // Simulate price updates for positions
-  useEffect(() => {
-    if (positions.length === 0) return;
-
-    const interval = setInterval(() => {
-      setPositions(currentPositions => 
-        currentPositions.map(position => {
-          // Random price change (1% fluctuation)
-          const priceChange = position.openPrice * (Math.random() * 0.02 - 0.01);
-          const newPrice = position.currentPrice + priceChange;
-          
-          // Calculate profit
-          const priceDifference = position.direction === 'up' 
-            ? newPrice - position.openPrice 
-            : position.openPrice - newPrice;
-          
-          const profit = priceDifference * position.stake / position.openPrice;
-          const profitPercentage = (priceDifference / position.openPrice) * 100;
-          
-          return {
-            ...position,
-            currentPrice: newPrice,
-            profit,
-            profitPercentage
-          };
-        })
-      );
-    }, 3000); // Update every 3 seconds
-    
-    return () => clearInterval(interval);
-  }, [positions]);
-
-  // Add a new position
-  const addPosition = (position: Omit<TradePosition, 'id'>) => {
-    const newPosition = {
-      ...position,
-      id: uuidv4(),
-      profit: 0,
-      profitPercentage: 0
-    };
-    setPositions(prevPositions => [newPosition, ...prevPositions]);
-  };
-
-  // Update an existing position
-  const updatePosition = (id: string, updates: Partial<TradePosition>) => {
-    setPositions(prevPositions => 
-      prevPositions.map(position => 
-        position.id === id ? { ...position, ...updates } : position
-      )
-    );
-  };
-
-  // Remove a position
-  const removePosition = (id: string) => {
-    setPositions(prevPositions => 
-      prevPositions.filter(position => position.id !== id)
-    );
-  };
-
-  // Clear all positions
-  const clearPositions = () => {
-    setPositions([]);
-  };
-
-  // Provide the context value
-  const contextValue: TradePositionsContextType = {
-    positions,
-    addPosition,
-    updatePosition,
-    removePosition,
-    clearPositions
-  };
-
-  return (
-    <TradePositionsContext.Provider value={contextValue}>
-      {children}
-    </TradePositionsContext.Provider>
-  );
-};
-
-// Hook for easier context usage
 export const useTradePositions = () => {
   const context = useContext(TradePositionsContext);
   if (!context) {
     throw new Error('useTradePositions must be used within a TradePositionsProvider');
   }
   return context;
+};
+
+interface TradePositionsProviderProps {
+  children: ReactNode;
+}
+
+export const TradePositionsProvider: React.FC<TradePositionsProviderProps> = ({ children }) => {
+  const [positions, setPositions] = useState<TradePosition[]>([]);
+
+  // Generar ID único para posición
+  const generatePositionId = (): string => {
+    return `pos_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  };
+
+  // Calcular métricas de riesgo para una posición
+  const calculateRiskMetrics = (params: NewTradeParams) => {
+    // Determinar tamaño del contrato según el activo
+    let contractSize = 100000; // Forex standard
+    if (params.marketName.includes('BTC') || params.marketName.includes('ETH')) {
+      contractSize = 1; // Crypto
+    } else if (params.marketName.includes('XAU')) {
+      contractSize = 100; // Gold
+    }
+
+    const positionValue = params.marketPrice * contractSize * params.lotSize;
+    const marginRequired = positionValue / params.leverage;
+    
+    return {
+      positionValue,
+      marginRequired
+    };
+  };
+
+  // Agregar nueva posición
+  const addPosition = (params: NewTradeParams): string => {
+    const riskMetrics = calculateRiskMetrics(params);
+    
+    const newPosition: TradePosition = {
+      id: generatePositionId(),
+      marketId: params.marketName.toLowerCase().replace(/[^a-z0-9]/g, ''),
+      marketName: params.marketName,
+      marketColor: params.marketColor,
+      direction: params.direction,
+      type: params.direction === 'up' ? 'buy' : 'sell',
+      openPrice: params.marketPrice,
+      currentPrice: params.marketPrice,
+      amount: params.amount,
+      stake: params.stake,
+      openTime: new Date(),
+      duration: params.duration,
+      profit: 0,
+      profitPercentage: 0,
+      capitalFraction: params.capitalFraction,
+      lotSize: params.lotSize,
+      leverage: params.leverage,
+      marginRequired: riskMetrics.marginRequired,
+      positionValue: riskMetrics.positionValue
+    };
+
+    setPositions(prev => [...prev, newPosition]);
+    return newPosition.id;
+  };
+
+  // Remover posición
+  const removePosition = (id: string) => {
+    setPositions(prev => prev.filter(pos => pos.id !== id));
+  };
+
+  // Actualizar precios y calcular PnL
+  const updatePositionPrices = (marketName: string, newPrice: number) => {
+    setPositions(prev => prev.map(pos => {
+      if (pos.marketName === marketName) {
+        // Calcular profit basado en la dirección
+        let priceDifference = newPrice - pos.openPrice;
+        if (pos.direction === 'down') {
+          priceDifference = -priceDifference; // Invertir para posiciones cortas
+        }
+        
+        const profit = (priceDifference / pos.openPrice) * pos.stake;
+        const profitPercentage = (priceDifference / pos.openPrice) * 100;
+
+        return {
+          ...pos,
+          currentPrice: newPrice,
+          profit,
+          profitPercentage
+        };
+      }
+      return pos;
+    }));
+  };
+
+  // Calcular margen total usado
+  const getTotalMarginUsed = (): number => {
+    return positions.reduce((total, pos) => total + pos.marginRequired, 0);
+  };
+
+  // Calcular fondos libres
+  const getTotalFreeMargin = (totalCapital: number): number => {
+    const totalMarginUsed = getTotalMarginUsed();
+    const totalUnrealizedPnL = getTotalUnrealizedPnL();
+    return Math.max(0, totalCapital - totalMarginUsed + totalUnrealizedPnL);
+  };
+
+  // Calcular nivel de margen
+  const getTotalMarginLevel = (totalCapital: number): number => {
+    const totalMarginUsed = getTotalMarginUsed();
+    const freeMargin = getTotalFreeMargin(totalCapital);
+    
+    if (totalMarginUsed === 0) return 0;
+    return (freeMargin / totalMarginUsed) * 100;
+  };
+
+  // Calcular PnL total no realizado
+  const getTotalUnrealizedPnL = (): number => {
+    return positions.reduce((total, pos) => total + pos.profit, 0);
+  };
+
+  // Simular actualizaciones de precios en tiempo real
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const marketPrices: Record<string, number> = {
+        'EURUSD': 1.0850,
+        'GBPUSD': 1.2650,
+        'USDJPY': 149.50,
+        'BTCUSD': 43250.00,
+        'ETHUSD': 2640.00,
+        'XAUUSD': 2040.50,
+        'Bitcoin': 43250.00,
+        'Ethereum': 2640.00,
+        'Gold': 2040.50
+      };
+
+      // Actualizar precios con variación aleatoria
+      Object.keys(marketPrices).forEach(market => {
+        const change = (Math.random() - 0.5) * 0.02; // ±1% cambio
+        const newPrice = marketPrices[market] * (1 + change);
+        updatePositionPrices(market, newPrice);
+      });
+    }, 3000); // Actualizar cada 3 segundos
+
+    return () => clearInterval(interval);
+  }, [positions.length]);
+
+  const value: TradePositionsContextType = {
+    positions,
+    addPosition,
+    removePosition,
+    updatePositionPrices,
+    getTotalMarginUsed,
+    getTotalFreeMargin,
+    getTotalMarginLevel,
+    getTotalUnrealizedPnL
+  };
+
+  return (
+    <TradePositionsContext.Provider value={value}>
+      {children}
+    </TradePositionsContext.Provider>
+  );
 }; 

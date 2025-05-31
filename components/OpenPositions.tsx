@@ -2,10 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { CompatButton as Button } from "@/components/ui/compat-button";
+import { CompatBadge as Badge } from "@/components/ui/compat-badge";
 import { cn } from "@/lib/utils";
-import { TrendingUp, TrendingDown, X, ChevronDown, ChevronUp, Clock, AlertCircle } from "lucide-react";
+import { TrendingUp, TrendingDown, X, ChevronDown, ChevronUp, Clock, AlertCircle, Shield, Calculator, BarChart3, DollarSign } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -15,6 +15,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
+import { 
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 // Tipos de posición
 export type TradePosition = {
@@ -39,9 +45,10 @@ export type TradePosition = {
 interface OpenPositionsProps {
   positions: TradePosition[];
   onClosePosition: (positionId: string) => void;
+  showRiskMetrics?: boolean;
 }
 
-const OpenPositions: React.FC<OpenPositionsProps> = ({ positions, onClosePosition }) => {
+const OpenPositions: React.FC<OpenPositionsProps> = ({ positions, onClosePosition, showRiskMetrics = false }) => {
   const [expandedPositions, setExpandedPositions] = useState<string[]>([]);
   const [currentTime, setCurrentTime] = useState(new Date());
   
@@ -143,6 +150,33 @@ const OpenPositions: React.FC<OpenPositionsProps> = ({ positions, onClosePositio
     return duration.value * multipliers[duration.unit];
   };
 
+  // Risk metrics calculation for each position
+  const calculatePositionRiskMetrics = (position: TradePosition) => {
+    const leverage = 100; // Apalancamiento estándar
+    const fraction = 0.10; // Fracción por defecto
+    
+    // Determinar tamaño del contrato según el activo
+    let contractSize = 100000; // Forex standard
+    if (position.marketName.includes('BTC') || position.marketName.includes('ETH')) {
+      contractSize = 1; // Crypto
+    } else if (position.marketName.includes('XAU')) {
+      contractSize = 100; // Gold
+    }
+    
+    const lotSize = position.amount / (position.openPrice * contractSize); // Calcular lotes desde el monto
+    const positionValue = position.openPrice * contractSize * lotSize;
+    const marginRequired = positionValue / leverage;
+    const capitalUsed = position.amount * fraction;
+    
+    return {
+      marginRequired,
+      lotSize,
+      positionValue,
+      capitalUsed,
+      fraction
+    };
+  };
+
   return (
     <Card className="mb-4">
       <CardHeader className="p-4 pb-0">
@@ -170,138 +204,273 @@ const OpenPositions: React.FC<OpenPositionsProps> = ({ positions, onClosePositio
             </TableHeader>
             <TableBody>
               {positions.map((position) => {
-                const timeRemaining = getTimeRemaining(position);
+                const timeInfo = getTimeRemaining(position);
+                const isExpanded = expandedPositions.includes(position.id);
+                const riskMetrics = showRiskMetrics ? calculatePositionRiskMetrics(position) : null;
                 
                 return (
-                <React.Fragment key={position.id}>
-                  <TableRow className={cn(
-                    "hover:bg-muted/50 cursor-pointer",
-                    timeRemaining.isExpiringSoon && "bg-yellow-500/10"
-                  )} onClick={() => toggleExpanded(position.id)}>
-                    <TableCell>
-                      <div className="flex items-center gap-1 md:gap-2">
-                        <div 
-                          className="w-3 h-3 rounded-full" 
-                          style={{ backgroundColor: position.marketColor }}
-                        />
-                        <span className="text-xs md:text-sm font-medium whitespace-nowrap truncate max-w-[100px]">
-                          {position.marketName}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge 
-                        variant="outline" 
-                        className={cn(
-                          "gap-1",
-                          position.direction === 'up' ? "border-green-500 text-green-500" : "border-red-500 text-red-500"
-                        )}
-                      >
-                        {position.direction === 'up' ? (
-                          <TrendingUp className="h-3 w-3" />
-                        ) : (
-                          <TrendingDown className="h-3 w-3" />
-                        )}
-                        <span className="text-xs">
-                          {position.direction === 'up' ? 'Compra' : 'Venta'}
-                        </span>
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {formatCurrency(position.stake)}
-                    </TableCell>
-                    <TableCell className={cn(
-                      "text-right font-medium", 
-                      position.profit >= 0 ? "text-green-500" : "text-red-500"
-                    )}>
-                      {position.profit >= 0 ? '+' : ''}{formatCurrency(position.profit)}
-                      <span className="text-xs block">
-                        ({position.profit >= 0 ? '+' : ''}{position.profitPercentage.toFixed(2)}%)
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex flex-col items-end">
-                        <div className={cn(
-                          "text-xs flex items-center gap-1",
-                          timeRemaining.isExpiringSoon && "text-yellow-500 font-medium"
-                        )}>
-                          {timeRemaining.isExpiringSoon && <AlertCircle className="h-3 w-3" />}
-                          {timeRemaining.text}
+                  <React.Fragment key={position.id}>
+                    <TableRow className="cursor-pointer hover:bg-muted/50 transition-colors">
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="w-3 h-3 rounded-full" 
+                            style={{ backgroundColor: position.marketColor }}
+                          />
+                          <span className="font-medium text-sm">{position.marketName}</span>
                         </div>
-                        <Progress 
-                          value={timeRemaining.percentage} 
-                          className={cn(
-                            "h-1 w-16 mt-1",
-                            timeRemaining.isExpiringSoon && "bg-yellow-500/30"
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Badge 
+                            variant={position.direction === 'up' ? 'default' : 'destructive'}
+                            className={cn(
+                              "text-xs font-medium flex items-center gap-1",
+                              position.direction === 'up' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                            )}
+                          >
+                            {position.direction === 'up' ? (
+                              <>
+                                <TrendingUp className="h-3 w-3" />
+                                LONG
+                              </>
+                            ) : (
+                              <>
+                                <TrendingDown className="h-3 w-3" />
+                                SHORT
+                              </>
+                            )}
+                          </Badge>
+                          {showRiskMetrics && riskMetrics && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger>
+                                  <Badge variant="outline" className="text-xs">
+                                    {riskMetrics.lotSize.toFixed(2)} lotes
+                                  </Badge>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Tamaño de la posición en lotes estándar</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                           )}
-                          indicatorClassName={timeRemaining.isExpiringSoon ? "bg-yellow-500" : undefined}
-                        />
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center justify-end gap-1">
-                        {expandedPositions.includes(position.id) ? (
-                          <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                        ) : (
-                          <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                  
-                  {/* Expanded details */}
-                  {expandedPositions.includes(position.id) && (
-                    <TableRow className="bg-muted/30">
-                      <TableCell colSpan={6} className="p-4">
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
-                          <div>
-                            <div className="text-xs text-muted-foreground mb-1">Precio de entrada</div>
-                            <div className="font-medium">{formatCurrency(position.openPrice)}</div>
-                          </div>
-                          <div>
-                            <div className="text-xs text-muted-foreground mb-1">Precio actual</div>
-                            <div className="font-medium">{formatCurrency(position.currentPrice)}</div>
-                          </div>
-                          <div>
-                            <div className="text-xs text-muted-foreground mb-1">Hora de apertura</div>
-                            <div className="font-medium">{formatTime(position.openTime)}</div>
-                          </div>
-                          <div>
-                            <div className="text-xs text-muted-foreground mb-1">Duración</div>
-                            <div className="font-medium">{formatDuration(position.duration)}</div>
-                          </div>
                         </div>
-                        
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1 text-sm">
-                            <Clock className="h-4 w-4 text-muted-foreground" />
-                            <span>Tiempo restante: </span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex flex-col">
+                          <span className="font-medium">{formatCurrency(position.amount)}</span>
+                          {showRiskMetrics && riskMetrics && (
+                            <span className="text-xs text-muted-foreground">
+                              {(riskMetrics.fraction * 100).toFixed(1)}% del capital
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex flex-col">
+                          <span className={cn(
+                            "font-bold",
+                            position.profit >= 0 ? "text-green-500" : "text-red-500"
+                          )}>
+                            {position.profit >= 0 ? "+" : ""}{formatCurrency(position.profit)}
+                          </span>
+                          <span className={cn(
+                            "text-xs",
+                            position.profitPercentage >= 0 ? "text-green-500" : "text-red-500"
+                          )}>
+                            {position.profitPercentage >= 0 ? "+" : ""}{position.profitPercentage.toFixed(2)}%
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-2 text-xs">
+                            <Clock className="h-3 w-3" />
                             <span className={cn(
-                              "font-medium",
-                              timeRemaining.isExpiringSoon && "text-yellow-500"
+                              timeInfo.isExpiringSoon ? "text-orange-500 font-medium" : "text-muted-foreground"
                             )}>
-                              {timeRemaining.text}
+                              {timeInfo.text}
                             </span>
                           </div>
-                          
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="text-xs border-red-500 text-red-500 hover:bg-red-500 hover:text-white"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onClosePosition(position.id);
-                            }}
+                          <Progress 
+                            value={timeInfo.percentage} 
+                            className="h-1"
+                          />
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => toggleExpanded(position.id)}
+                            className="h-6 w-6 p-0"
                           >
-                            <X className="h-3 w-3 mr-1" />
-                            Cerrar posición
+                            {isExpanded ? (
+                              <ChevronUp className="h-4 w-4" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4" />
+                            )}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => onClosePosition(position.id)}
+                            className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <X className="h-4 w-4" />
                           </Button>
                         </div>
                       </TableCell>
                     </TableRow>
-                  )}
-                </React.Fragment>
-              )})}
+                    
+                    {/* Expanded view */}
+                    {isExpanded && (
+                      <TableRow>
+                        <TableCell colSpan={6} className="p-0">
+                          <div className="bg-muted/30 p-4 border-t">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                              {/* Información básica */}
+                              <div className="space-y-2">
+                                <h4 className="font-medium text-sm text-muted-foreground">📊 Información de Operación</h4>
+                                <div className="space-y-1 text-sm">
+                                  <div className="flex justify-between">
+                                    <span>Precio de apertura:</span>
+                                    <span className="font-medium">{formatCurrency(position.openPrice)}</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span>Precio actual:</span>
+                                    <span className="font-medium">{formatCurrency(position.currentPrice)}</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span>Apertura:</span>
+                                    <span className="font-medium">{position.openTime.toLocaleDateString('es-CO')} {formatTime(position.openTime)}</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span>Duración total:</span>
+                                    <span className="font-medium">{formatDuration(position.duration)}</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Métricas de riesgo (solo si está habilitado) */}
+                              {showRiskMetrics && riskMetrics && (
+                                <div className="space-y-2">
+                                  <h4 className="font-medium text-sm text-muted-foreground flex items-center gap-1">
+                                    <Shield className="h-4 w-4" />
+                                    Métricas de Riesgo
+                                  </h4>
+                                  <div className="space-y-1 text-sm">
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <div className="flex justify-between cursor-help">
+                                            <span>Margen requerido:</span>
+                                            <span className="font-medium text-orange-500">
+                                              ${riskMetrics.marginRequired.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                            </span>
+                                          </div>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>Capital reservado como garantía para esta posición</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <div className="flex justify-between cursor-help">
+                                            <span>Tamaño del lote:</span>
+                                            <span className="font-medium text-purple-500">{riskMetrics.lotSize.toFixed(2)}</span>
+                                          </div>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>Volumen de la operación en lotes estándar</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <div className="flex justify-between cursor-help">
+                                            <span>Valor de posición:</span>
+                                            <span className="font-medium text-blue-500">
+                                              ${riskMetrics.positionValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                            </span>
+                                          </div>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>Valor total de la posición apalancada</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+
+                                    <div className="flex justify-between">
+                                      <span>Fracción del capital:</span>
+                                      <span className="font-medium text-green-500">{(riskMetrics.fraction * 100).toFixed(1)}%</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Performance y alertas */}
+                              <div className="space-y-2">
+                                <h4 className="font-medium text-sm text-muted-foreground flex items-center gap-1">
+                                  <BarChart3 className="h-4 w-4" />
+                                  Estado y Rendimiento
+                                </h4>
+                                <div className="space-y-2">
+                                  {/* Barra de progreso de ganancia/pérdida */}
+                                  <div className="space-y-1">
+                                    <div className="flex justify-between text-xs">
+                                      <span>Performance:</span>
+                                      <span className={cn(
+                                        "font-medium",
+                                        position.profitPercentage >= 0 ? "text-green-500" : "text-red-500"
+                                      )}>
+                                        {position.profitPercentage >= 0 ? "+" : ""}{position.profitPercentage.toFixed(2)}%
+                                      </span>
+                                    </div>
+                                    <Progress 
+                                      value={Math.min(Math.abs(position.profitPercentage), 100)} 
+                                      className={cn(
+                                        "h-2",
+                                        position.profitPercentage >= 0 ? "bg-green-100" : "bg-red-100"
+                                      )}
+                                    />
+                                  </div>
+
+                                  {/* Alertas de tiempo */}
+                                  {timeInfo.isExpiringSoon && (
+                                    <div className="flex items-center gap-2 text-xs text-orange-600 bg-orange-50 p-2 rounded">
+                                      <AlertCircle className="h-3 w-3" />
+                                      <span>Posición expira pronto</span>
+                                    </div>
+                                  )}
+
+                                  {/* Estado de la posición */}
+                                  <div className="flex items-center gap-2 text-xs">
+                                    <div className={cn(
+                                      "w-2 h-2 rounded-full",
+                                      position.profit >= 0 ? "bg-green-500" : "bg-red-500"
+                                    )} />
+                                    <span className="text-muted-foreground">
+                                      {position.profit >= 0 ? "En beneficio" : "En pérdida"}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </React.Fragment>
+                );
+              })}
             </TableBody>
           </Table>
         )}

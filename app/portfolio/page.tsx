@@ -4,17 +4,18 @@ import { useState, useEffect } from "react"
 import Sidebar from "@/components/Sidebar"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Button } from "@/components/ui/button"
+import { CompatButton as Button } from "@/components/ui/compat-button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { PieChart, BarChart, ArrowUpRight, ArrowDownRight, Plus, Wallet, History, TrendingUp, Clock } from "lucide-react"
+import { PieChart, BarChart, ArrowUpRight, ArrowDownRight, Plus, Wallet, History, TrendingUp, Clock, Shield } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
 import { cryptocurrencies } from "@/lib/mockData"
 import PriceChart from "@/components/PriceChart"
 import PortfolioTracker from "@/components/PortfolioTracker"
 import OpenPositions from "@/components/OpenPositions"
 import { useTradePositions } from "@/contexts/TradePositionsContext"
-import { Badge } from "@/components/ui/badge"
+import { CompatBadge as Badge } from "@/components/ui/compat-badge"
 import { AdvancedPortfolioManager } from "@/components/enhanced-portfolio/AdvancedPortfolioManager"
+import { RiskManagement } from "@/components/RiskManagement"
 
 // Mock portfolio data
 const mockPortfolio = [
@@ -247,6 +248,10 @@ export default function PortfolioPage() {
                   <Clock className="h-4 w-4 mr-2" />
                   Historial de Operaciones
                 </TabsTrigger>
+                <TabsTrigger value="risk">
+                  <Shield className="h-4 w-4 mr-2" />
+                  Gestión de Riesgo
+                </TabsTrigger>
               </TabsList>
               
               <TabsContent value="assets" className="mt-4">
@@ -371,6 +376,20 @@ export default function PortfolioPage() {
                         </TableBody>
                       </Table>
                     )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+              
+              <TabsContent value="risk" className="mt-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Gestión de Riesgo</CardTitle>
+                    <CardDescription>
+                      Análisis y gestión del riesgo del portfolio
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <RiskManagement />
                   </CardContent>
                 </Card>
               </TabsContent>

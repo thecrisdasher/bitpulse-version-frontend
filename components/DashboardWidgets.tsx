@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { CompatButton as Button } from '@/components/ui/compat-button';
+import { CompatBadge as Badge } from '@/components/ui/compat-badge';
 import { Progress } from '@/components/ui/progress';
 import { 
   TrendingUp, 
@@ -21,9 +21,15 @@ import {
   Star,
   Gift,
   Trophy,
-  Flame
+  Flame,
+  Play,
+  DollarSign,
+  BarChart3,
+  Activity,
+  Plus
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useTradePositions } from "@/contexts/TradePositionsContext";
 
 // Widget de Alerta de Oportunidades AI
 export function AIOpportunityWidget() {
@@ -84,8 +90,7 @@ export function AIOpportunityWidget() {
                   <div className="flex items-center gap-2">
                     <span className="font-medium">{opp.market}</span>
                     <Badge 
-                      variant={opp.urgency === 'alta' ? 'destructive' : 'secondary'}
-                      className="text-xs"
+                      className={cn("text-xs", opp.urgency === 'alta' ? 'border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80' : 'border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80')}
                     >
                       {opp.type}
                     </Badge>
@@ -415,5 +420,186 @@ export function DailyChallengeWidget() {
         </CardContent>
       </Card>
     </motion.div>
+  );
+}
+
+// Widget de Lección
+export function LessonWidget() {
+  const [lesson] = useState({
+    title: 'Introducción a la Estrategia de Ruptura',
+    description: 'Aprende los conceptos básicos de la estrategia de ruptura',
+    locked: false,
+    completed: false
+  });
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay: 1.2 }}
+    >
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Brain className="w-5 h-5 text-primary" />
+            {lesson.title}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <div className="text-sm font-medium mb-2">{lesson.description}</div>
+            {!lesson.locked && !lesson.completed && (
+              <div className="mt-3">
+                <Button className="w-full border border-input bg-background hover:bg-accent hover:text-accent-foreground">
+                  <Play className="w-4 h-4 mr-2" />
+                  Comenzar Lección
+                </Button>
+              </div>
+            )}
+          </div>
+          
+          <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg text-center">
+            <div className="flex items-center justify-center gap-2">
+              <Gift className="w-4 h-4 text-purple-600" />
+              <span className="text-sm font-medium text-purple-700 dark:text-purple-300">
+                Recompensa: 50 PejeCoins
+              </span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
+  );
+}
+
+// Widget de Foro
+export function ForumWidget() {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay: 1.4 }}
+    >
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Bell className="w-5 h-5 text-purple-500" />
+            Foro
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            <Button className="w-full border border-input bg-background hover:bg-accent hover:text-accent-foreground">
+              Unirse al Foro
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
+  );
+}
+
+// Nuevo widget para mostrar resumen de posiciones
+export function TradingPositionsWidget() {
+  const { positions, getTotalMarginUsed, getTotalFreeMargin, getTotalMarginLevel, getTotalUnrealizedPnL } = useTradePositions();
+  
+  const totalCapital = 10000; // Capital base
+  const totalMarginUsed = getTotalMarginUsed();
+  const totalFreeMargin = getTotalFreeMargin(totalCapital);
+  const totalUnrealizedPnL = getTotalUnrealizedPnL();
+  const totalMarginLevel = getTotalMarginLevel(totalCapital);
+  
+  // Obtener color del nivel de margen
+  const getMarginLevelColor = (level: number) => {
+    if (level >= 200) return 'text-green-500';
+    if (level >= 100) return 'text-yellow-500';
+    return 'text-red-500';
+  };
+
+  return (
+    <div className="bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-950 dark:to-indigo-950 rounded-xl p-6 border-l-4 border-blue-500">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <div className="p-2 bg-blue-500 rounded-lg">
+            <TrendingUp className="h-5 w-5 text-white" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-blue-900 dark:text-blue-100">Posiciones Activas</h3>
+            <p className="text-sm text-blue-600 dark:text-blue-300">Estado de Trading en Tiempo Real</p>
+          </div>
+        </div>
+        <Badge variant="outline" className="bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
+          {positions.length} {positions.length === 1 ? 'posición' : 'posiciones'}
+        </Badge>
+      </div>
+
+      {positions.length > 0 ? (
+        <div className="space-y-4">
+          {/* Métricas principales */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-white/50 dark:bg-black/20 rounded-lg p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <DollarSign className="h-4 w-4 text-green-500" />
+                <span className="text-xs font-medium text-muted-foreground">PnL Total</span>
+              </div>
+              <div className={cn(
+                "text-lg font-bold",
+                totalUnrealizedPnL >= 0 ? "text-green-600" : "text-red-600"
+              )}>
+                {totalUnrealizedPnL >= 0 ? "+" : ""}${totalUnrealizedPnL.toFixed(0)}
+              </div>
+            </div>
+
+            <div className="bg-white/50 dark:bg-black/20 rounded-lg p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <BarChart3 className="h-4 w-4 text-orange-500" />
+                <span className="text-xs font-medium text-muted-foreground">Margen Usado</span>
+              </div>
+              <div className="text-lg font-bold text-orange-600">
+                ${totalMarginUsed.toFixed(0)}
+              </div>
+            </div>
+          </div>
+
+          {/* Nivel de margen */}
+          <div className="bg-white/50 dark:bg-black/20 rounded-lg p-3">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Shield className="h-4 w-4 text-blue-500" />
+                <span className="text-xs font-medium text-muted-foreground">Nivel de Margen</span>
+              </div>
+              <span className={cn("text-sm font-bold", getMarginLevelColor(totalMarginLevel))}>
+                {totalMarginLevel.toFixed(1)}%
+              </span>
+            </div>
+            <Progress 
+              value={Math.min(totalMarginLevel / 5, 100)} 
+              className="h-2"
+            />
+          </div>
+
+          {/* Botón para ir a posiciones */}
+          <Button asChild variant="outline" className="w-full bg-white/70 hover:bg-white/90 dark:bg-black/30 dark:hover:bg-black/40">
+            <a href="/posiciones-abiertas" className="flex items-center justify-center gap-2">
+              <Activity className="h-4 w-4" />
+              Ver Todas las Posiciones
+            </a>
+          </Button>
+        </div>
+      ) : (
+        <div className="text-center py-6">
+          <Target className="h-12 w-12 mx-auto text-blue-400 mb-3" />
+          <p className="text-sm text-blue-600 dark:text-blue-400 mb-3">
+            No tienes posiciones activas
+          </p>
+          <Button asChild size="sm" className="bg-blue-500 hover:bg-blue-600 text-white">
+            <a href="/" className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Abrir Primera Posición
+            </a>
+          </Button>
+        </div>
+      )}
+    </div>
   );
 } 

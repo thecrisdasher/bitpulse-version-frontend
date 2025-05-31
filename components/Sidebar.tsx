@@ -10,7 +10,7 @@ import PortfolioModal from "./PortfolioModal"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { Badge } from "@/components/ui/badge"
+import { CompatBadge as Badge } from "@/components/ui/compat-badge"
 import { useTranslation } from '@/app/i18n/client'
 
 // Context import (to be created later)
@@ -81,22 +81,22 @@ const Sidebar = () => {
           </li>
           <li>
             <Link 
-              href="/portfolio" 
+              href="/posiciones-abiertas" 
               className={cn(
                 "flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors",
-                pathname === "/portfolio" ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+                pathname === "/posiciones-abiertas" ? "bg-primary text-primary-foreground" : "hover:bg-muted"
               )}
             >
               <div className="flex items-center gap-3">
                 <Wallet size={18} />
-                {t('nav.portfolio')}
+                Posiciones Abiertas
               </div>
               {openPositionsCount > 0 && (
                 <Badge 
                   variant="default"
                   className={cn(
                     "ml-auto bg-primary/20 text-primary-foreground hover:bg-primary/20",
-                    pathname === "/portfolio" ? "bg-primary-foreground/20 text-primary" : ""
+                    pathname === "/posiciones-abiertas" ? "bg-primary-foreground/20 text-primary" : ""
                   )}
                 >
                   {openPositionsCount}
