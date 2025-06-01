@@ -33,12 +33,9 @@ export function LoginForm() {
   });
 
   const onSubmit = async (data: LoginFormData) => {
-    setIsLoading(true);
     try {
+      setIsLoading(true);
       await login(data);
-      toast.success('¡Bienvenido de vuelta!', {
-        description: 'Has iniciado sesión exitosamente',
-      });
     } catch (error) {
       toast.error('Error al iniciar sesión', {
         description: error instanceof Error ? error.message : 'Error desconocido',

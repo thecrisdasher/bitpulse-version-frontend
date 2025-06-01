@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
 import { toast } from 'sonner';
+import { logger } from '@/lib/logging/logger';
 import type { 
   AuthState, 
   AuthContextType, 
@@ -13,9 +14,10 @@ import type {
   UserRole
 } from '@/lib/types/auth';
 import { AUTH_CONFIG, ROLE_PERMISSIONS } from '@/lib/config/auth';
+import { useRouter } from 'next/navigation';
 
 /**
- * Context para manejo de autenticación en React
+ * Context para manejo de autenticación en React con logging integrado
  */
 
 // Estado inicial
@@ -47,6 +49,12 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
       };
 
     case 'LOGIN_SUCCESS':
+      // Log del login exitoso
+      logger.logAuth('info', 'login', true, {
+        email: action.payload.user.email,
+        role: action.payload.user.role
+      });
+
       return {
         ...state,
         user: action.payload.user,
@@ -58,6 +66,13 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
       };
 
     case 'LOGOUT':
+      // Log del logout
+      if (state.user) {
+        logger.logAuth('info', 'logout', true, {
+          email: state.user.email
+        });
+      }
+
       return {
         ...initialState,
         isLoading: false
@@ -71,6 +86,10 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
       };
 
     case 'UPDATE_USER':
+      logger.logUserActivity('profile_updated', action.payload.id, {
+        updatedFields: Object.keys(action.payload)
+      });
+
       return {
         ...state,
         user: action.payload,
@@ -107,6 +126,7 @@ interface AuthProviderProps {
 
 export function AuthProvider({ children }: AuthProviderProps) {
   const [state, dispatch] = useReducer(authReducer, initialState);
+  const router = useRouter();
 
   // Cargar token desde localStorage al iniciar
   useEffect(() => {
@@ -144,26 +164,43 @@ export function AuthProvider({ children }: AuthProviderProps) {
               tokens 
             } 
           });
+
+          // Log de sesión restaurada
+          logger.logUserActivity('session_restored', result.data.id, {
+            email: result.data.email
+          });
           return;
         }
       }
 
       // Token inválido, limpiar storage
       localStorage.removeItem('auth_tokens');
-      dispatch({ type: 'LOGOUT' });
+      dispatch({ type: 'SET_LOADING', payload: false });
+
+      logger.logAuth('warn', 'session_expired', false, {
+        failureReason: 'Invalid stored token'
+      });
 
     } catch (error) {
       console.error('Error loading stored auth:', error);
       localStorage.removeItem('auth_tokens');
-      dispatch({ type: 'LOGOUT' });
+      dispatch({ type: 'SET_LOADING', payload: false });
+
+      logger.error('auth', 'Failed to load stored authentication', error as Error);
     }
   };
 
   // Función de login
   const login = async (credentials: LoginCredentials) => {
+    const startTime = performance.now();
+    
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
       dispatch({ type: 'SET_ERROR', payload: null });
+
+      logger.logAuth('info', 'login', true, {
+        email: credentials.email
+      });
 
       const response = await fetch('/api/auth/login', {
         method: 'POST',
@@ -176,6 +213,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const result = await response.json();
 
       if (!result.success) {
+        logger.logAuth('warn', 'login', false, {
+          email: credentials.email,
+          failureReason: result.message
+        });
         throw new Error(result.message || 'Error en el login');
       }
 
@@ -189,13 +230,44 @@ export function AuthProvider({ children }: AuthProviderProps) {
         payload: { user, tokens } 
       });
 
+      // Log de rendimiento del login
+      const duration = performance.now() - startTime;
+      logger.logPerformance('user_login', duration, {
+        userId: user.id,
+        email: user.email
+      });
+
       toast.success('¡Bienvenido de vuelta!');
+
+      // Redirección automática basada en el rol
+      setTimeout(() => {
+        switch (user.role) {
+          case 'admin':
+            router.push('/statistics');
+            break;
+          case 'maestro':
+            router.push('/learning');
+            break;
+          case 'cliente':
+          default:
+            router.push('/');
+            break;
+        }
+      }, 1000); // Delay de 1 segundo para mostrar el toast
 
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error desconocido';
       dispatch({ type: 'SET_ERROR', payload: message });
+      
+      logger.logAuth('error', 'login', false, {
+        email: credentials.email,
+        failureReason: message
+      });
+      
       toast.error(message);
       throw error;
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: false });
     }
   };
 
@@ -204,6 +276,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
       dispatch({ type: 'SET_ERROR', payload: null });
+
+      logger.logAuth('info', 'register', true, {
+        email: data.email
+      });
 
       const response = await fetch('/api/auth/register', {
         method: 'POST',
@@ -219,10 +295,27 @@ export function AuthProvider({ children }: AuthProviderProps) {
         if (result.errors) {
           // Manejar errores de validación
           const errorMessages = Object.values(result.errors).flat();
-          throw new Error(errorMessages.join(', '));
+          const message = errorMessages.join(', ');
+          
+          logger.logAuth('warn', 'register', false, {
+            email: data.email,
+            failureReason: message
+          });
+          
+          throw new Error(message);
         }
+        
+        logger.logAuth('warn', 'register', false, {
+          email: data.email,
+          failureReason: result.message
+        });
+        
         throw new Error(result.message || 'Error en el registro');
       }
+
+      logger.logAuth('info', 'register', true, {
+        email: data.email
+      });
 
       toast.success('¡Cuenta creada exitosamente! Puedes iniciar sesión ahora.');
 
@@ -250,17 +343,31 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
     } catch (error) {
       console.error('Error during logout:', error);
+      logger.error('auth', 'Logout API call failed', error as Error, {
+        userId: state.user?.id
+      });
     } finally {
       // Limpiar storage local
       localStorage.removeItem('auth_tokens');
+      
+      // Limpiar todas las cookies manualmente también
+      document.cookie = 'bitpulse_session=; Max-Age=0; path=/';
+      document.cookie = 'refresh_token=; Max-Age=0; path=/';
+      document.cookie = 'user_info=; Max-Age=0; path=/';
+      
       dispatch({ type: 'LOGOUT' });
       toast.success('Sesión cerrada exitosamente');
+      
+      // Redirigir a la página de login
+      router.push('/auth');
     }
   };
 
   // Función para refrescar token
   const refreshToken = async () => {
     try {
+      logger.debug('auth', 'Attempting token refresh');
+
       const response = await fetch('/api/auth/refresh', {
         method: 'POST',
         credentials: 'include', // Para enviar cookies
@@ -272,16 +379,26 @@ export function AuthProvider({ children }: AuthProviderProps) {
           const newTokens: AuthTokens = result.data;
           localStorage.setItem('auth_tokens', JSON.stringify(newTokens));
           dispatch({ type: 'SET_TOKENS', payload: newTokens });
+          
+          logger.logUserActivity('token_refresh_success', state.user?.id);
+          
           return true;
         }
       }
 
       // Si falla el refresh, hacer logout
+      logger.logUserActivity('token_refresh_failed', state.user?.id, {
+        reason: 'Refresh token invalid or expired'
+      });
+      
       await logout();
       return false;
 
     } catch (error) {
       console.error('Error refreshing token:', error);
+      logger.error('auth', 'Token refresh failed', error as Error, {
+        userId: state.user?.id
+      });
       await logout();
       return false;
     }
@@ -317,6 +434,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error desconocido';
       dispatch({ type: 'SET_ERROR', payload: message });
+      
+      logger.error('auth', 'Profile update failed', error as Error, {
+        userId: state.user?.id,
+        updateData: data
+      });
+      
       toast.error(message);
       throw error;
     } finally {
@@ -326,45 +449,84 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // Verificar permiso
   const checkPermission = (permission: Permission): boolean => {
-    return state.permissions.includes(permission);
+    const hasPermission = state.permissions.includes(permission);
+    
+    if (!hasPermission) {
+      logger.logUserActivity('permission_denied', state.user?.id, {
+        requestedPermission: permission,
+        userPermissions: state.permissions
+      });
+    }
+    
+    return hasPermission;
   };
 
   // Verificar rol
   const hasRole = (role: UserRole): boolean => {
-    return state.user?.role === role;
+    const hasUserRole = state.user?.role === role;
+    
+    if (!hasUserRole) {
+      logger.debug('auth', 'Role check failed', {
+        userId: state.user?.id,
+        userRole: state.user?.role,
+        requiredRole: role
+      });
+    }
+    
+    return hasUserRole;
   };
 
   // Configurar interceptor para refresh automático del token
   useEffect(() => {
     const originalFetch = window.fetch;
-    
+
     window.fetch = async (...args) => {
       const response = await originalFetch(...args);
       
-      // Si recibimos 401 y tenemos tokens, intentar refresh
-      if (response.status === 401 && state.tokens?.accessToken) {
-        const refreshSuccess = await refreshToken();
+      // Si recibimos 401 y tenemos un usuario autenticado, intentar refresh
+      if (response.status === 401 && state.isAuthenticated) {
+        logger.warn('auth', 'Received 401, attempting token refresh');
+        const refreshed = await refreshToken();
         
-        if (refreshSuccess && args[1]?.headers) {
+        if (refreshed && state.tokens) {
           // Reintentar la petición original con el nuevo token
-          const newTokens = JSON.parse(localStorage.getItem('auth_tokens') || '{}');
-          if (newTokens.accessToken) {
-            const headers = args[1].headers as Record<string, string>;
-            headers['Authorization'] = `Bearer ${newTokens.accessToken}`;
-            return originalFetch(...args);
-          }
+          const [url, options] = args;
+          const newOptions = {
+            ...options,
+            headers: {
+              ...((options as RequestInit)?.headers || {}),
+              'Authorization': `Bearer ${state.tokens.accessToken}`
+            }
+          };
+          
+          return originalFetch(url, newOptions);
         }
       }
       
       return response;
     };
 
+    // Cleanup
     return () => {
       window.fetch = originalFetch;
     };
-  }, [state.tokens]);
+  }, [state.isAuthenticated, state.tokens]);
 
-  const value: AuthContextType = {
+  // Log de actividad del usuario cada 5 minutos si está autenticado
+  useEffect(() => {
+    if (!state.isAuthenticated || !state.user) return;
+
+    const interval = setInterval(() => {
+      logger.logUserActivity('session_active', state.user!.id, {
+        timestamp: new Date().toISOString(),
+        url: window.location.href
+      });
+    }, 5 * 60 * 1000); // 5 minutos
+
+    return () => clearInterval(interval);
+  }, [state.isAuthenticated, state.user]);
+
+  const contextValue: AuthContextType = {
     ...state,
     login,
     register,
@@ -376,7 +538,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

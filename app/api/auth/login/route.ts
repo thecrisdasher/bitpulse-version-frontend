@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { AuthService } from '@/lib/services/authService';
-import { combineMiddlewares, RateLimiter, sanitizeHeaders, validateJSON } from '@/lib/middleware/authMiddleware';
 import { SecurityUtils } from '@/lib/utils/security';
 import type { LoginCredentials } from '@/lib/types/auth';
 
@@ -9,12 +8,30 @@ import type { LoginCredentials } from '@/lib/types/auth';
  * POST /api/auth/login
  */
 
-async function handleLogin(request: NextRequest): Promise<NextResponse> {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    const body = await request.json();
-    
-    // Validar datos requeridos
-    if (!body.email || !body.password) {
+    console.log('🔐 Login attempt started');
+
+    // Parse del body
+    let body;
+    try {
+      body = await request.json();
+      console.log('📝 Body parsed successfully', { email: body.email });
+    } catch (parseError) {
+      console.error('❌ Failed to parse request body:', parseError);
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Formato de datos inválido',
+          timestamp: new Date().toISOString()
+        },
+        { status: 400 }
+      );
+    }
+
+    // Validar campos requeridos
+    const { email, password } = body as LoginCredentials;
+    if (!email || !password) {
       return NextResponse.json(
         {
           success: false,
@@ -25,12 +42,7 @@ async function handleLogin(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // Sanitizar inputs
-    const credentials: LoginCredentials = {
-      email: SecurityUtils.sanitizeInput(body.email).toLowerCase(),
-      password: body.password, // No sanitizar contraseña
-      rememberMe: body.rememberMe || false
-    };
+    console.log('🔍 Attempting login with:', { email });
 
     // Obtener información del cliente
     const userAgent = request.headers.get('user-agent') || 'Unknown';
@@ -38,22 +50,62 @@ async function handleLogin(request: NextRequest): Promise<NextResponse> {
     const realIP = request.headers.get('x-real-ip');
     const ip = forwarded ? forwarded.split(',')[0].trim() : realIP || 'unknown';
 
-    // Intentar login
-    const result = await AuthService.login(credentials, userAgent, ip);
+    // Intentar login usando el servicio
+    const result = await AuthService.login({ email, password }, userAgent, ip);
+    console.log('🎯 Login result:', { success: result.success, message: result.message });
 
     if (!result.success) {
-      return NextResponse.json(result, { status: 401 });
+      return NextResponse.json(
+        {
+          success: false,
+          message: result.message,
+          timestamp: new Date().toISOString()
+        },
+        { status: 401 }
+      );
     }
 
-    // Configurar cookie segura con el refresh token
-    const response = NextResponse.json(result);
-    
-    if (result.data?.tokens.refreshToken) {
-      response.cookies.set('refresh_token', result.data.tokens.refreshToken, {
-        httpOnly: true,
+    console.log('✅ Login successful, sending response');
+
+    // Crear la respuesta con cookies de sesión
+    const response = NextResponse.json({
+      success: true,
+      message: 'Login exitoso',
+      data: result.data,
+      timestamp: new Date().toISOString()
+    });
+
+    // Establecer cookies para que el middleware pueda acceder al token
+    if (result.data?.tokens?.accessToken) {
+      // Cookie principal para el middleware
+      response.cookies.set('bitpulse_session', result.data.tokens.accessToken, {
+        httpOnly: true, // Accesible solo desde servidor (seguridad)
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'strict',
-        maxAge: 7 * 24 * 60 * 60, // 7 días
+        maxAge: 60 * 60 * 24, // 24 horas
+        path: '/'
+      });
+
+      // Cookie del refresh token
+      response.cookies.set('refresh_token', result.data.tokens.refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production', 
+        sameSite: 'strict',
+        maxAge: 60 * 60 * 24 * 7, // 7 días
+        path: '/'
+      });
+
+      // Cookie adicional para información del usuario (accesible desde cliente)
+      response.cookies.set('user_info', JSON.stringify({
+        id: result.data.user.id,
+        email: result.data.user.email,
+        role: result.data.user.role,
+        firstName: result.data.user.firstName
+      }), {
+        httpOnly: false, // Accesible desde cliente
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict', 
+        maxAge: 60 * 60 * 24, // 24 horas
         path: '/'
       });
     }
@@ -61,7 +113,8 @@ async function handleLogin(request: NextRequest): Promise<NextResponse> {
     return response;
 
   } catch (error) {
-    console.error('Login error:', error);
+    console.error('❌ Login error:', error);
+    
     return NextResponse.json(
       {
         success: false,
@@ -71,11 +124,4 @@ async function handleLogin(request: NextRequest): Promise<NextResponse> {
       { status: 500 }
     );
   }
-}
-
-// Aplicar middlewares
-export const POST = combineMiddlewares(
-  sanitizeHeaders,
-  validateJSON,
-  RateLimiter.middleware(10, 15 * 60 * 1000) // 10 intentos por 15 minutos
-)(handleLogin); 
+} 

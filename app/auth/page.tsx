@@ -1,18 +1,50 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { RegisterForm } from '@/components/auth/RegisterForm';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useAuth } from '@/contexts/AuthContext';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 /**
  * Página principal de autenticación
  * Permite alternar entre login y registro con animaciones suaves
+ * Maneja redirección automática si el usuario ya está autenticado
  */
 
 export default function AuthPage() {
   const [activeTab, setActiveTab] = useState('login');
+  const { isAuthenticated, isLoading } = useAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Manejar redirección automática si ya está autenticado
+  useEffect(() => {
+    if (isAuthenticated && !isLoading) {
+      const redirectTo = searchParams.get('redirect') || '/';
+      router.push(redirectTo);
+    }
+  }, [isAuthenticated, isLoading, router, searchParams]);
+
+  // Mostrar loading si está verificando autenticación
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <motion.div
+          className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full"
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+        />
+      </div>
+    );
+  }
+
+  // No mostrar la página de auth si ya está autenticado
+  if (isAuthenticated) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-background">

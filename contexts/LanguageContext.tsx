@@ -1,8 +1,7 @@
 "use client"
 
-import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { useTranslation } from 'next-i18next';
 
 type Locale = 'es' | 'en';
 
@@ -28,40 +27,45 @@ interface LanguageProviderProps {
 export function LanguageProvider({ children, initialLocale = DEFAULT_LANGUAGE }: LanguageProviderProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { i18n } = useTranslation();
   const [locale, setLocale] = useState<Locale>(initialLocale);
+  const [isClient, setIsClient] = useState(false);
 
-  // Cambiar idioma
-  const changeLanguage = async (newLocale: Locale) => {
+  // Marcar cuando estamos en el cliente
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  // Cambiar idioma con useCallback para estabilidad
+  const changeLanguage = useCallback(async (newLocale: Locale) => {
     try {
       // Guardar preferencia en localStorage (solo en cliente)
-      if (typeof window !== 'undefined') {
+      if (isClient) {
         localStorage.setItem('language', newLocale);
+        // También establecer cookie para compatibilidad con servidor
+        document.cookie = `NEXT_LOCALE=${newLocale}; path=/; max-age=${365 * 24 * 60 * 60}`;
       }
-      
-      // Actualizar i18n
-      await i18n.changeLanguage(newLocale);
       
       // Actualizar estado
       setLocale(newLocale);
       
       // Actualizar ruta manteniendo la misma página
-      // En App Router necesitamos usar un enfoque diferente
-      router.push(`${pathname}?locale=${newLocale}`);
+      const searchParams = new URLSearchParams(window.location.search);
+      searchParams.set('locale', newLocale);
+      router.push(`${pathname}?${searchParams.toString()}`);
     } catch (error) {
       console.error('Error cambiando idioma:', error);
     }
-  };
+  }, [router, pathname, isClient]);
 
-  // Cargar idioma almacenado al iniciar
+  // Cargar idioma almacenado al iniciar (solo una vez)
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (isClient) {
       const savedLanguage = localStorage.getItem('language') as Locale;
       if (savedLanguage && savedLanguage !== locale) {
-        changeLanguage(savedLanguage);
+        setLocale(savedLanguage);
       }
     }
-  }, []);
+  }, [isClient]); // Solo depende de isClient
 
   return (
     <LanguageContext.Provider value={{ locale, changeLanguage }}>

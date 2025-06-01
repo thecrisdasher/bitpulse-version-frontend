@@ -12,6 +12,24 @@ export class JWTService {
   private static readonly AUDIENCE = 'bitpulse-users';
 
   /**
+   * Convierte tiempo de expiración a segundos
+   */
+  private static parseExpirationTime(duration: string): number {
+    const matches = duration.match(/^(\d+)([hdm])$/);
+    if (!matches) throw new Error('Formato de duración inválido');
+
+    const value = parseInt(matches[1]);
+    const unit = matches[2];
+
+    switch (unit) {
+      case 'h': return value * 3600;
+      case 'd': return value * 86400;
+      case 'm': return value * 60;
+      default: throw new Error('Unidad de tiempo no soportada');
+    }
+  }
+
+  /**
    * Genera un access token JWT
    */
   static async generateAccessToken(user: User): Promise<string> {
@@ -69,7 +87,7 @@ export class JWTService {
         audience: this.AUDIENCE,
       });
 
-      return payload as CustomJWTPayload;
+      return payload as unknown as CustomJWTPayload;
     } catch (error) {
       throw new Error('Token inválido o expirado');
     }
@@ -85,7 +103,7 @@ export class JWTService {
         audience: this.AUDIENCE,
       });
 
-      return payload as RefreshTokenPayload;
+      return payload as unknown as RefreshTokenPayload;
     } catch (error) {
       throw new Error('Refresh token inválido o expirado');
     }
@@ -174,24 +192,6 @@ export class JWTService {
       return blacklist.includes(jti);
     }
     return false;
-  }
-
-  /**
-   * Convierte tiempo de expiración a segundos
-   */
-  private static parseExpirationTime(duration: string): number {
-    const matches = duration.match(/^(\d+)([hdm])$/);
-    if (!matches) throw new Error('Formato de duración inválido');
-
-    const value = parseInt(matches[1]);
-    const unit = matches[2];
-
-    switch (unit) {
-      case 'h': return value * 3600;
-      case 'd': return value * 86400;
-      case 'm': return value * 60;
-      default: throw new Error('Unidad de tiempo no soportada');
-    }
   }
 
   /**
