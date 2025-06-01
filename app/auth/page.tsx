@@ -260,6 +260,34 @@ export default function AuthPage() {
           </motion.div>
         </motion.div>
       </motion.div>
+
+      {/* Mini Footer para página de auth */}
+      <motion.div 
+        className="absolute bottom-4 left-1/2 transform -translate-x-1/2"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 2, duration: 0.5 }}
+      >
+        <motion.a
+          href="https://crisdasher-portfolio.vercel.app/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-card/50 backdrop-blur-sm hover:bg-card/80 text-muted-foreground hover:text-primary rounded-full text-xs transition-all duration-300 group border border-border/50"
+          whileHover={{ scale: 1.05, y: -2 }}
+          whileTap={{ scale: 0.95 }}
+        >
+          <span>Desarrollado por</span>
+          <span className="text-primary font-medium">Mejor Llama A Cris</span>
+          <motion.div
+            className="opacity-0 group-hover:opacity-100 transition-opacity"
+            initial={false}
+            animate={{ rotate: 0 }}
+            whileHover={{ rotate: 15 }}
+          >
+            ⚡
+          </motion.div>
+        </motion.a>
+      </motion.div>
     </div>
   );
 } 

@@ -9,6 +9,7 @@ import { AuthProvider } from "@/contexts/AuthContext"
 import { TradePositionsProvider } from "@/contexts/TradePositionsContext"
 import { LanguageProvider } from "@/contexts/LanguageContext"
 import { languages } from "./i18n/settings"
+import Footer from "@/components/Footer"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -33,12 +34,15 @@ export default function RootLayout({
 }: RootLayoutProps) {
   return (
     <html lang={lng}>
-      <body className={inter.className}>
+      <body className={`${inter.className} min-h-screen flex flex-col`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <LanguageProvider initialLocale={lng as 'es' | 'en'}>
             <AuthProvider>
               <TradePositionsProvider>
-                {children}
+                <div className="flex-1 flex flex-col">
+                  {children}
+                </div>
+                <Footer />
                 <Toaster />
                 <SonnerToaster 
                   position="top-right"
