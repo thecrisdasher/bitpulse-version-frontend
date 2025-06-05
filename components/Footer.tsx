@@ -76,7 +76,7 @@ export default function Footer({ show }: FooterProps) {
               </div>
               
               <motion.a
-                href="https://crisdasher-portfolio.vercel.app/"
+                href="https://portafolio-cris-sepia.vercel.app/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-full text-xs font-medium transition-all duration-300 group"
