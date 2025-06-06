@@ -6,79 +6,74 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { CompatButton as Button } from "@/components/ui/compat-button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { PieChart, BarChart, ArrowUpRight, ArrowDownRight, Plus, Wallet, History, TrendingUp, Clock, Shield } from "lucide-react"
+import { PieChart, BarChart, ArrowUpRight, ArrowDownRight, Plus, Wallet, History, TrendingUp, Clock, Shield, Target } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
-import { cryptocurrencies } from "@/lib/mockData"
-import PriceChart from "@/components/PriceChart"
-import PortfolioTracker from "@/components/PortfolioTracker"
 import OpenPositions from "@/components/OpenPositions"
 import { useTradePositions } from "@/contexts/TradePositionsContext"
 import { CompatBadge as Badge } from "@/components/ui/compat-badge"
 import { AdvancedPortfolioManager } from "@/components/enhanced-portfolio/AdvancedPortfolioManager"
 import { RiskManagement } from "@/components/RiskManagement"
+import { useAuth } from "@/contexts/AuthContext"
 
-// Mock portfolio data
-const mockPortfolio = [
-  { symbol: "BTC", amount: 0.5, price: 0, value: 0, allocation: 0 },
-  { symbol: "ETH", amount: 5, price: 0, value: 0, allocation: 0 },
-  { symbol: "ADA", amount: 1000, price: 0, value: 0, allocation: 0 },
-  { symbol: "SOL", amount: 10, price: 0, value: 0, allocation: 0 },
-  { symbol: "DOT", amount: 100, price: 0, value: 0, allocation: 0 },
-]
+// Define types for portfolio and transactions
+interface PortfolioAsset {
+  symbol: string;
+  amount: number;
+  price: number;
+  value: number;
+  allocation: number;
+}
 
-// Mock transactions
-const mockTransactions = [
-  { id: 1, type: "buy", symbol: "BTC", amount: 0.2, price: 29000, date: "2023-06-10", value: 5800 },
-  { id: 2, type: "buy", symbol: "ETH", amount: 2, price: 1800, date: "2023-06-15", value: 3600 },
-  { id: 3, type: "sell", symbol: "BTC", amount: 0.1, price: 30000, date: "2023-07-05", value: 3000 },
-  { id: 4, type: "buy", symbol: "ADA", amount: 1000, price: 0.3, date: "2023-07-10", value: 300 },
-  { id: 5, type: "buy", symbol: "SOL", amount: 10, price: 20, date: "2023-07-20", value: 200 },
-  { id: 6, type: "buy", symbol: "DOT", amount: 100, price: 5, date: "2023-08-01", value: 500 },
-  { id: 7, type: "buy", symbol: "BTC", amount: 0.4, price: 28000, date: "2023-08-10", value: 11200 },
-  { id: 8, type: "buy", symbol: "ETH", amount: 3, price: 1700, date: "2023-08-15", value: 5100 },
-  { id: 9, type: "sell", symbol: "ADA", amount: 500, price: 0.35, date: "2023-09-05", value: 175 },
-  { id: 10, type: "buy", symbol: "SOL", amount: 5, price: 22, date: "2023-09-10", value: 110 },
-]
+interface Transaction {
+  id: number;
+  type: 'buy' | 'sell';
+  symbol: string;
+  amount: number;
+  price: number;
+  date: string;
+  value: number;
+}
 
 export default function PortfolioPage() {
-  const [portfolio, setPortfolio] = useState(mockPortfolio)
+  const { user } = useAuth();
+  const [portfolio, setPortfolio] = useState<PortfolioAsset[]>([])
   const [totalValue, setTotalValue] = useState(0)
-  const [transactions, setTransactions] = useState(mockTransactions)
+  const [transactions, setTransactions] = useState<Transaction[]>([])
   const [performance, setPerformance] = useState({ 
-    daily: 2.5, 
-    weekly: -1.2, 
-    monthly: 15.3, 
-    allTime: 45.7 
+    daily: 0, 
+    weekly: 0, 
+    monthly: 0, 
+    allTime: 0 
   })
   
-  // Obtener las posiciones abiertas del contexto
+  // Get open positions from context
   const { positions, removePosition } = useTradePositions();
   
-  // Calcular valores actuales del portfolio
+  // In a real application, portfolio and transactions would be fetched from a backend
+  // For now, we'll derive some basic info from open positions
   useEffect(() => {
-    const updatedPortfolio = mockPortfolio.map(asset => {
-      const crypto = cryptocurrencies.find(c => c.symbol === asset.symbol)
-      const price = crypto ? crypto.price : 0
-      const value = price * asset.amount
-      
-      return {
-        ...asset,
-        price,
-        value
-      }
-    })
-    
-    const total = updatedPortfolio.reduce((sum, asset) => sum + asset.value, 0)
-    
-    // Calcular la asignación (porcentaje del portfolio)
-    const portfolioWithAllocation = updatedPortfolio.map(asset => ({
+    // This is a placeholder for future logic that will fetch user-specific portfolio data.
+    // Currently, it just calculates total value from open positions for demonstration.
+    const newTotalValue = positions.reduce((sum, pos) => sum + pos.amount, 0);
+    setTotalValue(newTotalValue);
+
+    // Placeholder for real portfolio assets
+    const assets: PortfolioAsset[] = positions.map(pos => ({
+      symbol: pos.marketName,
+      amount: pos.lotSize,
+      price: pos.currentPrice,
+      value: pos.positionValue,
+      allocation: 0
+    }));
+
+    const portfolioWithAllocation = assets.map(asset => ({
       ...asset,
-      allocation: total > 0 ? (asset.value / total) * 100 : 0
-    }))
-    
-    setPortfolio(portfolioWithAllocation)
-    setTotalValue(total)
-  }, [])
+      allocation: newTotalValue > 0 ? (asset.value / newTotalValue) * 100 : 0
+    }));
+
+    setPortfolio(portfolioWithAllocation);
+
+  }, [positions])
   
   return (
     <div className="flex min-h-screen bg-background text-foreground">
@@ -86,314 +81,226 @@ export default function PortfolioPage() {
       <div className="flex-1 flex flex-col">
         <main className="flex-1 p-6">
           <header className="mb-8">
-            <h1 className="text-3xl font-bold mb-2">Portfolio</h1>
+            <h1 className="text-3xl font-bold mb-2">Portfolio de {user?.firstName || 'Usuario'}</h1>
             <p className="text-muted-foreground">
-              Gestiona y monitorea tus inversiones en criptomonedas
+              Gestiona y monitorea tus operaciones y rendimiento.
             </p>
           </header>
           
           <div className="container mx-auto max-w-7xl">
-            <div className="mb-8">
-              <h1 className="text-3xl font-bold mb-2">Portfolio Inteligente</h1>
-              <p className="text-muted-foreground">
-                Gestión avanzada de tu portfolio con análisis de riesgo y rebalanceado automático
-              </p>
-            </div>
+            {positions.length === 0 && portfolio.length === 0 && transactions.length === 0 ? (
+              <Card className="text-center py-20">
+                <CardHeader>
+                  <Target className="w-16 h-16 mx-auto text-primary mb-4" />
+                  <CardTitle>¡Bienvenido a tu Portfolio!</CardTitle>
+                  <CardDescription>
+                    Aquí podrás ver un resumen de tus activos, posiciones abiertas y rendimiento.
+                    <br />
+                    Realiza tu primera operación para comenzar.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button asChild>
+                    <a href="/" className="flex items-center gap-2">
+                      <TrendingUp className="w-4 h-4" />
+                      Ir a Operar
+                    </a>
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <>
+                <div className="mb-8">
+                  <h2 className="text-2xl font-bold mb-2">Resumen del Portfolio</h2>
+                  <p className="text-muted-foreground">
+                    Análisis de riesgo y balance de tu cuenta.
+                  </p>
+                </div>
 
-            {/* Nuevo gestor de portfolio avanzado */}
-            <div className="mb-8">
-              <AdvancedPortfolioManager />
-            </div>
+                {/* This component can be adapted to show real data later */}
+                <div className="mb-8">
+                  <AdvancedPortfolioManager />
+                </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Valor Total</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">${totalValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
-                  <div className="flex items-center text-sm mt-1">
-                    <span className={performance.daily >= 0 ? "text-green-500 flex items-center" : "text-red-500 flex items-center"}>
-                      {performance.daily > 0 ? <ArrowUpRight className="h-4 w-4 mr-1" /> : <ArrowDownRight className="h-4 w-4 mr-1" />}
-                      {performance.daily > 0 ? "+" : ""}{performance.daily}%
-                    </span>
-                    <span className="text-muted-foreground ml-2">24h</span>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Rendimiento Semanal</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    <span className={performance.weekly >= 0 ? "text-green-500" : "text-red-500"}>
-                      {performance.weekly > 0 ? "+" : ""}{performance.weekly}%
-                    </span>
-                  </div>
-                  <div className="mt-1 text-muted-foreground text-sm">Últimos 7 días</div>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Rendimiento Mensual</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    <span className={performance.monthly >= 0 ? "text-green-500" : "text-red-500"}>
-                      {performance.monthly > 0 ? "+" : ""}{performance.monthly}%
-                    </span>
-                  </div>
-                  <div className="mt-1 text-muted-foreground text-sm">Últimos 30 días</div>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Rendimiento Total</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    <span className={performance.allTime >= 0 ? "text-green-500" : "text-red-500"}>
-                      {performance.allTime > 0 ? "+" : ""}{performance.allTime}%
-                    </span>
-                  </div>
-                  <div className="mt-1 text-muted-foreground text-sm">Desde el inicio</div>
-                </CardContent>
-              </Card>
-            </div>
-            
-            {/* Sección de posiciones abiertas */}
-            {positions.length > 0 && (
-              <div className="mb-8">
-                <Card>
-                  <CardHeader>
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center gap-2">
-                        <CardTitle>Posiciones Abiertas</CardTitle>
-                        <Badge variant="secondary" className="ml-2">
-                          {positions.length}
-                        </Badge>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium">Valor Total (en Posiciones)</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">${totalValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
+                      <div className="flex items-center text-sm mt-1">
+                        <span className={performance.daily >= 0 ? "text-green-500 flex items-center" : "text-red-500 flex items-center"}>
+                          {performance.daily >= 0 ? <ArrowUpRight className="h-4 w-4 mr-1" /> : <ArrowDownRight className="h-4 w-4 mr-1" />}
+                          {performance.daily >= 0 ? "+" : ""}{performance.daily}%
+                        </span>
+                        <span className="text-muted-foreground ml-2">24h</span>
                       </div>
-                      <Button variant="outline" size="sm" asChild>
-                        <a href="/" className="flex items-center gap-1">
-                          <TrendingUp className="h-4 w-4" />
-                          <span>Operar</span>
-                        </a>
-                      </Button>
-                    </div>
-                    <CardDescription>
-                      Operaciones activas en diversos mercados
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <OpenPositions 
-                      positions={positions}
-                      onClosePosition={removePosition}
-                    />
-                  </CardContent>
-                </Card>
-              </div>
-            )}
-            
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-              <Card className="lg:col-span-2">
-                <CardHeader>
-                  <CardTitle>Portfolio Tracker</CardTitle>
-                  <CardDescription>
-                    Seguimiento del valor de tu portfolio a lo largo del tiempo
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <PortfolioTracker />
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader>
-                  <CardTitle>Distribución de Activos</CardTitle>
-                  <CardDescription>
-                    Asignación de tu portfolio por activo
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {portfolio.map(asset => (
-                      <div key={asset.symbol} className="space-y-2">
-                        <div className="flex justify-between">
-                          <span>{asset.symbol}</span>
-                          <span>{asset.allocation.toFixed(2)}%</span>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium">Rendimiento Semanal</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">
+                        <span className={performance.weekly >= 0 ? "text-green-500" : "text-red-500"}>
+                          {performance.weekly >= 0 ? "+" : ""}{performance.weekly}%
+                        </span>
+                      </div>
+                      <div className="mt-1 text-muted-foreground text-sm">Últimos 7 días</div>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium">Rendimiento Mensual</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">
+                        <span className={performance.monthly >= 0 ? "text-green-500" : "text-red-500"}>
+                          {performance.monthly >= 0 ? "+" : ""}{performance.monthly}%
+                        </span>
+                      </div>
+                      <div className="mt-1 text-muted-foreground text-sm">Últimos 30 días</div>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium">Rendimiento Total</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">
+                        <span className={performance.allTime >= 0 ? "text-green-500" : "text-red-500"}>
+                          {performance.allTime >= 0 ? "+" : ""}{performance.allTime}%
+                        </span>
+                      </div>
+                      <div className="mt-1 text-muted-foreground text-sm">Desde el inicio</div>
+                    </CardContent>
+                  </Card>
+                </div>
+                
+                {/* Open Positions Section */}
+                {positions.length > 0 && (
+                  <div className="my-8">
+                    <Card>
+                      <CardHeader>
+                        <div className="flex justify-between items-center">
+                          <div className="flex items-center gap-2">
+                            <CardTitle>Posiciones Abiertas</CardTitle>
+                            <Badge variant="secondary" className="ml-2">
+                              {positions.length}
+                            </Badge>
+                          </div>
+                          <Button variant="outline" size="sm" asChild>
+                            <a href="/" className="flex items-center gap-1">
+                              <TrendingUp className="h-4 w-4" />
+                              <span>Operar</span>
+                            </a>
+                          </Button>
                         </div>
-                        <Progress value={asset.allocation} />
-                      </div>
-                    ))}
+                        <CardDescription>
+                          Operaciones activas en diversos mercados
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <OpenPositions 
+                          positions={positions}
+                          onClosePosition={removePosition}
+                        />
+                      </CardContent>
+                    </Card>
                   </div>
-                </CardContent>
-              </Card>
-            </div>
-            
-            <Tabs defaultValue="assets" className="space-y-6">
-              <TabsList>
-                <TabsTrigger value="assets">
-                  <Wallet className="h-4 w-4 mr-2" />
-                  Activos
-                </TabsTrigger>
-                <TabsTrigger value="transactions">
-                  <History className="h-4 w-4 mr-2" />
-                  Transacciones
-                </TabsTrigger>
-                <TabsTrigger value="positions">
-                  <Clock className="h-4 w-4 mr-2" />
-                  Historial de Operaciones
-                </TabsTrigger>
-                <TabsTrigger value="risk">
-                  <Shield className="h-4 w-4 mr-2" />
-                  Gestión de Riesgo
-                </TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="assets" className="mt-4">
-                <Card>
-                  <CardHeader>
-                    <div className="flex justify-between items-center">
-                      <CardTitle>Mis Activos</CardTitle>
-                      <Button size="sm">
-                        <Plus className="h-4 w-4 mr-2" />
-                        Añadir Activo
-                      </Button>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Activo</TableHead>
-                          <TableHead>Precio</TableHead>
-                          <TableHead>Cantidad</TableHead>
-                          <TableHead>Valor</TableHead>
-                          <TableHead>Asignación</TableHead>
-                          <TableHead className="text-right">Acciones</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {portfolio.map(asset => (
-                          <TableRow key={asset.symbol}>
-                            <TableCell className="font-medium">{asset.symbol}</TableCell>
-                            <TableCell>${asset.price.toLocaleString(undefined, { maximumFractionDigits: 2 })}</TableCell>
-                            <TableCell>{asset.amount}</TableCell>
-                            <TableCell>${asset.value.toLocaleString(undefined, { maximumFractionDigits: 2 })}</TableCell>
-                            <TableCell>{asset.allocation.toFixed(2)}%</TableCell>
-                            <TableCell className="text-right">
-                              <Button variant="ghost" size="sm">Editar</Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-              
-              <TabsContent value="transactions" className="mt-4">
-                <Card>
-                  <CardHeader>
-                    <div className="flex justify-between items-center">
-                      <CardTitle>Historial de Transacciones</CardTitle>
-                      <Button size="sm">
-                        <Plus className="h-4 w-4 mr-2" />
-                        Nueva Transacción
-                      </Button>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Fecha</TableHead>
-                          <TableHead>Tipo</TableHead>
-                          <TableHead>Activo</TableHead>
-                          <TableHead>Cantidad</TableHead>
-                          <TableHead>Precio</TableHead>
-                          <TableHead>Valor</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {transactions.map(tx => (
-                          <TableRow key={tx.id}>
-                            <TableCell>{tx.date}</TableCell>
-                            <TableCell>
-                              <span className={`px-2 py-1 rounded-full text-xs ${tx.type === 'buy' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'}`}>
-                                {tx.type === 'buy' ? 'Compra' : 'Venta'}
-                              </span>
-                            </TableCell>
-                            <TableCell className="font-medium">{tx.symbol}</TableCell>
-                            <TableCell>{tx.amount}</TableCell>
-                            <TableCell>${tx.price.toLocaleString(undefined, { maximumFractionDigits: 2 })}</TableCell>
-                            <TableCell>${tx.value.toLocaleString(undefined, { maximumFractionDigits: 2 })}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-              
-              <TabsContent value="positions" className="mt-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Historial de Operaciones</CardTitle>
-                    <CardDescription>
-                      Registro de operaciones pasadas
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {positions.length === 0 ? (
-                      <div className="text-center py-8 text-muted-foreground">
-                        <p>No hay operaciones para mostrar</p>
-                        <p className="text-sm mt-2">Las operaciones cerradas aparecerán aquí</p>
-                      </div>
-                    ) : (
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Mercado</TableHead>
-                            <TableHead>Tipo</TableHead>
-                            <TableHead>Precio Apertura</TableHead>
-                            <TableHead>Precio Cierre</TableHead>
-                            <TableHead>Ganancia</TableHead>
-                            <TableHead>Fecha</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {/* Aquí se mostraría el historial real de operaciones cerradas */}
-                          <TableRow>
-                            <TableCell colSpan={6} className="text-center text-muted-foreground">
-                              Aún no hay operaciones cerradas para mostrar
-                            </TableCell>
-                          </TableRow>
-                        </TableBody>
-                      </Table>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
-              
-              <TabsContent value="risk" className="mt-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Gestión de Riesgo</CardTitle>
-                    <CardDescription>
-                      Análisis y gestión del riesgo del portfolio
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <RiskManagement />
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
+                )}
+                
+                <Tabs defaultValue="assets" className="space-y-6">
+                  <TabsList>
+                    <TabsTrigger value="assets">
+                      <Wallet className="h-4 w-4 mr-2" />
+                      Activos
+                    </TabsTrigger>
+                    <TabsTrigger value="transactions">
+                      <History className="h-4 w-4 mr-2" />
+                      Transacciones
+                    </TabsTrigger>
+                    <TabsTrigger value="risk">
+                      <Shield className="h-4 w-4 mr-2" />
+                      Gestión de Riesgo
+                    </TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="assets" className="mt-4">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Mis Activos</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        {portfolio.length > 0 ? (
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Activo</TableHead>
+                                <TableHead>Precio</TableHead>
+                                <TableHead>Cantidad (Lotes)</TableHead>
+                                <TableHead>Valor</TableHead>
+                                <TableHead>Asignación</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {portfolio.map(asset => (
+                                <TableRow key={asset.symbol}>
+                                  <TableCell className="font-medium">{asset.symbol}</TableCell>
+                                  <TableCell>${asset.price.toLocaleString(undefined, { maximumFractionDigits: 2 })}</TableCell>
+                                  <TableCell>{asset.amount.toFixed(2)}</TableCell>
+                                  <TableCell>${asset.value.toLocaleString(undefined, { maximumFractionDigits: 2 })}</TableCell>
+                                  <TableCell>{asset.allocation.toFixed(2)}%</TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        ) : (
+                          <div className="text-center py-8 text-muted-foreground">
+                            <p>No tienes activos en tu portfolio.</p>
+                            <p className="text-sm mt-2">Tus activos aparecerán aquí cuando abras posiciones.</p>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+                  
+                  <TabsContent value="transactions" className="mt-4">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Historial de Transacciones</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-center py-8 text-muted-foreground">
+                          <Clock className="w-16 h-16 mx-auto mb-4" />
+                          <p>No hay transacciones para mostrar.</p>
+                          <p className="text-sm mt-2">Tu historial de compras y ventas aparecerá aquí.</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+                  
+                  <TabsContent value="risk" className="mt-4">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Gestión de Riesgo del Portfolio</CardTitle>
+                        <CardDescription>
+                          Análisis y gestión del riesgo de tu portfolio
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <RiskManagement />
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+                </Tabs>
+              </>
+            )}
           </div>
         </main>
       </div>

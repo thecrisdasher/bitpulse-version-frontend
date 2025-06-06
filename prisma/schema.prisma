@@ -1,0 +1,108 @@
+datasource db {
+  provider = "postgresql" // or your database provider
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum UserRole {
+  cliente
+  admin
+  maestro
+}
+
+enum TransactionStatus {
+  pending
+  completed
+  failed
+}
+
+enum PositionDirection {
+  long
+  short
+}
+
+enum PositionStatus {
+  open
+  closed
+  liquidated
+}
+
+model User {
+  id             String     @id @default(uuid())
+  email          String     @unique
+  password       String
+  firstName      String
+  lastName       String
+  role           UserRole   @default(cliente)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  lastLogin      DateTime?
+  isActive       Boolean    @default(true)
+  profilePicture String?
+  preferences    Json?
+  pejecoins      Int        @default(0)
+  sessions       Session[]
+  positions      TradePosition[]
+  transactionsTo PejeCoinTransaction[] @relation("TransactionsTo")
+  transactionsFrom PejeCoinTransaction[] @relation("TransactionsFrom")
+  activities     UserActivity[]
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  user         User     @relation(fields: [userId], references: [id])
+  userId       String
+  token        String   @unique
+  refreshToken String
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  ipAddress    String?
+  userAgent    String?
+  isValid      Boolean  @default(true)
+}
+
+model PejeCoinTransaction {
+  id            String            @id @default(uuid())
+  fromUser      User?             @relation("TransactionsFrom", fields: [fromUserId], references: [id])
+  fromUserId    String?
+  toUser        User              @relation("TransactionsTo", fields: [toUserId], references: [id])
+  toUserId      String
+  amount        Int
+  concept       String
+  timestamp     DateTime          @default(now())
+  status        TransactionStatus @default(pending)
+  referenceId   String?
+}
+
+model TradePosition {
+  id             String            @id @default(uuid())
+  user           User              @relation(fields: [userId], references: [id])
+  userId         String
+  instrument     String
+  direction      PositionDirection
+  openPrice      Float
+  currentPrice   Float
+  amount         Float
+  leverage       Int
+  openTime       DateTime          @default(now())
+  closeTime      DateTime?
+  profit         Float?
+  status         PositionStatus    @default(open)
+  stopLoss       Float?
+  takeProfit     Float?
+}
+
+model UserActivity {
+  id         String   @id @default(uuid())
+  user       User     @relation(fields: [userId], references: [id])
+  userId     String
+  action     String
+  details    Json
+  timestamp  DateTime @default(now())
+  ipAddress  String?
+  userAgent  String?
+} 

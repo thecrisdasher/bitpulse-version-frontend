@@ -21,6 +21,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useToast } from "@/hooks/use-toast";
 
 // Tipos de posición
 export type TradePosition = {
@@ -49,6 +50,7 @@ interface OpenPositionsProps {
 }
 
 const OpenPositions: React.FC<OpenPositionsProps> = ({ positions, onClosePosition, showRiskMetrics = false }) => {
+  const { toast } = useToast();
   const [expandedPositions, setExpandedPositions] = useState<string[]>([]);
   const [currentTime, setCurrentTime] = useState(new Date());
   
@@ -316,7 +318,13 @@ const OpenPositions: React.FC<OpenPositionsProps> = ({ positions, onClosePositio
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => onClosePosition(position.id)}
+                            onClick={() => {
+                              onClosePosition(position.id);
+                              toast({
+                                title: "🚪 Posición cerrada",
+                                description: `La posición en ${position.marketName} se cerró con ${position.profit >= 0 ? '+' : ''}${formatCurrency(position.profit)} (${position.profitPercentage.toFixed(2)}%)`,
+                              });
+                            }}
                             className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
                           >
                             <X className="h-4 w-4" />

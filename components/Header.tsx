@@ -31,6 +31,15 @@ import { useTranslation } from '@/app/i18n/client';
 import { toast } from 'sonner';
 
 export default function Header() {
+  // Format PejeCoins as simulated USD
+  const formatPejecoins = (amount: number): string => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  };
   const { t } = useTranslation();
   const { user, isAuthenticated, logout, hasRole } = useAuth();
   const pathname = usePathname();
@@ -125,7 +134,7 @@ export default function Header() {
                 {/* Saldo de Pejecoins */}
                 <div className="hidden sm:flex items-center gap-1 px-2 py-1 bg-primary/10 rounded-md">
                   <Coins className="h-4 w-4 text-primary" />
-                  <span className="text-sm font-medium">{pejecoins.toLocaleString()}</span>
+                  <span className="text-sm font-medium">{formatPejecoins(pejecoins)}</span>
                 </div>
                 
                 {/* Notificaciones */}
@@ -240,7 +249,7 @@ export default function Header() {
                 <div className="flex justify-between items-center px-3 py-2">
                   <div className="flex items-center gap-2">
                     <Coins className="h-4 w-4 text-primary" />
-                    <span className="text-sm font-medium">{pejecoins.toLocaleString()} pejecoins</span>
+                    <span className="text-sm font-medium">{formatPejecoins(pejecoins)}</span>
                   </div>
                 </div>
               </li>

@@ -129,5 +129,8 @@ async function handleUpdateProfile(request: AuthenticatedRequest): Promise<NextR
 }
 
 // Aplicar middlewares
-export const GET = sanitizeHeaders(handleGetProfile);
-export const PUT = sanitizeHeaders(validateJSON(handleUpdateProfile)); 
+const getHandler = (request: NextRequest) => requireAuth(request, handleGetProfile);
+const putHandler = (request: NextRequest) => requireAuth(request, validateJSON(handleUpdateProfile));
+
+export const GET = sanitizeHeaders(getHandler);
+export const PUT = sanitizeHeaders(putHandler); 

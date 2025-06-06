@@ -51,22 +51,19 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
   
   // Trading state
   const [tradeDirection, setTradeDirection] = useState<'up' | 'down'>('up');
-  const [investmentAmount, setInvestmentAmount] = useState<number>(0); // Se inicializa en 0, se actualizará con los pejecoins del usuario
-  const [stakePct, setStakePct] = useState<number>(1);
+  const [investmentAmount, setInvestmentAmount] = useState<number>(0); // This is the total capital (pejecoins)
   const [duration, setDuration] = useState<number>(1);
   const [durationUnit, setDurationUnit] = useState<'minute' | 'hour' | 'day'>('minute');
-  const [isStakePercent, setIsStakePercent] = useState<boolean>(false); // Cambiar a fracciones por defecto
   const [potentialReturn, setPotentialReturn] = useState<number>(0);
   const [showChart, setShowChart] = useState<boolean>(true);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-  const [insufficientFunds, setInsufficientFunds] = useState<boolean>(false);
   
-  // Risk management state - nuevas variables para gestión de riesgo
+  // Risk management state
   const [capitalFraction, setCapitalFraction] = useState<number>(0.10); // Fracción de capital (0.10 = 10%)
   const [leverage, setLeverage] = useState<number>(100); // Apalancamiento
   const [lotSize, setLotSize] = useState<number>(1.0); // Tamaño del lote
   
-  // Risk metrics calculations - métricas de riesgo calculadas
+  // Risk metrics calculations
   const [riskMetrics, setRiskMetrics] = useState({
     marginRequired: 0,
     freeMargin: 0,
@@ -91,21 +88,24 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
   // Actualizar el monto de inversión cuando el usuario cambie
   useEffect(() => {
     if (user) {
-      setInvestmentAmount(user.pejecoins || 1000); // Usar pejecoins del usuario o un valor predeterminado
+      setInvestmentAmount(user.pejecoins || 0); // Use user's pejecoins, default to 0
     }
   }, [user]);
   
-  // Calculate potential return based on stake and direction
+  // Calculate potential return based on investment amount and fraction
   useEffect(() => {
-    // Simplified calculation - in a real app this would use real market data
+    // Simplified calculation based on a fixed multiplier
     const multiplier = tradeDirection === 'up' ? 1.85 : 1.8;
-    const stakeAmount = isStakePercent 
-      ? (investmentAmount * stakePct / 100) 
-      : stakePct;
-    setPotentialReturn(stakeAmount * multiplier);
-  }, [tradeDirection, investmentAmount, stakePct, isStakePercent]);
+    const amountToInvest = investmentAmount * capitalFraction;
+    
+    // The return is the profit, not the total amount back
+    const potentialProfit = (amountToInvest * multiplier) - amountToInvest;
 
-  // Calculate risk metrics - nuevo cálculo de métricas de riesgo
+    setPotentialReturn(potentialProfit);
+
+  }, [tradeDirection, investmentAmount, capitalFraction]);
+
+  // Calculate risk metrics
   useEffect(() => {
     const capitalToUse = investmentAmount * capitalFraction;
     
@@ -124,8 +124,6 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
     const marginLevel = effectiveMarginUsed > 0 ? (freeMargin / effectiveMarginUsed) * 100 : 0;
     
     // Verificar si hay fondos suficientes
-    setInsufficientFunds(effectiveMarginUsed > investmentAmount);
-    
     setRiskMetrics({
       marginRequired: effectiveMarginUsed,
       freeMargin: Math.max(0, freeMargin),
@@ -135,38 +133,35 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
     });
   }, [investmentAmount, capitalFraction, leverage, lotSize, marketPrice, marketName]);
 
-  // Format currency with 2 decimal places
+  // Format currency in 'dolarizado' style
   const formatCurrency = (amount: number): string => {
-    return new Intl.NumberFormat('es-CO', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'COP',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
     }).format(amount);
   };
 
   // Handle trade execution
   const handlePlaceTrade = () => {
-    if (insufficientFunds) {
-      toast.error("Fondos insuficientes para realizar esta operación");
+    const capitalToUse = investmentAmount * capitalFraction;
+    if (capitalToUse > investmentAmount) {
+      toast.error("Fondos insuficientes. No puedes invertir más de tu capital total.");
       return;
     }
     
     setIsSubmitting(true);
     
-    const stakeAmount = isStakePercent 
-      ? (investmentAmount * stakePct / 100) 
-      : stakePct;
-    
     try {
-      // Crear la nueva posición usando el contexto
+      // Create new position using context
       const positionId = addPosition({
         marketName,
         marketPrice,
         marketColor,
         direction: tradeDirection,
-        amount: riskMetrics.capitalUsed,
-        stake: stakeAmount,
+        amount: capitalToUse,
+        stake: capitalToUse, // Stake is the amount invested
         duration: { value: duration, unit: durationUnit },
         capitalFraction,
         lotSize,
@@ -230,8 +225,8 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
       if (onPlaceTrade) {
         onPlaceTrade(
           tradeDirection, 
-          riskMetrics.capitalUsed, 
-          stakeAmount, 
+          capitalToUse, 
+          capitalToUse, 
           { value: duration, unit: durationUnit }
         );
       }
@@ -248,17 +243,24 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
     }
   };
 
-  // Toggle between percentage and fixed amount
-  const toggleStakeType = () => {
-    if (isStakePercent) {
-      // Convert percentage to equivalent fixed amount
-      setStakePct(Math.round(investmentAmount * stakePct / 100));
-    } else {
-      // Convert fixed amount to equivalent percentage
-      setStakePct(Math.round((stakePct / investmentAmount) * 100));
+  const [activeTab, setActiveTab] = useState('stake');
+  const [inputAmount, setInputAmount] = useState<string>('');
+
+  // Update capital fraction when input amount changes
+  useEffect(() => {
+    const amount = parseFloat(inputAmount);
+    if (!isNaN(amount) && investmentAmount > 0) {
+      const fraction = amount / investmentAmount;
+      if (fraction >= 0 && fraction <= 1) {
+        setCapitalFraction(fraction);
+      } else if (fraction > 1) {
+        setCapitalFraction(1);
+        toast.warning("El monto de inversión no puede superar tu capital total.");
+      }
     }
-    setIsStakePercent(!isStakePercent);
-  };
+  }, [inputAmount, investmentAmount]);
+
+  if (!isVisible) return null;
 
   return (
     <TooltipProvider>
@@ -346,28 +348,50 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
               </div>
 
               {/* Investment Amount */}
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-2">
-                  <label className="text-sm font-medium text-muted-foreground">Capital Total</label>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Info className="w-3 h-3 text-muted-foreground cursor-help" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Tu capital total disponible para trading. Base para calcular fracciones y riesgo.</p>
-                    </TooltipContent>
-                  </Tooltip>
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">1. Monto de Inversión</h3>
+                
+                <div className="p-3 bg-muted rounded-lg space-y-2">
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-muted-foreground">Capital Total</span>
+                    <span className="font-semibold">{formatCurrency(investmentAmount)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-muted-foreground">Monto a Invertir</span>
+                    <span className="font-semibold text-primary">{formatCurrency(investmentAmount * capitalFraction)}</span>
+                  </div>
                 </div>
-                <div className="flex gap-2 items-center">
-                  <DollarSign className="w-4 h-4 text-muted-foreground" />
-                  <Input 
+
+                <div className="relative">
+                  <Input
                     type="number"
-                    id="investment-amount"
-                    name="investment-amount"
-                    value={investmentAmount}
-                    onChange={(e) => setInvestmentAmount(Number(e.target.value))}
-                    className="flex-1"
+                    placeholder="0.00"
+                    className="w-full text-lg p-4 pr-12"
+                    value={inputAmount}
+                    onChange={(e) => setInputAmount(e.target.value)}
+                    min="0"
+                    max={investmentAmount}
+                    step="10"
                   />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground">USD</span>
+                </div>
+                
+                <Slider
+                  value={[capitalFraction * 100]}
+                  onValueChange={(value) => {
+                    const fraction = value[0] / 100;
+                    setCapitalFraction(fraction);
+                    setInputAmount((investmentAmount * fraction).toFixed(2));
+                  }}
+                  max={100}
+                  step={1}
+                />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>0%</span>
+                  <span>25%</span>
+                  <span>50%</span>
+                  <span>75%</span>
+                  <span>100%</span>
                 </div>
               </div>
 
@@ -434,52 +458,6 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-orange-600">🛡️ Gestión de Riesgo</h3>
               
-              {/* Fracción de Capital */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-1">
-                    <label className="text-xs font-medium text-muted-foreground">
-                      Fracción de Capital (0.01 - 1.00)
-                    </label>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Info className="w-3 h-3 text-muted-foreground cursor-help" />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <div className="max-w-xs">
-                          <p className="font-semibold mb-1">Fracción de Capital</p>
-                          <p className="text-sm">Determina qué porción de tu capital total usar para esta operación.</p>
-                          <div className="mt-2 text-xs space-y-1">
-                            <div>• 0.05 = 5% del capital</div>
-                            <div>• 0.10 = 10% del capital</div>
-                            <div>• 0.25 = 25% del capital</div>
-                          </div>
-                          <p className="text-xs mt-2 text-yellow-400">⚠️ Recomendado: No más del 10% por operación</p>
-                        </div>
-                      </TooltipContent>
-                    </Tooltip>
-                  </div>
-                  <Badge variant="outline" className="text-xs">
-                    {(capitalFraction * 100).toFixed(1)}%
-                  </Badge>
-                </div>
-                <div className="flex gap-2 items-center">
-                  <Input 
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    max="1.00"
-                    value={capitalFraction}
-                    onChange={(e) => setCapitalFraction(parseFloat(e.target.value) || 0.01)}
-                    className="flex-1"
-                    placeholder="0.10"
-                  />
-                  <span className="text-xs text-muted-foreground min-w-[60px]">
-                    ${(investmentAmount * capitalFraction).toLocaleString()}
-                  </span>
-                </div>
-              </div>
-
               {/* Tamaño del Lote */}
               <div>
                 <div className="flex items-center gap-1 mb-2">
@@ -634,9 +612,9 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
                 <div className="flex justify-between items-center">
                   <div>
                     <p className="text-sm font-medium">Retorno potencial</p>
-                    <p className="text-xs text-muted-foreground">Estimación aproximada</p>
+                    <p className="text-xs text-muted-foreground">Ganancia estimada si el mercado se mueve a tu favor</p>
                   </div>
-                  <p className="text-xl font-bold">{formatCurrency(potentialReturn)}</p>
+                  <p className="text-xl font-bold text-green-500">{formatCurrency(potentialReturn)}</p>
                 </div>
               </div>
 
@@ -648,14 +626,14 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
               >
                 <Button 
                   onClick={handlePlaceTrade}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || (investmentAmount * capitalFraction) <= 0}
                   className={cn(
                     "w-full py-6 text-lg font-bold shadow-xl transition-all duration-300 relative overflow-hidden",
                     "border-2 border-transparent hover:shadow-2xl",
                     tradeDirection === 'up' 
                       ? "bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white border-green-400" 
                       : "bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white border-red-400",
-                    isSubmitting && "opacity-90 cursor-not-allowed"
+                    (isSubmitting || (investmentAmount * capitalFraction) <= 0) && "opacity-90 cursor-not-allowed"
                   )}
                 >
                   <AnimatePresence mode="wait">

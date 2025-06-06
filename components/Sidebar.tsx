@@ -1,6 +1,6 @@
 "use client"
 
-import { Home, TrendingUp, BarChart2, PlusCircle, Settings, Wallet, HelpCircle, CandlestickChart, LineChart, MessageSquare, BookOpen, LogOut } from "lucide-react"
+import { Home, TrendingUp, BarChart2, PlusCircle, Settings, Wallet, HelpCircle, CandlestickChart, LineChart, MessageSquare, BookOpen, LogOut, Coins } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { cryptocurrencies } from "@/lib/mockData"
@@ -104,6 +104,18 @@ const Sidebar = () => {
                   {openPositionsCount}
                 </Badge>
               )}
+            </Link>
+          </li>
+          <li>
+            <Link 
+              href="/pejecoins" 
+              className={cn(
+                "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+                pathname === "/pejecoins" ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+              )}
+            >
+              <Coins size={18} />
+              Mis PejeCoins
             </Link>
           </li>
           <li>

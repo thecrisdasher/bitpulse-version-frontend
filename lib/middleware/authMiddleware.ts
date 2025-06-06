@@ -264,37 +264,37 @@ export function combineMiddlewares(
 /**
  * Middleware de validación de JSON
  */
-export async function validateJSON(
-  request: NextRequest,
+export function validateJSON(
   handler: (req: NextRequest) => Promise<NextResponse>
-): Promise<NextResponse> {
-  if (request.method !== 'GET' && request.headers.get('content-type')?.includes('application/json')) {
-    try {
-      await request.json();
-    } catch (error) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'JSON inválido en el cuerpo de la solicitud',
-          timestamp: new Date().toISOString()
-        },
-        { status: 400 }
-      );
+) {
+  return async (request: NextRequest): Promise<NextResponse> => {
+    if (request.method !== 'GET' && request.headers.get('content-type')?.includes('application/json')) {
+      const requestClone = request.clone();
+      try {
+        await requestClone.json();
+      } catch (error) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: 'JSON inválido en el cuerpo de la solicitud',
+            timestamp: new Date().toISOString()
+          },
+          { status: 400 }
+        );
+      }
     }
-  }
-
-  return await handler(request);
+    return handler(request);
+  };
 }
 
 /**
  * Middleware de sanitización de headers
  */
 export function sanitizeHeaders(
-  request: NextRequest,
   handler: (req: NextRequest) => Promise<NextResponse>
-): Promise<NextResponse> {
-  // Agregar headers de seguridad
-  return handler(request).then(response => {
+) {
+  return async (request: NextRequest): Promise<NextResponse> => {
+    const response = await handler(request);
     response.headers.set('X-Content-Type-Options', 'nosniff');
     response.headers.set('X-Frame-Options', 'DENY');
     response.headers.set('X-XSS-Protection', '1; mode=block');
@@ -307,5 +307,5 @@ export function sanitizeHeaders(
     }
 
     return response;
-  });
+  };
 } 
