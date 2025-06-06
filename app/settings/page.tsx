@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -38,9 +38,13 @@ import {
   Check,
   TrendingUp,
   BarChart3,
-  Settings2
+  Settings2,
+  Users,
+  Coins
 } from "lucide-react";
 import { useTheme } from "next-themes";
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 
 // Tipos para las configuraciones
 interface UserSettings {
@@ -85,10 +89,44 @@ interface SecuritySettings {
   suspiciousActivityAlerts: boolean;
 }
 
+// Interfaz para la pantalla de asignación de pejecoins
+interface AdminCoinAssignment {
+  userId: string;
+  amount: number;
+  concept: string;
+}
+
+// Tipo para usuario listado
+interface UserListItem {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  pejecoins: number;
+}
+
 const SettingsPage = () => {
   const { theme, setTheme } = useTheme();
   const [showPassword, setShowPassword] = useState(false);
   const [savedMessage, setSavedMessage] = useState(false);
+  const { user, hasRole } = useAuth();
+  const isAdmin = hasRole('admin');
+
+  // Mock users para pruebas
+  const [usersList, setUsersList] = useState<UserListItem[]>([
+    { id: '1', name: 'Usuario Test 1', email: 'user1@test.com', role: 'cliente', pejecoins: 1200 },
+    { id: '2', name: 'Usuario Test 2', email: 'user2@test.com', role: 'cliente', pejecoins: 500 },
+    { id: '3', name: 'Usuario Test 3', email: 'user3@test.com', role: 'maestro', pejecoins: 3000 },
+  ]);
+
+  // Estado para asignación de pejecoins
+  const [coinAssignment, setCoinAssignment] = useState<AdminCoinAssignment>({
+    userId: '',
+    amount: 100,
+    concept: 'Asignación de pejecoins'
+  });
+
+  const [isAssigning, setIsAssigning] = useState(false);
 
   // Estados para las diferentes configuraciones
   const [userSettings, setUserSettings] = useState<UserSettings>({
@@ -133,6 +171,17 @@ const SettingsPage = () => {
     suspiciousActivityAlerts: true
   });
 
+  // Cargar datos del usuario actual cuando esté disponible
+  useEffect(() => {
+    if (user) {
+      setUserSettings(prev => ({
+        ...prev,
+        displayName: `${user.firstName} ${user.lastName}` || prev.displayName,
+        email: user.email || prev.email,
+      }));
+    }
+  }, [user]);
+
   const handleSave = () => {
     // Simular guardado
     setSavedMessage(true);
@@ -155,6 +204,66 @@ const SettingsPage = () => {
     setSecuritySettings(prev => ({ ...prev, [key]: value }));
   };
 
+  const updateCoinAssignment = (key: keyof AdminCoinAssignment, value: any) => {
+    setCoinAssignment(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleAssignCoins = async () => {
+    try {
+      setIsAssigning(true);
+      
+      // Validar datos
+      if (!coinAssignment.userId) {
+        toast.error('Por favor selecciona un usuario');
+        return;
+      }
+      
+      if (coinAssignment.amount <= 0) {
+        toast.error('El monto debe ser positivo');
+        return;
+      }
+      
+      // Llamar a la API real
+      const response = await fetch('/api/admin/pejecoins', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth_tokens') ? JSON.parse(localStorage.getItem('auth_tokens')!).accessToken : ''}`
+        },
+        body: JSON.stringify(coinAssignment)
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        toast.success(`Asignación de ${coinAssignment.amount} pejecoins exitosa!`);
+        
+        // Actualizar la lista de usuarios con el nuevo saldo
+        setUsersList(prevUsers => 
+          prevUsers.map(user => 
+            user.id === coinAssignment.userId 
+              ? { ...user, pejecoins: user.pejecoins + coinAssignment.amount } 
+              : user
+          )
+        );
+        
+        // Limpiar el formulario
+        setCoinAssignment({
+          userId: '',
+          amount: 100,
+          concept: 'Asignación de pejecoins'
+        });
+      } else {
+        toast.error(`Error: ${data.message}`);
+      }
+    } catch (error) {
+      console.error('Error al asignar pejecoins:', error);
+      toast.error('Error al procesar la asignación de pejecoins');
+    } finally {
+      setIsAssigning(false);
+    }
+  };
+
   const getTradingModeColor = (mode: string) => {
     switch (mode) {
       case 'conservative': return 'bg-green-500/20 text-green-700 dark:text-green-400';
@@ -163,6 +272,40 @@ const SettingsPage = () => {
       default: return 'bg-gray-500/20 text-gray-700 dark:text-gray-400';
     }
   };
+  
+  // Determinar las pestañas disponibles según el rol
+  const tabItems = [
+    <TabsTrigger key="profile" value="profile" className="flex items-center gap-2">
+      <User className="h-4 w-4" />
+      Perfil
+    </TabsTrigger>,
+    <TabsTrigger key="trading" value="trading" className="flex items-center gap-2">
+      <TrendingUp className="h-4 w-4" />
+      Trading
+    </TabsTrigger>,
+    <TabsTrigger key="notifications" value="notifications" className="flex items-center gap-2">
+      <Bell className="h-4 w-4" />
+      Notificaciones
+    </TabsTrigger>,
+    <TabsTrigger key="security" value="security" className="flex items-center gap-2">
+      <Shield className="h-4 w-4" />
+      Seguridad
+    </TabsTrigger>,
+    <TabsTrigger key="appearance" value="appearance" className="flex items-center gap-2">
+      <Palette className="h-4 w-4" />
+      Apariencia
+    </TabsTrigger>
+  ];
+  
+  // Solo mostrar la pestaña de administración para usuarios admin
+  if (isAdmin) {
+    tabItems.push(
+      <TabsTrigger key="admin" value="admin" className="flex items-center gap-2">
+        <Users className="h-4 w-4" />
+        Administración
+      </TabsTrigger>
+    );
+  }
 
   return (
     <div className="container mx-auto p-6 max-w-6xl">
@@ -183,29 +326,10 @@ const SettingsPage = () => {
       )}
 
       <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="profile" className="flex items-center gap-2">
-            <User className="h-4 w-4" />
-            Perfil
-          </TabsTrigger>
-          <TabsTrigger value="trading" className="flex items-center gap-2">
-            <TrendingUp className="h-4 w-4" />
-            Trading
-          </TabsTrigger>
-          <TabsTrigger value="notifications" className="flex items-center gap-2">
-            <Bell className="h-4 w-4" />
-            Notificaciones
-          </TabsTrigger>
-          <TabsTrigger value="security" className="flex items-center gap-2">
-            <Shield className="h-4 w-4" />
-            Seguridad
-          </TabsTrigger>
-          <TabsTrigger value="appearance" className="flex items-center gap-2">
-            <Palette className="h-4 w-4" />
-            Apariencia
-          </TabsTrigger>
+        <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${tabItems.length}, minmax(0, 1fr))` }}>
+          {tabItems}
         </TabsList>
-
+        
         {/* Perfil */}
         <TabsContent value="profile" className="space-y-6">
           <Card>
@@ -808,6 +932,113 @@ const SettingsPage = () => {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Tab de administración */}
+        {isAdmin && (
+          <TabsContent value="admin" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Coins className="h-5 w-5" />
+                  Asignación de PejeCoins
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="userId">Usuario</Label>
+                      <Select 
+                        value={coinAssignment.userId} 
+                        onValueChange={(value) => updateCoinAssignment('userId', value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccionar usuario" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {usersList.map((user) => (
+                            <SelectItem key={user.id} value={user.id}>
+                              {user.name} ({user.email}) - {user.pejecoins} pejecoins
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="amount">Cantidad de PejeCoins</Label>
+                      <div className="flex items-center">
+                        <Input
+                          id="amount"
+                          type="number"
+                          value={coinAssignment.amount}
+                          onChange={(e) => updateCoinAssignment('amount', parseFloat(e.target.value))}
+                          className="flex-1"
+                          min="1"
+                        />
+                        <DollarSign className="ml-2 h-5 w-5 text-muted-foreground" />
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="concept">Concepto</Label>
+                      <Textarea
+                        id="concept"
+                        value={coinAssignment.concept}
+                        onChange={(e) => updateCoinAssignment('concept', e.target.value)}
+                        placeholder="Motivo de la asignación"
+                        className="resize-none"
+                      />
+                    </div>
+                    
+                    <Button 
+                      onClick={handleAssignCoins}
+                      className="w-full"
+                      disabled={isAssigning || !coinAssignment.userId || coinAssignment.amount <= 0}
+                    >
+                      {isAssigning ? "Asignando..." : "Asignar PejeCoins"}
+                    </Button>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold">Usuarios Recientes</h3>
+                    <div className="border rounded-md overflow-hidden">
+                      <table className="min-w-full divide-y divide-border">
+                        <thead className="bg-muted">
+                          <tr>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Usuario</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Rol</th>
+                            <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">PejeCoins</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-card divide-y divide-border">
+                          {usersList.map((user) => (
+                            <tr key={user.id} className="hover:bg-muted/50">
+                              <td className="px-4 py-3 whitespace-nowrap">
+                                <div>
+                                  <div className="font-medium">{user.name}</div>
+                                  <div className="text-sm text-muted-foreground">{user.email}</div>
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap">
+                                <Badge variant={user.role === 'admin' ? 'destructive' : user.role === 'maestro' ? 'outline' : 'default'}>
+                                  {user.role}
+                                </Badge>
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-right font-mono font-medium">
+                                {user.pejecoins.toLocaleString()}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
       </Tabs>
 
       {/* Botón de guardar */}

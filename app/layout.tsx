@@ -10,6 +10,7 @@ import { TradePositionsProvider } from "@/contexts/TradePositionsContext"
 import { LanguageProvider } from "@/contexts/LanguageContext"
 import { languages } from "./i18n/settings"
 import Footer from "@/components/Footer"
+import Header from "@/components/Header"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -40,7 +41,10 @@ export default function RootLayout({
             <AuthProvider>
               <TradePositionsProvider>
                 <div className="flex-1 flex flex-col">
-                  {children}
+                  <Header />
+                  <main className="flex-1">
+                    {children}
+                  </main>
                 </div>
                 <Footer />
                 <Toaster />

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { CompatButton as Button } from "@/components/ui/compat-button";
 import { Input } from "@/components/ui/input";
-import { ChevronLeft, Info, ArrowUpCircle, ArrowDownCircle, Percent, DollarSign, BarChart4, CheckCircle2, Shield, Calculator, BarChart3 } from "lucide-react";
+import { ChevronLeft, Info, ArrowUpCircle, ArrowDownCircle, Percent, DollarSign, BarChart4, CheckCircle2, Shield, Calculator, BarChart3, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -20,7 +20,9 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { CompatBadge as Badge } from "@/components/ui/compat-badge";
 import { useTradePositions } from "@/contexts/TradePositionsContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
 
 interface TradeControlPanelProps {
   marketName: string;
@@ -44,9 +46,12 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
   onClose,
   onPlaceTrade
 }) => {
+  // Get user data for pejecoins
+  const { user } = useAuth();
+  
   // Trading state
   const [tradeDirection, setTradeDirection] = useState<'up' | 'down'>('up');
-  const [investmentAmount, setInvestmentAmount] = useState<number>(10000); // Capital total
+  const [investmentAmount, setInvestmentAmount] = useState<number>(0); // Se inicializa en 0, se actualizará con los pejecoins del usuario
   const [stakePct, setStakePct] = useState<number>(1);
   const [duration, setDuration] = useState<number>(1);
   const [durationUnit, setDurationUnit] = useState<'minute' | 'hour' | 'day'>('minute');
@@ -54,6 +59,7 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
   const [potentialReturn, setPotentialReturn] = useState<number>(0);
   const [showChart, setShowChart] = useState<boolean>(true);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [insufficientFunds, setInsufficientFunds] = useState<boolean>(false);
   
   // Risk management state - nuevas variables para gestión de riesgo
   const [capitalFraction, setCapitalFraction] = useState<number>(0.10); // Fracción de capital (0.10 = 10%)
@@ -70,7 +76,7 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
   });
   
   // Get toast service for notifications
-  const { toast } = useToast();
+  const { toast: uiToast } = useToast();
   
   // Get trading positions context
   const { addPosition } = useTradePositions();
@@ -81,6 +87,13 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
     'indices',
     { refreshInterval: 5000 }
   );
+  
+  // Actualizar el monto de inversión cuando el usuario cambie
+  useEffect(() => {
+    if (user) {
+      setInvestmentAmount(user.pejecoins || 1000); // Usar pejecoins del usuario o un valor predeterminado
+    }
+  }, [user]);
   
   // Calculate potential return based on stake and direction
   useEffect(() => {
@@ -110,6 +123,9 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
     const freeMargin = investmentAmount - effectiveMarginUsed;
     const marginLevel = effectiveMarginUsed > 0 ? (freeMargin / effectiveMarginUsed) * 100 : 0;
     
+    // Verificar si hay fondos suficientes
+    setInsufficientFunds(effectiveMarginUsed > investmentAmount);
+    
     setRiskMetrics({
       marginRequired: effectiveMarginUsed,
       freeMargin: Math.max(0, freeMargin),
@@ -131,6 +147,11 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
 
   // Handle trade execution
   const handlePlaceTrade = () => {
+    if (insufficientFunds) {
+      toast.error("Fondos insuficientes para realizar esta operación");
+      return;
+    }
+    
     setIsSubmitting(true);
     
     const stakeAmount = isStakePercent 
@@ -153,7 +174,7 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
       });
 
       // Show enhanced toast notification
-      toast({
+      uiToast({
         title: tradeDirection === 'up' ? "🚀 Compra Ejecutada" : "📉 Venta Ejecutada",
         description: (
           <div className="flex flex-col gap-2">
@@ -205,29 +226,26 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
         ),
       });
 
-      // Call the original callback if provided (for backward compatibility)
+      // Call onPlaceTrade callback if provided
       if (onPlaceTrade) {
         onPlaceTrade(
           tradeDirection, 
+          riskMetrics.capitalUsed, 
           stakeAmount, 
-          investmentAmount, 
-          {value: duration, unit: durationUnit}
+          { value: duration, unit: durationUnit }
         );
       }
+
+      // Close panel after successful trade
+      setTimeout(() => {
+        onClose();
+        setIsSubmitting(false);
+      }, 500);
     } catch (error) {
-      toast({
-        title: "❌ Error al Ejecutar",
-        description: "No se pudo crear la posición. Verifica tus datos e inténtalo de nuevo.",
-        variant: "destructive",
-      });
-      console.error('Error creating position:', error);
-    }
-    
-    // Allow animation to complete and close panel
-    setTimeout(() => {
+      console.error('Error executing trade:', error);
+      toast.error("Error al ejecutar la operación");
       setIsSubmitting(false);
-      onClose();
-    }, 1500);
+    }
   };
 
   // Toggle between percentage and fixed amount

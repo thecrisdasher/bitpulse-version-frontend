@@ -221,6 +221,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
 
       const { user, tokens } = result.data;
+      
+      // Asegurar que el usuario tenga pejecoins (si no vienen del backend)
+      if (user && typeof user.pejecoins === 'undefined') {
+        user.pejecoins = 1000; // Valor inicial para nuevos usuarios
+      }
 
       // Guardar tokens en localStorage
       localStorage.setItem('auth_tokens', JSON.stringify(tokens));
@@ -253,16 +258,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
             router.push('/');
             break;
         }
-      }, 1000); // Delay de 1 segundo para mostrar el toast
+      }, 500);
 
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error desconocido';
       dispatch({ type: 'SET_ERROR', payload: message });
       
-      logger.logAuth('error', 'login', false, {
-        email: credentials.email,
-        failureReason: message
-      });
+      logger.error('auth', 'Login failed', error as Error);
       
       toast.error(message);
       throw error;

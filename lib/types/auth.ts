@@ -1,30 +1,48 @@
-import { UserRole, Permission } from '../config/auth';
+/**
+ * Tipos para el sistema de autenticación
+ */
 
-// Re-exportar los tipos para facilitar el uso
-export type { UserRole, Permission };
+export type UserRole = 'cliente' | 'admin' | 'maestro';
+
+export type Permission = 
+  | 'view_dashboard'
+  | 'trade'
+  | 'view_portfolio'
+  | 'manage_users'
+  | 'assign_pejecoins'
+  | 'view_logs'
+  | 'create_courses'
+  | 'manage_students'
+  | 'view_student_progress';
 
 export interface User {
   id: string;
   email: string;
-  username: string;
   firstName: string;
   lastName: string;
   role: UserRole;
+  createdAt: string;
+  updatedAt: string;
+  lastLogin?: string;
   isActive: boolean;
-  isEmailVerified: boolean;
+  profilePicture?: string;
+  preferences?: Record<string, any>;
   pejecoins: number;
-  profileImage?: string;
-  lastLogin?: Date;
-  createdAt: Date;
-  updatedAt: Date;
-  metadata?: Record<string, any>;
 }
 
 export interface AuthTokens {
   accessToken: string;
   refreshToken: string;
   expiresIn: number;
-  tokenType: 'Bearer';
+}
+
+export interface AuthState {
+  user: User | null;
+  tokens: AuthTokens | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  error: string | null;
+  permissions: Permission[];
 }
 
 export interface LoginCredentials {
@@ -35,21 +53,27 @@ export interface LoginCredentials {
 
 export interface RegisterData {
   email: string;
-  username: string;
-  firstName: string;
-  lastName: string;
   password: string;
   confirmPassword: string;
+  firstName: string;
+  lastName: string;
   acceptTerms: boolean;
 }
 
-export interface AuthState {
+export interface AuthContextType {
   user: User | null;
   tokens: AuthTokens | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
   permissions: Permission[];
+  login: (credentials: LoginCredentials) => Promise<void>;
+  register: (data: RegisterData) => Promise<void>;
+  logout: () => Promise<void>;
+  refreshToken: () => Promise<boolean>;
+  updateUser: (data: Partial<User>) => Promise<void>;
+  checkPermission: (permission: Permission) => boolean;
+  hasRole: (role: UserRole) => boolean;
 }
 
 export interface JWTPayload {
@@ -112,14 +136,4 @@ export interface ApiResponse<T = any> {
   message?: string;
   errors?: Record<string, string[]>;
   timestamp: string;
-}
-
-export interface AuthContextType extends AuthState {
-  login: (credentials: LoginCredentials) => Promise<void>;
-  register: (data: RegisterData) => Promise<void>;
-  logout: () => Promise<void>;
-  refreshToken: () => Promise<boolean>;
-  updateUser: (data: Partial<User>) => Promise<void>;
-  checkPermission: (permission: Permission) => boolean;
-  hasRole: (role: UserRole) => boolean;
 } 

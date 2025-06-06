@@ -1,6 +1,6 @@
 "use client"
 
-import { Home, TrendingUp, BarChart2, PlusCircle, Settings, Wallet, HelpCircle, CandlestickChart, LineChart, MessageSquare, BookOpen } from "lucide-react"
+import { Home, TrendingUp, BarChart2, PlusCircle, Settings, Wallet, HelpCircle, CandlestickChart, LineChart, MessageSquare, BookOpen, LogOut } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { cryptocurrencies } from "@/lib/mockData"
@@ -15,10 +15,12 @@ import { useTranslation } from '@/app/i18n/client'
 
 // Context import (to be created later)
 import { useTradePositions } from "@/contexts/TradePositionsContext"
+import { useAuth } from "@/contexts/AuthContext"
 
 const Sidebar = () => {
   const pathname = usePathname();
   const { t } = useTranslation();
+  const { logout, isAuthenticated } = useAuth();
   
   // Use the context to get position data (will implement this later)
   const { positions = [] } = useTradePositions?.() || { positions: [] };
@@ -168,6 +170,20 @@ const Sidebar = () => {
               Help & Support
             </Link>
           </li>
+          {isAuthenticated && (
+            <li>
+              <button
+                onClick={logout}
+                className={cn(
+                  "w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors text-left",
+                  "hover:bg-rose-500/10 hover:text-rose-500"
+                )}
+              >
+                <LogOut size={18} />
+                Cerrar sesión
+              </button>
+            </li>
+          )}
         </ul>
       </div>
       <div className="mt-4">
