@@ -14,7 +14,7 @@ export class JWTService {
   /**
    * Convierte tiempo de expiración a segundos
    */
-  private static parseExpirationTime(duration: string): number {
+  public static parseExpirationTime(duration: string): number {
     const matches = duration.match(/^(\d+)([hdm])$/);
     if (!matches) throw new Error('Formato de duración inválido');
 

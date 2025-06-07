@@ -241,12 +241,12 @@ export const getCryptoMarketData = async (symbol: string): Promise<MarketData> =
         }
       );
     
-      const priceHistory: MarketDataPoint[] = historyResponse.data.prices.map(
-      (item: any) => ({
-          timestamp: item[0],
-          price: item[1] * 4200, // Convertir a COP
-      })
-    );
+      // Safely extract price history array
+      const rawPrices = historyResponse.data.prices || [];
+      const priceHistory: MarketDataPoint[] = rawPrices.map((item: any) => ({
+        timestamp: item[0],
+        price: item[1] * 4200 // Convertir a COP
+      }));
     
       const currentPrice = marketData.current_price.usd * 4200;
       const change24h = marketData.price_change_24h * 4200;

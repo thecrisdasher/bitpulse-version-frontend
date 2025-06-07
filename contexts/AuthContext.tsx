@@ -138,30 +138,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
 
-      const storedTokens = localStorage.getItem('auth_tokens');
-      if (!storedTokens) {
-        dispatch({ type: 'SET_LOADING', payload: false });
-        return;
-      }
-
-      const tokens: AuthTokens = JSON.parse(storedTokens);
-      
-      // Verificar si el token es válido obteniendo el perfil
-      const response = await fetch('/api/auth/profile', {
-        headers: {
-          'Authorization': `Bearer ${tokens.accessToken}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      // Ya no se necesita leer de localStorage, el perfil se obtiene usando la cookie de sesión
+      const response = await fetch('/api/auth/profile');
 
       if (response.ok) {
         const result = await response.json();
         if (result.success && result.data) {
+          // El token no se almacena en el estado, se maneja a través de cookies
           dispatch({ 
             type: 'LOGIN_SUCCESS', 
             payload: { 
               user: result.data, 
-              tokens 
+              tokens: { accessToken: '', refreshToken: '', expiresIn: 0, tokenType: 'Bearer' } // Dummy tokens
             } 
           });
 
@@ -169,23 +157,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
           logger.logUserActivity('session_restored', result.data.id, {
             email: result.data.email
           });
-          return;
+        } else {
+          dispatch({ type: 'SET_LOADING', payload: false });
         }
+      } else {
+        dispatch({ type: 'SET_LOADING', payload: false });
       }
-
-      // Token inválido, limpiar storage
-      localStorage.removeItem('auth_tokens');
-      dispatch({ type: 'SET_LOADING', payload: false });
-
-      logger.logAuth('warn', 'session_expired', false, {
-        failureReason: 'Invalid stored token'
-      });
-
     } catch (error) {
       console.error('Error loading stored auth:', error);
-      localStorage.removeItem('auth_tokens');
       dispatch({ type: 'SET_LOADING', payload: false });
-
       logger.error('auth', 'Failed to load stored authentication', error as Error);
     }
   };
@@ -226,9 +206,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (user && typeof user.pejecoins === 'undefined') {
         user.pejecoins = 1000; // Valor inicial para nuevos usuarios
       }
-
-      // Guardar tokens en localStorage
-      localStorage.setItem('auth_tokens', JSON.stringify(tokens));
 
       dispatch({ 
         type: 'LOGIN_SUCCESS', 
@@ -334,38 +311,26 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Función de logout
   const logout = async () => {
     try {
-      if (state.tokens?.accessToken) {
-        await fetch('/api/auth/logout', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${state.tokens.accessToken}`,
-            'Content-Type': 'application/json',
-          },
-        });
-      }
-    } catch (error) {
-      console.error('Error during logout:', error);
-      logger.error('auth', 'Logout API call failed', error as Error, {
-        userId: state.user?.id
-      });
-    } finally {
-      // Limpiar storage local
-      localStorage.removeItem('auth_tokens');
+      dispatch({ type: 'SET_LOADING', payload: true });
       
-      // Limpiar todas las cookies manualmente también
-      document.cookie = 'bitpulse_session=; Max-Age=0; path=/';
-      document.cookie = 'refresh_token=; Max-Age=0; path=/';
-      document.cookie = 'user_info=; Max-Age=0; path=/';
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+
+      // Ya no es necesario limpiar localStorage
+      // localStorage.removeItem('auth_tokens');
       
       dispatch({ type: 'LOGOUT' });
-      toast.success('Sesión cerrada exitosamente');
       
-      // Redirigir a la página de login
+      toast.info('Has cerrado sesión.');
       router.push('/auth');
+
+    } catch (error) {
+      console.error('Error during logout:', error);
+      dispatch({ type: 'SET_ERROR', payload: 'Error al cerrar sesión' });
+      logger.error('auth', 'Logout failed', error as Error);
     }
   };
 
-  // Función para refrescar token
+  // Renovar token (opcional, si se maneja del lado del cliente)
   const refreshToken = async () => {
     try {
       logger.debug('auth', 'Attempting token refresh');
@@ -377,14 +342,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       if (response.ok) {
         const result = await response.json();
-        if (result.success && result.data) {
-          const newTokens: AuthTokens = result.data;
-          localStorage.setItem('auth_tokens', JSON.stringify(newTokens));
-          dispatch({ type: 'SET_TOKENS', payload: newTokens });
-          
-          logger.logUserActivity('token_refresh_success', state.user?.id);
-          
-          return true;
+        if (result.success) {
+          // La cookie se actualiza en el backend, no es necesario guardar en localStorage
+          // localStorage.setItem('auth_tokens', JSON.stringify(result.data));
+          dispatch({ type: 'SET_TOKENS', payload: result.data });
+          return result.data.accessToken;
+        } else {
+          await logout(); // Si falla la renovación, cerrar sesión
+          return null;
         }
       }
 
@@ -394,15 +359,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       });
       
       await logout();
-      return false;
+      return null;
 
     } catch (error) {
       console.error('Error refreshing token:', error);
-      logger.error('auth', 'Token refresh failed', error as Error, {
-        userId: state.user?.id
-      });
       await logout();
-      return false;
+      return null;
     }
   };
 
@@ -481,36 +443,42 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Configurar interceptor para refresh automático del token
   useEffect(() => {
     const originalFetch = window.fetch;
+    const win: any = window;
 
-    window.fetch = async (...args) => {
-      const response = await originalFetch(...args);
-      
-      // Si recibimos 401 y tenemos un usuario autenticado, intentar refresh
-      if (response.status === 401 && state.isAuthenticated) {
-        logger.warn('auth', 'Received 401, attempting token refresh');
-        const refreshed = await refreshToken();
+    // Override global fetch con firma explícita para evitar conflictos de tipos
+    win.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      try {
+        const response = await originalFetch(input, init);
         
-        if (refreshed && state.tokens) {
-          // Reintentar la petición original con el nuevo token
-          const [url, options] = args;
-          const newOptions = {
-            ...options,
-            headers: {
-              ...((options as RequestInit)?.headers || {}),
-              'Authorization': `Bearer ${state.tokens.accessToken}`
-            }
-          };
+        // Si recibimos 401 y tenemos un usuario autenticado, intentar refresh
+        if (response.status === 401 && state.isAuthenticated) {
+          logger.warn('auth', 'Received 401, attempting token refresh');
+          const refreshed = await refreshToken();
           
-          return originalFetch(url, newOptions);
+          if (refreshed && state.tokens) {
+            // Reintentar la petición original con el nuevo token
+            const newOptions = {
+              ...init,
+              headers: {
+                ...((init as RequestInit)?.headers || {}),
+                'Authorization': `Bearer ${state.tokens.accessToken}`
+              }
+            };
+            return originalFetch(input, newOptions);
+          }
         }
+        return response;
+      } catch (error) {
+        // Log de error de red o CORS en fetch
+        console.error('Fetch failed for', input, error);
+        // Re-lanzar para que sea manejado por el hook correspondiente
+        throw error;
       }
-      
-      return response;
     };
 
-    // Cleanup
+    // Cleanup: restaurar fetch original
     return () => {
-      window.fetch = originalFetch;
+      win.fetch = originalFetch;
     };
   }, [state.isAuthenticated, state.tokens]);
 

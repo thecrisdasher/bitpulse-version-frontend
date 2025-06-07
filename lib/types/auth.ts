@@ -1,19 +1,10 @@
+import { z } from 'zod';
+import type { UserRole, Permission } from '@/lib/config/auth';
+
 /**
  * Tipos para el sistema de autenticación
  */
-
-export type UserRole = 'cliente' | 'admin' | 'maestro';
-
-export type Permission = 
-  | 'view_dashboard'
-  | 'trade'
-  | 'view_portfolio'
-  | 'manage_users'
-  | 'assign_pejecoins'
-  | 'view_logs'
-  | 'create_courses'
-  | 'manage_students'
-  | 'view_student_progress';
+export type { UserRole, Permission };
 
 export interface User {
   id: string;
@@ -30,11 +21,12 @@ export interface User {
   pejecoins: number;
 }
 
-export interface AuthTokens {
+export type AuthTokens = {
   accessToken: string;
   refreshToken: string;
   expiresIn: number;
-}
+  tokenType: 'Bearer';
+};
 
 export interface AuthState {
   user: User | null;
@@ -136,4 +128,41 @@ export interface ApiResponse<T = any> {
   message?: string;
   errors?: Record<string, string[]>;
   timestamp: string;
-} 
+}
+
+export const UserSchema = z.object({
+  id: z.string(),
+  email: z.string().email(),
+  firstName: z.string(),
+  lastName: z.string(),
+  role: z.enum(['cliente', 'admin', 'maestro']),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  lastLogin: z.string().optional(),
+  isActive: z.boolean(),
+  profilePicture: z.string().optional(),
+  preferences: z.record(z.string(), z.any()).optional(),
+  pejecoins: z.number(),
+});
+
+export const JWTPayloadSchema = z.object({
+  sub: z.string(),
+  email: z.string().email(),
+  role: z.enum(['cliente', 'admin', 'maestro']),
+  permissions: z.array(z.string()),
+  iat: z.number(),
+  exp: z.number(),
+  jti: z.string(),
+});
+
+export const RefreshTokenPayloadSchema = z.object({
+  sub: z.string(),
+  tokenId: z.string(),
+  iat: z.number(),
+  exp: z.number(),
+});
+
+export type LoginResponse = {
+  success: boolean;
+  // ... existing code ...
+}; 

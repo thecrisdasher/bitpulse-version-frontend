@@ -132,8 +132,13 @@ export const getWebSocketUrlForInstrument = (
         return null;
         
       case 'TWELVE_DATA':
-        // Para forex, índices o acciones
-        return `wss://ws.twelvedata.com/v1/quotes/price?apikey=${process.env.NEXT_PUBLIC_TWELVE_DATA_API_KEY || ''}&symbols=${symbol}`;
+        // Para forex, índices o acciones (solo si hay API key configurada)
+        const tdKey = process.env.NEXT_PUBLIC_TWELVE_DATA_API_KEY;
+        if (!tdKey) {
+          console.warn('Twelvedata API key missing, disabling WebSocket for', symbol);
+          return null;
+        }
+        return `wss://ws.twelvedata.com/v1/quotes/price?apikey=${tdKey}&symbols=${symbol}`;
         
       case 'POLYGON_IO':
         // Para acciones e índices con Polygon.io (requiere suscripción)
@@ -477,7 +482,7 @@ export class WebSocketManager {
       errorMessage = String(error);
     }
     
-    console.error(`WebSocket error for ${this.url}: ${errorMessage}`);
+    console.warn(`WebSocket error for ${this.url}: ${errorMessage}`);
     
     // Ejecutar callback de error si existe
     if (this.options.onError) {

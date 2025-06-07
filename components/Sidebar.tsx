@@ -1,6 +1,6 @@
 "use client"
 
-import { Home, TrendingUp, BarChart2, PlusCircle, Settings, Wallet, HelpCircle, CandlestickChart, LineChart, MessageSquare, BookOpen, LogOut, Coins } from "lucide-react"
+import { Home, TrendingUp, BarChart2, PlusCircle, Settings, Wallet, HelpCircle, CandlestickChart, LineChart, MessageSquare, BookOpen, LogOut, Coins, Shield } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { cryptocurrencies } from "@/lib/mockData"
@@ -20,11 +20,13 @@ import { useAuth } from "@/contexts/AuthContext"
 const Sidebar = () => {
   const pathname = usePathname();
   const { t } = useTranslation();
-  const { logout, isAuthenticated } = useAuth();
+  const { logout, isAuthenticated, hasRole } = useAuth();
   
-  // Use the context to get position data (will implement this later)
+  // Use the context to get position data
   const { positions = [] } = useTradePositions?.() || { positions: [] };
   const openPositionsCount = positions.length;
+
+  const canAccessCrm = hasRole('admin') || hasRole('maestro');
 
   return (
     <div className="hidden lg:flex flex-col h-screen w-64 bg-card border-r border-border">
@@ -154,6 +156,27 @@ const Sidebar = () => {
               Chat en Vivo
             </Link>
           </li>
+
+          {/* CRM Navigation */}
+          {canAccessCrm && (
+            <>
+              <li className="px-3 pt-4 pb-2 text-xs font-semibold text-muted-foreground uppercase">
+                CRM
+              </li>
+              <li>
+                <Link
+                  href="/crm"
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+                    pathname.startsWith("/crm") ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+                  )}
+                >
+                  <Shield size={18} />
+                  Dashboard CRM
+                </Link>
+              </li>
+            </>
+          )}
         </ul>
       </nav>
       <div className="p-4 border-t border-border">
@@ -210,26 +233,20 @@ const PortfolioSummary = () => {
   const [totalValue, setTotalValue] = useState(0);
   const [isClient, setIsClient] = useState(false);
   const { t } = useTranslation();
+  const { positions } = useTradePositions();
 
   useEffect(() => {
     setIsClient(true);
   }, []);
 
   useEffect(() => {
-    // This is a mock calculation. In a real app, this would be based on actual user data.
-    const mockPortfolio = [
-      { symbol: "BTC", amount: 0.5 },
-      { symbol: "ETH", amount: 5 },
-      { symbol: "ADA", amount: 1000 },
-    ]
+    const calculatedValue = positions.reduce((sum, pos) => sum + pos.amount, 0);
+    setTotalValue(calculatedValue);
+  }, [positions]);
 
-    const calculatedValue = mockPortfolio.reduce((sum, asset) => {
-      const crypto = cryptocurrencies.find((c) => c.symbol === asset.symbol)
-      return sum + (crypto ? crypto.price * asset.amount : 0)
-    }, 0)
-
-    setTotalValue(calculatedValue)
-  }, []);
+  if (positions.length === 0) {
+    return null;
+  }
 
   return (
     <Card className="mt-4">

@@ -40,9 +40,10 @@ export default function MarketsPage() {
           {showTradePanel && selectedInstrument && (
             <div className="w-[350px] border-l border-border p-4 transition-all duration-300 ease-in-out">
               <TradeControlPanel
-                instrumentName={selectedInstrument.name}
-                instrumentPrice={selectedInstrument.price}
-                instrumentId={selectedInstrument.id}
+                marketName={selectedInstrument.name}
+                marketPrice={selectedInstrument.price}
+                marketColor={selectedInstrument.color || ''}
+                isVisible={showTradePanel}
                 onClose={closeTradePanel}
               />
             </div>

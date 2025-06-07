@@ -1,8 +1,10 @@
-import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 import { AUTH_CONFIG } from '@/lib/config/auth';
 import type { User, AuthTokens, JWTPayload, Session } from '@/lib/types/auth';
+import { JWTService } from '@/lib/services/jwtService';
+import { prisma } from '@/lib/db';
+import { v4 as uuidv4 } from 'uuid';
 
 /**
  * Sistema de gestión de sesiones seguras con cookies HttpOnly
@@ -35,86 +37,41 @@ const USER_PREFERENCES_COOKIE = {
 } as const;
 
 /**
- * Crear un token JWT seguro
- */
-export async function createJWTToken(payload: Omit<JWTPayload, 'iat' | 'exp' | 'jti'>): Promise<string> {
-  const now = Math.floor(Date.now() / 1000);
-  const exp = now + (24 * 60 * 60); // 24 horas
-  const jti = crypto.randomUUID(); // JWT ID único para invalidación
-
-  return new SignJWT({
-    ...payload,
-    iat: now,
-    exp,
-    jti
-  })
-    .setProtectedHeader({ alg: 'HS256' })
-    .setIssuedAt(now)
-    .setExpirationTime(exp)
-    .setJti(jti)
-    .sign(secret);
-}
-
-/**
- * Verificar y decodificar un token JWT
- */
-export async function verifyJWTToken(token: string): Promise<JWTPayload | null> {
-  try {
-    const { payload } = await jwtVerify(token, secret);
-    
-    // Verificar que el token no haya expirado
-    const now = Math.floor(Date.now() / 1000);
-    if (payload.exp && payload.exp < now) {
-      return null;
-    }
-
-    return payload as unknown as JWTPayload;
-  } catch (error) {
-    console.error('JWT verification failed:', error);
-    return null;
-  }
-}
-
-/**
  * Crear una sesión de usuario y establecer cookies seguras
  */
 export async function createUserSession(user: User): Promise<AuthTokens> {
   'use server';
-  
-  const accessToken = await createJWTToken({
-    sub: user.id,
-    email: user.email,
-    role: user.role,
-    permissions: [] // Se llenarán desde ROLE_PERMISSIONS
+
+  const { accessToken, refreshToken, expiresIn } = await JWTService.generateTokenPair(user);
+
+  // Almacenar el refresh token en la base de datos
+  const expiresAt = new Date(Date.now() + JWTService.parseExpirationTime(AUTH_CONFIG.REFRESH_TOKEN_EXPIRES_IN) * 1000);
+  await prisma.refreshToken.create({
+    data: {
+      id: uuidv4(),
+      token: refreshToken,
+      userId: user.id,
+      expiresAt,
+    },
   });
 
-  // Crear refresh token (válido por más tiempo)
-  const refreshToken = await createJWTToken({
-    sub: user.id,
-    email: user.email,
-    role: user.role,
-    permissions: []
-  });
-
-  const tokens: AuthTokens = {
-    accessToken,
-    refreshToken,
-    expiresIn: 24 * 60 * 60, // 24 horas en segundos
-    tokenType: 'Bearer'
-  };
-
-  // Establecer cookie de sesión segura
+  // Establecer cookie de sesión segura para el access token
   const cookieStore = await cookies();
-  cookieStore.set(COOKIE_CONFIG.name, accessToken, COOKIE_CONFIG.options);
+  cookieStore.set(COOKIE_CONFIG.name, accessToken, {
+    ...COOKIE_CONFIG.options,
+    maxAge: expiresIn, // Usar el tiempo de expiración del token
+  });
 
-  // Registrar la sesión (en producción esto iría a una base de datos)
+  // Opcional: También se podría guardar el refresh token en una cookie HttpOnly
+  // cookies().set('refresh_token', refreshToken, ...);
+
   await logSession({
     userId: user.id,
     token: accessToken,
-    action: 'session_created'
+    action: 'session_created',
   });
 
-  return tokens;
+  return { accessToken, refreshToken, expiresIn, tokenType: 'Bearer' };
 }
 
 /**
@@ -122,29 +79,34 @@ export async function createUserSession(user: User): Promise<AuthTokens> {
  */
 export async function getCurrentSession(): Promise<JWTPayload | null> {
   'use server';
-  
+
+  const cookieStore = await cookies();
+  const sessionToken = cookieStore.get(COOKIE_CONFIG.name)?.value;
+
+  if (!sessionToken) {
+    return null;
+  }
+
   try {
-    const cookieStore = await cookies();
-    const sessionToken = cookieStore.get(COOKIE_CONFIG.name)?.value;
+    const payload = await JWTService.verifyToken(sessionToken);
 
-    if (!sessionToken) {
-      return null;
-    }
+    // Opcional: Verificar si el token está en blacklist
+    // if (await JWTService.isTokenBlacklisted(payload.jti)) {
+    //   await destroyUserSession(); // Invalidar sesión si el token está en la lista negra
+    //   return null;
+    // }
 
-    const payload = await verifyJWTToken(sessionToken);
-    
-    if (payload) {
-      // Registrar actividad de la sesión
-      await logSession({
-        userId: payload.sub,
-        token: sessionToken,
-        action: 'session_accessed'
-      });
-    }
+    await logSession({
+      userId: payload.sub,
+      token: sessionToken,
+      action: 'session_accessed',
+    });
 
     return payload;
   } catch (error) {
     console.error('Error getting current session:', error);
+    // Si el token es inválido (expirado, etc.), limpiar la cookie
+    await destroyUserSession();
     return null;
   }
 }
@@ -160,67 +122,101 @@ export async function destroyUserSession(): Promise<void> {
     const sessionToken = cookieStore.get(COOKIE_CONFIG.name)?.value;
 
     if (sessionToken) {
-      const payload = await verifyJWTToken(sessionToken);
-      if (payload) {
-        await logSession({
-          userId: payload.sub,
-          token: sessionToken,
-          action: 'session_destroyed'
-        });
+      try {
+        const payload = await JWTService.decodeToken(sessionToken);
+        if (payload && payload.sub) {
+          await logSession({
+            userId: payload.sub,
+            token: sessionToken,
+            action: 'session_destroyed',
+          });
+          // Invalidar todos los refresh tokens asociados al usuario
+          await prisma.refreshToken.updateMany({
+            where: { userId: payload.sub },
+            data: { isActive: false },
+          });
+        }
+      } catch (e) {
+        // Ignorar errores si el token es inválido
       }
     }
 
     // Limpiar todas las cookies de autenticación
     cookieStore.delete(COOKIE_CONFIG.name);
-    cookieStore.delete('auth_tokens');
+    cookieStore.delete('refresh_token'); // Asegurarse de limpiar también esta
     
-    // Nota: No limpiar las preferencias del usuario al cerrar sesión
   } catch (error) {
     console.error('Error destroying session:', error);
   }
 }
 
 /**
- * Renovar token de sesión
+ * Renovar token de sesión usando un refresh token
  */
 export async function refreshUserSession(refreshToken: string): Promise<AuthTokens | null> {
   'use server';
-  
+
   try {
-    const payload = await verifyJWTToken(refreshToken);
-    
-    if (!payload) {
+    // 1. Verificar y encontrar el refresh token en la BD
+    const storedToken = await prisma.refreshToken.findUnique({
+      where: { token: refreshToken, isActive: true },
+      include: { user: true },
+    });
+
+    if (!storedToken || new Date() > storedToken.expiresAt) {
+      // Si el token no existe, está inactivo o expiró, invalidar todos los tokens del usuario
+      if (storedToken) {
+        await prisma.refreshToken.updateMany({
+          where: { userId: storedToken.userId },
+          data: { isActive: false },
+        });
+      }
+      await destroyUserSession(); // Limpiar cookies
       return null;
     }
 
-    // Crear nuevo access token
-    const newAccessToken = await createJWTToken({
-      sub: payload.sub,
-      email: payload.email,
-      role: payload.role,
-      permissions: payload.permissions
+    // 2. Invalidar el refresh token usado
+    await prisma.refreshToken.update({
+      where: { id: storedToken.id },
+      data: { isActive: false },
     });
 
-    const tokens: AuthTokens = {
-      accessToken: newAccessToken,
-      refreshToken: refreshToken, // Mantener el mismo refresh token
-      expiresIn: 24 * 60 * 60,
-      tokenType: 'Bearer'
-    };
+    // 3. Generar un nuevo par de tokens
+    const { accessToken: newAccessToken, refreshToken: newRefreshToken, expiresIn } = await JWTService.generateTokenPair(storedToken.user);
 
-    // Actualizar cookie de sesión
+    // 4. Guardar el nuevo refresh token en la BD
+    const newExpiresAt = new Date(Date.now() + JWTService.parseExpirationTime(AUTH_CONFIG.REFRESH_TOKEN_EXPIRES_IN) * 1000);
+    await prisma.refreshToken.create({
+      data: {
+        id: uuidv4(),
+        token: newRefreshToken,
+        userId: storedToken.userId,
+        expiresAt: newExpiresAt,
+      },
+    });
+
+    // 5. Actualizar la cookie de sesión con el nuevo access token
     const cookieStore = await cookies();
-    cookieStore.set(COOKIE_CONFIG.name, newAccessToken, COOKIE_CONFIG.options);
+    cookieStore.set(COOKIE_CONFIG.name, newAccessToken, {
+      ...COOKIE_CONFIG.options,
+      maxAge: expiresIn,
+    });
 
     await logSession({
-      userId: payload.sub,
+      userId: storedToken.userId,
       token: newAccessToken,
-      action: 'session_refreshed'
+      action: 'session_refreshed',
     });
 
-    return tokens;
+    return {
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
+      expiresIn,
+      tokenType: 'Bearer',
+    };
   } catch (error) {
     console.error('Error refreshing session:', error);
+    await destroyUserSession();
     return null;
   }
 }
@@ -296,7 +292,7 @@ export async function createSessionFromRequest(request: NextRequest): Promise<JW
       return null;
     }
 
-    return await verifyJWTToken(token);
+    return await JWTService.verifyToken(token);
   } catch (error) {
     console.error('Error creating session from request:', error);
     return null;
@@ -374,7 +370,7 @@ async function logUserActivity(data: {
  */
 export async function validateSessionIntegrity(token: string): Promise<boolean> {
   try {
-    const payload = await verifyJWTToken(token);
+    const payload = await JWTService.verifyToken(token);
     
     if (!payload) {
       return false;

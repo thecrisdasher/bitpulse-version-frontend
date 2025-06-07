@@ -45,7 +45,7 @@ export interface NewTradeParams {
 
 interface TradePositionsContextType {
   positions: TradePosition[];
-  addPosition: (params: NewTradeParams) => string;
+  addPosition: (positionData: any, marketData: { marketColor: string }) => string;
   removePosition: (id: string) => void;
   updatePositionPrices: (marketName: string, newPrice: number) => void;
   getTotalMarginUsed: () => number;
@@ -76,49 +76,28 @@ export const TradePositionsProvider: React.FC<TradePositionsProviderProps> = ({ 
     return `pos_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   };
 
-  // Calcular métricas de riesgo para una posición
-  const calculateRiskMetrics = (params: NewTradeParams) => {
-    // Determinar tamaño del contrato según el activo
-    let contractSize = 100000; // Forex standard
-    if (params.marketName.includes('BTC') || params.marketName.includes('ETH')) {
-      contractSize = 1; // Crypto
-    } else if (params.marketName.includes('XAU')) {
-      contractSize = 100; // Gold
-    }
-
-    const positionValue = params.marketPrice * contractSize * params.lotSize;
-    const marginRequired = positionValue / params.leverage;
-    
-    return {
-      positionValue,
-      marginRequired
-    };
-  };
-
   // Agregar nueva posición
-  const addPosition = (params: NewTradeParams): string => {
-    const riskMetrics = calculateRiskMetrics(params);
-    
+  const addPosition = (positionData: any, marketData: { marketColor: string }): string => {
     const newPosition: TradePosition = {
-      id: generatePositionId(),
-      marketId: params.marketName.toLowerCase().replace(/[^a-z0-9]/g, ''),
-      marketName: params.marketName,
-      marketColor: params.marketColor,
-      direction: params.direction,
-      type: params.direction === 'up' ? 'buy' : 'sell',
-      openPrice: params.marketPrice,
-      currentPrice: params.marketPrice,
-      amount: params.amount,
-      stake: params.stake,
-      openTime: new Date(),
-      duration: params.duration,
+      id: positionData.id || generatePositionId(),
+      marketId: positionData.instrumentId,
+      marketName: positionData.instrumentName,
+      marketColor: marketData.marketColor,
+      direction: positionData.direction,
+      type: positionData.direction === 'up' ? 'buy' : 'sell',
+      openPrice: positionData.openPrice,
+      currentPrice: positionData.openPrice,
+      amount: positionData.amount,
+      stake: positionData.stake,
+      openTime: new Date(positionData.openTimestamp),
+      duration: positionData.duration,
       profit: 0,
       profitPercentage: 0,
-      capitalFraction: params.capitalFraction,
-      lotSize: params.lotSize,
-      leverage: params.leverage,
-      marginRequired: riskMetrics.marginRequired,
-      positionValue: riskMetrics.positionValue
+      capitalFraction: positionData.capitalFraction || 0,
+      lotSize: positionData.lotSize || 0,
+      leverage: positionData.leverage || 0,
+      marginRequired: positionData.marginRequired || 0,
+      positionValue: positionData.positionValue || 0,
     };
 
     setPositions(prev => [...prev, newPosition]);

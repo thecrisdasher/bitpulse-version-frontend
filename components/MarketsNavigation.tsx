@@ -39,13 +39,13 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
-  MarketCategory,
   MarketInstrument
 } from "@/lib/mockData";
 import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
 import axios from "axios";
 import useRealTimeMarketData, { useBatchRealTimeMarketData, useCleanupWebSockets } from "@/hooks/useRealTimeMarketData";
+import { toast } from "sonner";
 
 // Importar RealTimeMarketChart con SSR desactivado
 const RealTimeMarketChart = dynamic(
@@ -54,60 +54,25 @@ const RealTimeMarketChart = dynamic(
 );
 
 // Helper function for consistent number formatting
-const formatCurrency = (value: number, minimumFractionDigits = 2, maximumFractionDigits = 4) => {
-  return value.toLocaleString('en-US', { 
-    minimumFractionDigits, 
-    maximumFractionDigits: value < 1 ? maximumFractionDigits : minimumFractionDigits 
+const formatCurrency = (value?: number, minimumFractionDigits = 2, maximumFractionDigits = 4): string => {
+  // Guard against undefined or null values
+  if (value == null || isNaN(value)) {
+    return '-';
+  }
+  return value.toLocaleString('en-US', {
+    minimumFractionDigits,
+    maximumFractionDigits: value < 1 ? maximumFractionDigits : minimumFractionDigits
   });
 };
 
 // Navigation Item Type
 type MarketCategoryInfo = {
-  id: MarketCategory | string;
+  id: string;
   label: string;
   icon: React.ReactNode;
   expanded?: boolean;
   subcategories?: { id: string; label: string }[];
 };
-
-// Estado inicial mientras carga la data
-const INITIAL_MARKET_CATEGORIES: MarketCategoryInfo[] = [
-  {
-    id: "favoritos",
-    label: "Favoritos",
-    icon: <Star className="w-5 h-5" />,
-  },
-  {
-    id: "derivados",
-    label: "Derivados",
-    icon: <Workflow className="w-5 h-5" />,
-    expanded: false,
-    subcategories: [
-      { id: "baskets", label: "Baskets" },
-      { id: "sinteticos", label: "Sintéticos" },
-    ],
-  },
-  {
-    id: "forex",
-    label: "Forex",
-    icon: <CircleDollarSign className="w-5 h-5" />,
-  },
-  {
-    id: "indices",
-    label: "Índices Stock",
-    icon: <BarChart className="w-5 h-5" />,
-  },
-  {
-    id: "criptomonedas",
-    label: "Criptomonedas",
-    icon: <Bitcoin className="w-5 h-5" />,
-  },
-  {
-    id: "materias-primas",
-    label: "Materias primas",
-    icon: <Gem className="w-5 h-5" />,
-  },
-];
 
 // Mapa de íconos para renderizar dinámicamente
 const ICON_MAP: Record<string, React.ReactNode> = {
@@ -181,585 +146,350 @@ const getInstrumentIcon = (instrument: MarketInstrument): React.ReactNode => {
   return <Activity className="w-5 h-5 text-gray-500" />;
 };
 
-// Función para obtener un color gradient para los cards de instrumentos
-const getInstrumentCardStyle = (instrument: MarketInstrument) => {
-  if (instrument.category === "criptomonedas") {
-    if (instrument.symbol.includes("BTC")) 
-      return "bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-950/20 dark:to-amber-900/10";
-    if (instrument.symbol.includes("ETH")) 
-      return "bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/20 dark:to-blue-900/10";
-    return "bg-gradient-to-br from-amber-50 to-yellow-100 dark:from-amber-950/20 dark:to-yellow-900/10";
-  }
-  
-  if (instrument.category === "forex") {
-    return "bg-gradient-to-br from-emerald-50 to-green-100 dark:from-emerald-950/20 dark:to-green-900/10";
-  }
-
-  if (instrument.category === "indices") {
-    return "bg-gradient-to-br from-gray-50 to-slate-100 dark:from-gray-950/20 dark:to-slate-900/10";
-  }
-
-  if (instrument.category === "materias-primas") {
-    if (instrument.name.toLowerCase().includes("oro") || instrument.name.toLowerCase().includes("gold"))
-      return "bg-gradient-to-br from-amber-50 to-yellow-100 dark:from-amber-950/20 dark:to-yellow-900/10";
-    if (instrument.name.toLowerCase().includes("plata") || instrument.name.toLowerCase().includes("silver")) 
-      return "bg-gradient-to-br from-gray-50 to-slate-100 dark:from-gray-950/20 dark:to-slate-900/10";
-    if (instrument.name.toLowerCase().includes("petrol") || instrument.name.toLowerCase().includes("oil"))
-      return "bg-gradient-to-br from-cyan-50 to-blue-100 dark:from-cyan-950/20 dark:to-blue-900/10";
-    return "bg-gradient-to-br from-teal-50 to-emerald-100 dark:from-teal-950/20 dark:to-emerald-900/10";
-  }
-
-  // Para derivados y sintéticos
-  if (instrument.category === "derivados" || instrument.category === "sinteticos" || instrument.category === "baskets") {
-    if (instrument.name.toLowerCase().includes("volatility"))
-      return "bg-gradient-to-br from-pink-50 to-purple-100 dark:from-pink-950/20 dark:to-purple-900/10";
-    if (instrument.name.toLowerCase().includes("boom"))
-      return "bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950/20 dark:to-emerald-900/10";
-    if (instrument.name.toLowerCase().includes("crash"))
-      return "bg-gradient-to-br from-red-50 to-orange-100 dark:from-red-950/20 dark:to-orange-900/10";
-    return "bg-gradient-to-br from-indigo-50 to-violet-100 dark:from-indigo-950/20 dark:to-violet-900/10";
-  }
-
-  return "bg-gradient-to-br from-slate-50 to-gray-100 dark:from-slate-950/20 dark:to-gray-900/10";
-};
-
 // Market Navigation Component
 interface MarketsNavigationProps {
   onInstrumentSelect?: (instrument: MarketInstrument) => void;
 }
 
 const MarketsNavigation = ({ onInstrumentSelect }: MarketsNavigationProps = {}) => {
-  const [selectedCategory, setSelectedCategory] = useState<MarketCategory | string>("favoritos");
+  const [selectedCategory, setSelectedCategory] = useState<string>("favoritos");
   const [expandedCategories, setExpandedCategories] = useState<string[]>(["derivados"]);
   const [instruments, setInstruments] = useState<MarketInstrument[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedInstrument, setSelectedInstrument] = useState<MarketInstrument | null>(null);
-  const [selectedMarketForChart, setSelectedMarketForChart] = useState<string>("volatility-100");
+  const [selectedMarketForChart, setSelectedMarketForChart] = useState<string | null>(null);
   const [categories, setCategories] = useState<Record<string, MarketCategoryInfo>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [instrumentsToTrack, setInstrumentsToTrack] = useState<Array<{symbol: string, category: string}>>([]);
   
-  // Limpiar WebSockets al desmontar el componente
   useCleanupWebSockets();
   
-  // Usar hook para obtener datos en tiempo real para todos los instrumentos visibles
-  const { data: realTimeData } = useBatchRealTimeMarketData(instrumentsToTrack, {
+  const { data: realTimeData } = useBatchRealTimeMarketData(
+    instruments.map(i => ({ symbol: i.symbol, category: i.category })), {
     refreshInterval: 5000,
-    initialFetch: false // No hacer fetch inicialmente, esperar a tener instrumentos
+    initialFetch: false
   });
   
-  // Cargar categorías desde la API
   useEffect(() => {
     const fetchCategories = async () => {
       try {
         setIsLoading(true);
         const response = await axios.get('/api/market/categories');
-        setCategories(response.data.categories);
+        if (response.data.success) {
+          // Map API categories object into an array
+          const categoriesObj = response.data.categories || {};
+          const categoriesList = Object.values(categoriesObj);
+          const fetchedCategories = categoriesList.reduce((acc: Record<string, MarketCategoryInfo>, category: any) => {
+            acc[category.id] = {
+              ...category,
+              icon: ICON_MAP[category.icon] || <Activity className="w-5 h-5" />,
+            };
+            return acc;
+          }, {});
+          setCategories(fetchedCategories);
+        } else {
+          throw new Error(response.data.message || 'Error al cargar categorías');
+        }
+      } catch (err: any) {
+        setError(err.message || 'No se pudieron cargar las categorías.');
+        toast.error("Error", { description: "No se pudieron cargar las categorías del mercado." });
+      } finally {
         setIsLoading(false);
-      } catch (err) {
-        console.error("Error al cargar categorías:", err);
-        setError("No se pudieron cargar las categorías de mercado");
-        setIsLoading(false);
-        
-        // Si falla, usar categorías iniciales
-        const categoriesMap: Record<string, MarketCategoryInfo> = {};
-        INITIAL_MARKET_CATEGORIES.forEach(cat => {
-          categoriesMap[cat.id] = cat;
-        });
-        setCategories(categoriesMap);
       }
     };
-    
+
     fetchCategories();
   }, []);
   
-  // Cargar favoritos inicialmente
   useEffect(() => {
-    const fetchFavorites = async () => {
+    const fetchInstruments = async (category: string) => {
+      if (!category) return;
+      
+      setIsLoading(true);
+      setError(null);
       try {
-        const response = await axios.get('/api/market/favorites');
-        setInstruments(response.data.favorites);
+        const url = category === 'favoritos' ? '/api/market/favorites' : `/api/market/${category}`;
+        const response = await axios.get(url);
         
-        // Configurar instrumentos para seguimiento en tiempo real
-        const trackedInstruments = response.data.favorites.map((inst: MarketInstrument) => ({
-          symbol: inst.symbol,
-          category: inst.category
-        }));
-        setInstrumentsToTrack(trackedInstruments);
-      } catch (err) {
-        console.error("Error al cargar favoritos:", err);
+        if (response.data.success) {
+          const instrumentsData = response.data.data || [];
+          setInstruments(instrumentsData);
+          if (instrumentsData.length > 0 && !selectedMarketForChart) {
+            setSelectedMarketForChart(instrumentsData[0].symbol);
+            setSelectedInstrument(instrumentsData[0]);
+          }
+        } else {
+          setInstruments([]);
+          throw new Error(response.data.message || `Error al cargar instrumentos para ${category}`);
+        }
+      } catch (err: any) {
+        setError(err.message || 'No se pudieron cargar los instrumentos.');
+        setInstruments([]);
+        toast.error("Error", { description: `No se pudieron cargar los datos para ${category}.` });
+      } finally {
+        setIsLoading(false);
       }
     };
-    
-    fetchFavorites();
-  }, []);
+
+    if (Object.keys(categories).length > 0) {
+       fetchInstruments(selectedCategory);
+    }
+  }, [selectedCategory, categories]);
   
-  // Actualizar datos en tiempo real cuando estén disponibles
   useEffect(() => {
     if (realTimeData && Object.keys(realTimeData).length > 0) {
-      setInstruments(prevInstruments => {
-        return prevInstruments.map(inst => {
-          const realTimeInfo = realTimeData[inst.symbol];
-          if (realTimeInfo) {
+      setInstruments(prevInstruments => 
+        prevInstruments.map(inst => {
+          const update = realTimeData[inst.symbol];
+          if (update) {
             return {
               ...inst,
-              price: realTimeInfo.currentPrice,
-              change24h: realTimeInfo.changePercent24h,
-              lastUpdated: new Date(realTimeInfo.lastUpdated),
-              hasRealTime: realTimeInfo.isRealTime
+              price: update.currentPrice,
+              change24h: update.change24h,
+              changePercent: update.changePercent24h
             };
           }
-          return {
-            ...inst,
-            // Proporcionar valores por defecto para instrumentos sin datos en tiempo real
-            price: inst.price || 0,
-            change24h: inst.change24h || 0,
-            lastUpdated: inst.lastUpdated || new Date(),
-            hasRealTime: false
-          };
-        });
-      });
+          return inst;
+        })
+      );
     }
   }, [realTimeData]);
   
-  // Handle category selection
-  const handleCategoryClick = async (category: string) => {
+  const handleCategoryClick = (category: string) => {
     setSelectedCategory(category);
-    
-    try {
-      let response;
-      
-      if (category === "favoritos") {
-        response = await axios.get('/api/market/favorites');
-        setInstruments(response.data.favorites);
-      } else {
-        response = await axios.get(`/api/market/categories/${category}`);
-        setInstruments(response.data.instruments);
-      }
-      
-      // Configurar instrumentos para seguimiento en tiempo real
-      const trackedInstruments = response.data.favorites || response.data.instruments;
-      setInstrumentsToTrack(
-        trackedInstruments.map((inst: MarketInstrument) => ({
-          symbol: inst.symbol,
-          category: inst.category
-        }))
-      );
-    } catch (err) {
-      console.error(`Error al cargar instrumentos para ${category}:`, err);
-      setInstruments([]);
-    }
+    setSearchQuery("");
   };
   
-  // Handle subcategory selection
-  const handleSubcategoryClick = async (category: string) => {
+  const handleSubcategoryClick = (category: string) => {
     setSelectedCategory(category);
-    
-    try {
-      const response = await axios.get(`/api/market/categories/${category}`);
-      setInstruments(response.data.instruments);
-      
-      // Configurar instrumentos para seguimiento en tiempo real
-      const trackedInstruments = response.data.instruments;
-      setInstrumentsToTrack(
-        trackedInstruments.map((inst: MarketInstrument) => ({
-          symbol: inst.symbol,
-          category: inst.category
-        }))
-      );
-    } catch (err) {
-      console.error(`Error al cargar instrumentos para ${category}:`, err);
-      setInstruments([]);
-    }
   };
   
-  // Toggle category expansion
   const toggleCategoryExpansion = (category: string) => {
-    if (expandedCategories.includes(category)) {
-      setExpandedCategories(expandedCategories.filter(c => c !== category));
-    } else {
-      setExpandedCategories([...expandedCategories, category]);
-    }
+    setExpandedCategories(prev =>
+      prev.includes(category)
+        ? prev.filter(c => c !== category)
+        : [...prev, category]
+    );
   };
   
-  // Handle instrument selection
   const handleInstrumentClick = (instrument: MarketInstrument) => {
     setSelectedInstrument(instrument);
-    
-    // Map instrument to compatible market type for RealTimeMarketChart
-    let marketId = "volatility-100"; // Default
-    
-    // Intentar hacer un mapeo más preciso según categoría e ID
-    if (instrument.id.includes("volatility")) {
-      marketId = instrument.id;
-    } else if (instrument.id.includes("boom")) {
-      marketId = instrument.id;
-    } else if (instrument.id.includes("crash")) {
-      marketId = instrument.id;
-    } else if (instrument.id.includes("btc") || instrument.symbol.includes("BTC")) {
-      marketId = "bitcoin";
-    } else if (instrument.id.includes("eth") || instrument.symbol.includes("ETH")) {
-      marketId = "ethereum";
-    } else if (instrument.id === "gold" || instrument.symbol.includes("XAU")) {
-      marketId = "gold";
-    } else if (instrument.id === "silver" || instrument.symbol.includes("XAG")) {
-      marketId = "silver";
-    } else if (instrument.id === "oil" || instrument.symbol.includes("OIL")) {
-      marketId = "oil";
-    } else if (instrument.category === "forex") {
-      marketId = instrument.id;
-    } else if (instrument.category === "indices") {
-      marketId = instrument.id;
-    }
-    
-    setSelectedMarketForChart(marketId);
-
-    // Call parent component handler if provided
-    if (onInstrumentSelect) {
-      onInstrumentSelect(instrument);
-    }
+    setSelectedMarketForChart(instrument.symbol);
+    onInstrumentSelect?.(instrument);
   };
   
-  // Toggle favorite status
   const handleToggleFavorite = async (e: React.MouseEvent, instrument: MarketInstrument) => {
     e.stopPropagation();
     
+    const isFavorite = instrument.isFavorite;
+    
+    setInstruments(prev => prev.map(inst => 
+      inst.id === instrument.id ? { ...inst, isFavorite: !isFavorite } : inst
+    ));
+    
     try {
-      await axios.post('/api/market/favorites', { instrumentId: instrument.id });
+      const response = await axios.post('/api/market/favorites', {
+        instrumentId: instrument.id,
+        action: isFavorite ? 'remove' : 'add'
+      });
       
-      // Actualizar la UI optimísticamente
-      const updatedInstrument = { ...instrument, isFavorite: !instrument.isFavorite };
-      
-      // Si estamos en favoritos, actualizar la lista completa
-      if (selectedCategory === "favoritos") {
-        const response = await axios.get('/api/market/favorites');
-        setInstruments(response.data.favorites);
-      } else {
-        // En otras categorías, solo actualizar el instrumento específico
-        setInstruments(instruments.map(i => 
-          i.id === instrument.id ? updatedInstrument : i
+      if (!response.data.success) {
+        setInstruments(prev => prev.map(inst => 
+          inst.id === instrument.id ? { ...inst, isFavorite } : inst
         ));
+        toast.error("Error", { description: "No se pudo actualizar tus favoritos." });
+      } else {
+        toast.success(isFavorite ? "Eliminado de favoritos" : "Añadido a favoritos");
+        if (selectedCategory === 'favoritos') {
+           setInstruments(prev => prev.filter(i => i.id !== instrument.id));
+        }
       }
-      
-    } catch (err) {
-      console.error("Error al cambiar favorito:", err);
+    } catch (error) {
+       setInstruments(prev => prev.map(inst => 
+         inst.id === instrument.id ? { ...inst, isFavorite } : inst
+       ));
+       toast.error("Error", { description: "Ocurrió un error al gestionar favoritos." });
     }
   };
   
-  // Búsqueda de instrumentos
-    const searchInstruments = async () => {
-    if (!searchQuery.trim()) {
-        handleCategoryClick(selectedCategory);
-        return;
-      }
-      
-      try {
-      const response = await axios.get(`/api/market/search?query=${encodeURIComponent(searchQuery)}`);
-      setInstruments(response.data.instruments);
-      
-      // Configurar instrumentos para seguimiento en tiempo real
-      const trackedInstruments = response.data.instruments;
-      setInstrumentsToTrack(
-        trackedInstruments.map((inst: MarketInstrument) => ({
-          symbol: inst.symbol,
-          category: inst.category
-        }))
-      );
-      } catch (err) {
-        console.error("Error al buscar instrumentos:", err);
-        setInstruments([]);
-      }
-    };
-    
-  // Obtener título de sección
+  const filteredInstruments = instruments.filter(
+    (instrument) =>
+      instrument.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      instrument.symbol.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+  
   const getSectionTitle = () => {
-    if (searchQuery.trim()) {
-      return `Resultados para "${searchQuery}"`;
+    if (searchQuery) return `Resultados para "${searchQuery}"`;
+    if (categories[selectedCategory]) {
+      return categories[selectedCategory].label;
     }
-    
-    if (selectedCategory === "favoritos") {
-      return "Instrumentos favoritos";
-    }
-    
-    // Buscar en categorías
-    for (const catKey in categories) {
-      if (catKey === selectedCategory) {
-        return categories[catKey].label;
-      }
-      
-      // Buscar en subcategorías
-      const cat = categories[catKey];
+    for (const cat of Object.values(categories)) {
       if (cat.subcategories) {
-        const subcat = cat.subcategories.find(sc => sc.id === selectedCategory);
-        if (subcat) {
-          return subcat.label;
-        }
+        const subcat = cat.subcategories.find(sub => sub.id === selectedCategory);
+        if (subcat) return subcat.label;
       }
     }
-    
-    // Si no se encuentra, buscar en las categorías iniciales
-    for (const cat of INITIAL_MARKET_CATEGORIES) {
-      if (cat.id === selectedCategory) {
-        return cat.label;
-      }
-      
-      // Buscar en subcategorías
-      if (cat.subcategories) {
-        const subcat = cat.subcategories.find(sc => sc.id === selectedCategory);
-        if (subcat) {
-          return subcat.label;
-        }
-      }
-    }
-    
-    return "Instrumentos";
+    return "Mercados";
   };
   
-  // Renderizar categorías
   const renderCategories = () => {
-    // Usar categorías cargadas desde API o categorías iniciales como fallback
-    const categoriesToRender = Object.keys(categories).length > 0 
-      ? Object.values(categories) 
-      : INITIAL_MARKET_CATEGORIES;
+    const categoriesToRender = Object.values(categories);
     
     return (
-      <div className="space-y-1">
+      <div className="space-y-2">
         {categoriesToRender.map((category) => (
-          <div key={category.id} className="space-y-1">
+          <div key={category.id}>
             <button
+              className={cn(
+                "w-full flex items-center p-2 rounded-md text-sm font-medium transition-colors",
+                selectedCategory === category.id && "bg-primary/10 text-primary",
+                "hover:bg-muted/50"
+              )}
               onClick={() => {
                 if (category.subcategories && category.subcategories.length > 0) {
-                toggleCategoryExpansion(category.id as string);
+                 toggleCategoryExpansion(category.id);
                 } else {
-                  handleCategoryClick(category.id as string);
+                 handleCategoryClick(category.id);
                 }
               }}
-              className={cn(
-                "flex w-full items-center justify-between rounded-md px-3 py-2 text-sm hover:bg-accent",
-                selectedCategory === category.id && "bg-accent"
-              )}
             >
-              <div className="flex items-center">
-                <span className="mr-2 text-muted-foreground">{category.icon}</span>
-                <span>{category.label}</span>
-              </div>
+              <div className="mr-3">{category.icon}</div>
+              <span className="flex-1 text-left">{category.label}</span>
               {category.subcategories && category.subcategories.length > 0 && (
                 <span className="text-xs">
-              {expandedCategories.includes(category.id as string) ? (
+                 {expandedCategories.includes(category.id) ? (
                     <ChevronUp className="h-4 w-4" />
-              ) : (
+                  ) : (
                     <ChevronDown className="h-4 w-4" />
                   )}
                 </span>
               )}
             </button>
-        
-            {/* Subcategorías */}
             {category.subcategories && 
-             expandedCategories.includes(category.id as string) && (
-              <div className="ml-4 space-y-1 border-l pl-2">
-            {category.subcategories.map((subcategory) => (
+             expandedCategories.includes(category.id) && (
+              <div className="ml-4 space-y-1 border-l pl-2 mt-1">
+                {category.subcategories.map((subcategory) => (
                   <button
                     key={subcategory.id}
+                    className={cn(
+                      "w-full flex items-center p-2 rounded-md text-sm font-medium transition-colors",
+                      selectedCategory === subcategory.id && "bg-primary/10 text-primary",
+                      "hover:bg-muted/50"
+                    )}
                     onClick={() => handleSubcategoryClick(subcategory.id)}
-                  className={cn(
-                      "flex w-full items-center rounded-md px-3 py-2 text-sm hover:bg-accent",
-                      selectedCategory === subcategory.id && "bg-accent"
-                  )}
-                >
-                  {subcategory.label}
+                  >
+                    <span className="ml-5 text-left">{subcategory.label}</span>
                   </button>
                 ))}
               </div>
             )}
-                </div>
-            ))}
+          </div>
+        ))}
       </div>
     );
   };
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="p-4 border-b">
-        <div className="mb-4 flex items-center gap-2">
-          <Input
-            placeholder="Buscar mercados..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && searchInstruments()}
-            className="flex-1"
-          />
-          <button
-            onClick={searchInstruments}
-            className="p-2 bg-primary/80 hover:bg-primary text-primary-foreground rounded-md"
-          >
-            <Search className="h-5 w-5" />
-          </button>
-        </div>
-        
-        <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-4">
-          {/* Menú de categorías */}
-          <Card className="h-[calc(100vh-220px)] overflow-y-auto">
-            <CardContent className="p-3">
-              <h3 className="text-sm font-medium mb-3">Mercados</h3>
-              {renderCategories()}
-            </CardContent>
-          </Card>
-          
-          {/* Lista de instrumentos */}
-          <Card className="h-[calc(100vh-220px)]">
-            <CardContent className="p-3 h-full flex flex-col">
-              <h3 className="text-sm font-medium mb-3">{getSectionTitle()}</h3>
-              
-              {isLoading ? (
-                <div className="flex flex-col items-center justify-center h-full">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-                  <p className="mt-2 text-sm text-muted-foreground">Cargando mercados...</p>
-                </div>
-              ) : error ? (
-                <div className="flex flex-col items-center justify-center h-full">
-                  <p className="text-sm text-destructive">{error}</p>
-                  <button 
-                    onClick={() => handleCategoryClick(selectedCategory)}
-                    className="mt-2 text-sm text-primary"
-                  >
-                    Reintentar
-                  </button>
-      </div>
-              ) : instruments.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full">
-                  <p className="text-sm text-muted-foreground">
-                    {searchQuery.trim() 
-                      ? `No hay resultados para "${searchQuery}"` 
-                      : "No hay instrumentos disponibles en esta categoría"}
-                  </p>
-        </div>
-              ) : (
-                <div className="flex-1 overflow-y-auto">
-                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-                    {instruments.map((instrument) => {
-                      const isPositiveChange = instrument.change24h >= 0;
-                      const instrumentIcon = getInstrumentIcon(instrument);
-                      const cardStyleClass = getInstrumentCardStyle(instrument);
-                      
-                      return (
-                <div
-                  key={instrument.id}
-                          onClick={() => handleInstrumentClick(instrument)}
-                  className={cn(
-                            "border rounded-lg p-3 flex flex-col hover:bg-accent/50 cursor-pointer transition-colors shadow-sm",
-                            cardStyleClass
-                          )}
-                        >
-                          <div className="flex justify-between items-start">
-                            <div className="flex gap-2 items-center">
-                              <div className="flex items-center justify-center h-8 w-8 rounded-full bg-white/40 dark:bg-black/10 shadow-sm">
-                                {instrumentIcon}
-                    </div>
-                    <div>
-                                <div className="font-medium flex items-center gap-1.5">
-                                  {instrument.name}
-                        {instrument.hasRealTime && (
-                                    <span className="inline-flex items-center rounded-full bg-green-50 px-1.5 py-0.5 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
-                                      <span className="relative flex h-1.5 w-1.5 mr-1">
-                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-500"></span>
-                                      </span>
-                                      RT
-                                    </span>
-                        )}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {instrument.symbol}
-                      </div>
-                    </div>
-                  </div>
-                  <button
-                              onClick={(e) => handleToggleFavorite(e, instrument)}
-                              className={`p-1 rounded-full hover:bg-white/30 dark:hover:bg-white/10 ${
-                      instrument.isFavorite ? "text-yellow-500" : "text-muted-foreground"
-                              }`}
-                  >
-                    <Star className="h-5 w-5" fill={instrument.isFavorite ? "currentColor" : "none"} />
-                  </button>
-        </div>
-        
-                          <div className="mt-2 flex justify-between items-end">
-                            <div className="text-xl font-semibold">
-                              {formatCurrency(instrument.price)}
-                    </div>
-                            <div className={cn(
-                              "text-sm font-medium rounded-full px-2 py-0.5",
-                              isPositiveChange 
-                                ? "text-green-700 bg-green-100 dark:bg-green-900/30 dark:text-green-400" 
-                                : "text-red-700 bg-red-100 dark:bg-red-900/30 dark:text-red-400"
-                            )}>
-                              {isPositiveChange ? "+" : ""}{instrument.change24h.toFixed(2)}%
-                    </div>
-                  </div>
-                  
-                          {/* Última actualización */}
-                          {instrument.lastUpdated && (
-                            <div className="mt-1 text-xs text-muted-foreground flex items-center">
-                              <span className="mr-1">Actualizado:</span>
-                              <span className="text-xs font-medium">{new Date(instrument.lastUpdated).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                    </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-              </CardContent>
-            </Card>
+    <div className="flex h-full">
+      {/* Columna de Navegación de Mercados */}
+      <div className="w-64 border-r border-border p-3 flex flex-col">
+        <h2 className="text-xl font-bold mb-4">Mercados</h2>
+        {isLoading && !Object.keys(categories).length ? (
+          <div className="space-y-2">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="h-10 bg-muted/50 rounded-md animate-pulse" />
+            ))}
           </div>
+        ) : error ? (
+          <div className="text-red-500 text-sm">{error}</div>
+        ) : (
+          renderCategories()
+        )}
       </div>
-      
-      {/* Gráfico en tiempo real */}
-      {selectedInstrument && (
-        <div className="flex-1 p-4 bg-card rounded-lg m-4 overflow-hidden">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="font-medium flex items-center gap-2">
-              <div className="flex items-center justify-center h-8 w-8 rounded-full bg-white/80 dark:bg-white/10 shadow-sm">
-                {getInstrumentIcon(selectedInstrument)}
-              </div>
-              <div>
-                {selectedInstrument.name}
-                <span className="text-sm text-muted-foreground ml-2">
-                  ({selectedInstrument.symbol})
-                </span>
-              </div>
-              {selectedInstrument.hasRealTime && (
-                <span className="ml-2 inline-flex items-center rounded-full bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20 dark:bg-green-900/20 dark:text-green-400 dark:ring-green-500/30">
-                  <span className="relative flex h-1.5 w-1.5 mr-1">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-500"></span>
-                  </span>
-                  Tiempo real
-                </span>
-              )}
-            </h3>
-            <div className={cn(
-              "text-sm font-medium rounded-full px-2 py-1",
-              selectedInstrument.change24h >= 0 
-                ? "text-green-700 bg-green-100 dark:bg-green-900/30 dark:text-green-400" 
-                : "text-red-700 bg-red-100 dark:bg-red-900/30 dark:text-red-400"
-            )}>
-              {selectedInstrument.change24h >= 0 ? "+" : ""}
-              {selectedInstrument.change24h.toFixed(2)}%
+
+      {/* Contenido Principal (Gráfico y Lista de Instrumentos) */}
+      <div className="flex-1 flex flex-col">
+        {/* Gráfico en Tiempo Real */}
+        <div className="h-[300px] border-b border-border p-2">
+          {selectedMarketForChart ? (
+            <RealTimeMarketChart 
+              marketId={selectedMarketForChart} 
+            />
+          ) : (
+            <div className="h-full flex items-center justify-center text-muted-foreground">
+              Selecciona un instrumento para ver el gráfico
+            </div>
+          )}
+        </div>
+
+        {/* Lista de Instrumentos */}
+        <div className="flex-1 p-4 overflow-y-auto">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold">{getSectionTitle()}</h3>
+            <div className="relative w-full max-w-xs">
+              <Input
+                type="text"
+                placeholder="Buscar instrumento..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             </div>
           </div>
           
-          <div className="h-full rounded-lg overflow-hidden">
-            <RealTimeMarketChart 
-              marketId={selectedMarketForChart}
-              isRealTime={selectedInstrument.hasRealTime}
-            />
-          </div>
+          {isLoading && !instruments.length ? (
+             <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+               {[...Array(6)].map((_, i) => (
+                 <div key={i} className="h-24 bg-muted/50 rounded-lg animate-pulse" />
+               ))}
+             </div>
+          ) : filteredInstruments.length > 0 ? (
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                {filteredInstruments.map((instrument) => {
+                  const isPositiveChange = (instrument.change24h ?? 0) >= 0;
+                  const instrumentIcon = getInstrumentIcon(instrument);
+                  
+                  return (
+                    <Card
+                      key={instrument.id}
+                      className="p-3 flex items-center space-x-4 cursor-pointer hover:shadow-lg transition-shadow"
+                      onClick={() => handleInstrumentClick(instrument)}
+                    >
+                      <div className="w-10 h-10 flex items-center justify-center rounded-lg bg-muted">
+                        {instrumentIcon}
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-bold">{instrument.name}</div>
+                        <div className="text-sm text-muted-foreground">{instrument.symbol}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-semibold">{formatCurrency(instrument.price)}</div>
+                        <div className={cn(
+                          "text-sm font-medium",
+                          isPositiveChange
+                            ? "text-green-500"
+                            : "text-red-500"
+                        )}>
+                          {isPositiveChange ? "+" : ""}{(instrument.changePercent ?? 0).toFixed(2)}%
+                        </div>
+                      </div>
+                      <button onClick={(e) => handleToggleFavorite(e, instrument)}>
+                        <Star className={cn("w-5 h-5", instrument.isFavorite ? "text-yellow-400 fill-current" : "text-gray-400")} />
+                      </button>
+                    </Card>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-10 text-muted-foreground">
+              No se encontraron instrumentos.
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 };

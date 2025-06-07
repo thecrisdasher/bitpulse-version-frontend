@@ -28,7 +28,8 @@ const PRIVATE_ROUTES = [
   '/statistics',
   '/learning',
   '/help',
-  '/chat'
+  '/chat',
+  '/crm'
 ];
 
 // Rutas que requieren roles específicos
@@ -39,7 +40,8 @@ const ROLE_BASED_ROUTES = {
   '/api/maestro': ['maestro', 'admin'],
   '/analytics': ['admin', 'maestro'],
   '/users': ['admin'],
-  '/logs': ['admin']
+  '/logs': ['admin'],
+  '/crm': ['admin', 'maestro']
 };
 
 // Obtener el idioma preferido basado en las cabeceras de aceptación

@@ -86,6 +86,11 @@ export default function Header() {
   if (isMaestro) {
     navigation.push({ name: 'Educación', href: '/learning' });
   }
+
+  // Acceso al CRM para admin y maestro
+  if (isAdmin || isMaestro) {
+    navigation.push({ name: 'CRM', href: '/crm' });
+  }
   
   return (
     <header className="bg-background border-b border-border sticky top-0 z-50">

@@ -310,7 +310,7 @@ export const websocketService = {
       },
         onOpen: () => console.log(`Conexión WebSocket abierta para ${key}`),
         onClose: () => console.log(`Conexión WebSocket cerrada para ${key}`),
-        onError: (error) => console.error(`Error en WebSocket para ${key}:`, error),
+        onError: (error) => console.warn(`Error en WebSocket para ${key}:`, error),
         // Manejar correctamente el caso de null en subscriptionMessage
         subscriptionMessage: generateSubscriptionMessage(symbol, normalizedCategory, provider) || undefined,
         autoReconnect: true,

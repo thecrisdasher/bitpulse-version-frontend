@@ -124,24 +124,20 @@ export class BitstampService {
     limit: number = 100
   ): Promise<BitstampOHLC[]> {
     try {
-      const response = await fetch(
-        `${this.BASE_URL}/ohlc/${symbol.toLowerCase()}/?step=${step}&limit=${limit}`
+      // Usar apiClient para proxy y evitar problemas de CORS
+      const res = await apiClient.get<{ data: { ohlc: BitstampOHLCResponse[] } }>(
+        `/ohlc/${symbol.toLowerCase()}/?step=${step}&limit=${limit}`,
+        {
+          provider: 'BITSTAMP',
+          category: 'CRYPTO',
+          instrument: symbol,
+          useProxy: true,
+          useFetch: true
+        }
       );
 
-      if (!response.ok) {
-        throw new Error(`Error al obtener datos OHLC: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      
-      return data.data.ohlc.map((candle: any) => ({
-        timestamp: parseInt(candle.timestamp) * 1000, // Convertir a milisegundos
-        open: parseFloat(candle.open),
-        high: parseFloat(candle.high),
-        low: parseFloat(candle.low),
-        close: parseFloat(candle.close),
-        volume: parseFloat(candle.volume)
-      }));
+      // Convertir el formato interno usando la función existente
+      return this.convertToInternalFormat(res.data.data.ohlc);
     } catch (error) {
       console.error('Error obteniendo datos OHLC de Bitstamp:', error);
       throw error;

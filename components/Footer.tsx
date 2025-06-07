@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { ExternalLink, Code, Heart } from 'lucide-react';
 import { usePathname } from 'next/navigation';
@@ -15,6 +15,11 @@ interface FooterProps {
 }
 
 export default function Footer({ show }: FooterProps) {
+  // Prevent server-client hydration mismatch for random particles
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   const pathname = usePathname();
   const currentYear = new Date().getFullYear();
 
@@ -127,7 +132,7 @@ export default function Footer({ show }: FooterProps) {
 
       {/* Efecto de partículas flotantes */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {[...Array(3)].map((_, i) => (
+        {mounted && [...Array(3)].map((_, i) => (
           <motion.div
             key={i}
             className="absolute w-1 h-1 bg-primary/20 rounded-full"

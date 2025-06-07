@@ -285,6 +285,7 @@ export interface MarketInstrument {
   category: MarketCategory;
   price: number;
   change24h: number;
+  changePercent?: number;
   change7d: number;
   isFavorite: boolean;
   hasRealTime: boolean;
@@ -657,3 +658,46 @@ export const toggleInstrumentFavorite = (id: string): void => {
     instrument.isFavorite = !instrument.isFavorite;
   }
 };
+
+// Interfaz para un usuario
+export interface User {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  username: string;
+  role: 'admin' | 'maestro' | 'user';
+  pejecoins: number;
+  profilePicture?: string;
+}
+
+// Lista de usuarios simulados
+export const allUsers: User[] = [
+  {
+    id: '1',
+    email: 'admin@bitpulse.com',
+    firstName: 'Admin',
+    lastName: 'User',
+    username: 'admin',
+    role: 'admin',
+    pejecoins: 100000,
+  },
+  {
+    id: '2',
+    email: 'maestro@bitpulse.com',
+    firstName: 'Maestro',
+    lastName: 'Trader',
+    username: 'maestro',
+    role: 'maestro',
+    pejecoins: 50000,
+  },
+  {
+    id: '3',
+    email: 'user@bitpulse.com',
+    firstName: 'Cliente',
+    lastName: 'Ejemplo',
+    username: 'cliente',
+    role: 'user',
+    pejecoins: 10000,
+  },
+];

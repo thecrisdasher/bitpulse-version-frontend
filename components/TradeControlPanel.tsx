@@ -23,6 +23,7 @@ import { useTradePositions } from "@/contexts/TradePositionsContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
+import axios from 'axios';
 
 interface TradeControlPanelProps {
   marketName: string;
@@ -144,101 +145,62 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
   };
 
   // Handle trade execution
-  const handlePlaceTrade = () => {
-    const capitalToUse = investmentAmount * capitalFraction;
-    if (capitalToUse > investmentAmount) {
-      toast.error("Fondos insuficientes. No puedes invertir más de tu capital total.");
+  const handlePlaceTrade = async () => {
+    const capitalToUse = riskMetrics.capitalUsed;
+    if (capitalToUse <= 0) {
+      toast.error("El monto de inversión debe ser mayor a cero.");
+      return;
+    }
+    if (capitalToUse > (user?.pejecoins ?? 0)) {
+      toast.error("Fondos insuficientes para realizar esta operación.");
       return;
     }
     
     setIsSubmitting(true);
     
     try {
-      // Create new position using context
-      const positionId = addPosition({
-        marketName,
-        marketPrice,
-        marketColor,
+      const tradeData = {
+        instrumentId: marketName,
+        instrumentName: marketName,
         direction: tradeDirection,
         amount: capitalToUse,
-        stake: capitalToUse, // Stake is the amount invested
+        stake: capitalToUse,
+        openPrice: marketPrice,
         duration: { value: duration, unit: durationUnit },
-        capitalFraction,
-        lotSize,
-        leverage
-      });
+        leverage: leverage,
+        capitalFraction: capitalFraction,
+        lotSize: lotSize
+      };
 
-      // Show enhanced toast notification
-      uiToast({
-        title: tradeDirection === 'up' ? "🚀 Compra Ejecutada" : "📉 Venta Ejecutada",
-        description: (
-          <div className="flex flex-col gap-2">
-            <p className="font-semibold">Operación #{positionId.slice(-6)} creada exitosamente</p>
-            <div className="grid grid-cols-2 gap-2 text-sm bg-muted/50 p-2 rounded">
-              <div className="flex items-center gap-1">
-                <span className="text-muted-foreground">Instrumento:</span>
-                <span className="font-medium">{marketName}</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <span className="text-muted-foreground">Dirección:</span>
-                <span className={cn("font-bold", tradeDirection === 'up' ? "text-green-500" : "text-red-500")}>
-                  {tradeDirection === 'up' ? 'LONG' : 'SHORT'}
-                </span>
-              </div>
-              <div className="flex items-center gap-1">
-                <span className="text-muted-foreground">Fracción:</span>
-                <span className="font-medium text-blue-500">{(capitalFraction * 100).toFixed(1)}%</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <span className="text-muted-foreground">Lotes:</span>
-                <span className="font-medium text-purple-500">{lotSize}</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <span className="text-muted-foreground">Margen:</span>
-                <span className="font-medium text-orange-500">${riskMetrics.marginRequired.toFixed(0)}</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <span className="text-muted-foreground">Duración:</span>
-                <span className="font-medium">{duration} {durationUnit}{duration > 1 ? 's' : ''}</span>
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              ✅ La posición ha sido agregada a tu cartera de operaciones activas
-            </p>
-          </div>
-        ),
-        action: (
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg"
-            onClick={() => {
-              window.location.href = "/posiciones-abiertas";
-            }}
-          >
-            Ver Posiciones
-          </Button>
-        ),
-      });
+      // Llamada a la nueva API
+      const response = await axios.post('/api/trading/positions', tradeData);
 
-      // Call onPlaceTrade callback if provided
-      if (onPlaceTrade) {
-        onPlaceTrade(
-          tradeDirection, 
-          capitalToUse, 
-          capitalToUse, 
-          { value: duration, unit: durationUnit }
-        );
+      if (response.data.success) {
+        const newPosition = response.data.data;
+
+        // Usar la posición devuelta por la API para actualizar el contexto
+        addPosition(newPosition, { marketColor });
+
+        toast.success("🚀 Operación ejecutada", {
+          description: `Posición #${newPosition.id.slice(-6)} en ${marketName} creada exitosamente.`,
+        });
+
+        // Cerrar panel después de una operación exitosa
+        setTimeout(() => {
+          onClose();
+        }, 500);
+
+      } else {
+        throw new Error(response.data.message || "El servidor rechazó la operación.");
       }
 
-      // Close panel after successful trade
-      setTimeout(() => {
-        onClose();
-        setIsSubmitting(false);
-      }, 500);
-    } catch (error) {
-      console.error('Error executing trade:', error);
-      toast.error("Error al ejecutar la operación");
+    } catch (error: any) {
+      console.error('Error al ejecutar la operación:', error);
+      const errorMessage = error.response?.data?.message || error.message || "Error desconocido al ejecutar la operación.";
+      toast.error("Error en la operación", {
+        description: errorMessage,
+      });
+    } finally {
       setIsSubmitting(false);
     }
   };
