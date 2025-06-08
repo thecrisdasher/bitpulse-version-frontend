@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { useGoogleReCaptcha } from 'react-google-recaptcha-v3';
 
 const loginSchema = z.object({
   email: z.string().email('Email inválido'),
@@ -23,6 +24,7 @@ export function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
+  const { executeRecaptcha } = useGoogleReCaptcha();
 
   const form = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -35,11 +37,38 @@ export function LoginForm() {
   const onSubmit = async (data: LoginFormData) => {
     try {
       setIsLoading(true);
-      await login(data);
+      const token = await executeRecaptcha?.('login') || '';
+      await login({ ...data, recaptchaToken: token });
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Error desconocido';
+      if (errorMsg === 'EMAIL_NOT_CONFIRMED') {
+        toast.error('Debes confirmar tu correo. Revisa tu email para completar tu registro.', {
+          action: {
+            label: 'Reenviar correo',
+            onClick: async () => {
+              try {
+                const res = await fetch('/api/auth/resend-confirmation', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ email: data.email })
+                });
+                const json = await res.json();
+                if (json.success) {
+                  toast.success('Correo de confirmación reenviado');
+                } else {
+                  toast.error(json.message || 'No se pudo reenviar correo');
+                }
+              } catch (err) {
+                toast.error('Error al reenviar correo');
+              }
+            }
+          }
+        });
+      } else {
       toast.error('Error al iniciar sesión', {
-        description: error instanceof Error ? error.message : 'Error desconocido',
+          description: errorMsg,
       });
+      }
     } finally {
       setIsLoading(false);
     }

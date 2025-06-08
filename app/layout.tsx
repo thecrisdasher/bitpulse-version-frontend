@@ -11,6 +11,8 @@ import { LanguageProvider } from "@/contexts/LanguageContext"
 import { languages } from "./i18n/settings"
 import Footer from "@/components/Footer"
 import Header from "@/components/Header"
+import { GoogleReCaptchaProvider } from 'react-google-recaptcha-v3'
+import { Providers } from '@/components/Providers'
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -38,24 +40,13 @@ export default function RootLayout({
       <body className={`${inter.className} min-h-screen flex flex-col`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <LanguageProvider initialLocale={lng as 'es' | 'en'}>
-            <AuthProvider>
-              <TradePositionsProvider>
+            <Providers>
                 <div className="flex-1 flex flex-col">
                   <Header />
-                  <main className="flex-1">
-                    {children}
-                  </main>
+                <main className="flex-1">{children}</main>
                 </div>
                 <Footer />
-                <Toaster />
-                <SonnerToaster 
-                  position="top-right"
-                  richColors
-                  closeButton
-                  duration={4000}
-                />
-              </TradePositionsProvider>
-            </AuthProvider>
+            </Providers>
           </LanguageProvider>
         </ThemeProvider>
       </body>

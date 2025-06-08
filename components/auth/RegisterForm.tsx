@@ -13,6 +13,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { useGoogleReCaptcha } from 'react-google-recaptcha-v3';
+import type { RegisterData } from '@/lib/types/auth';
 
 /**
  * Esquema de validación para el formulario de registro
@@ -67,6 +69,7 @@ export function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { register: registerUser, isLoading } = useAuth();
+  const { executeRecaptcha } = useGoogleReCaptcha();
 
   const {
     register,
@@ -137,7 +140,9 @@ export function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) 
 
   const onSubmit = async (data: RegisterFormData) => {
     try {
-      await registerUser(data);
+      const token = await executeRecaptcha?.('register') || '';
+      const payload: RegisterData = { ...data, recaptchaToken: token };
+      await registerUser(payload);
       toast.success('¡Cuenta creada exitosamente!');
       onSuccess?.();
     } catch (error) {

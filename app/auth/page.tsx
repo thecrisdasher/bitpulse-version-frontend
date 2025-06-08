@@ -7,6 +7,7 @@ import { RegisterForm } from '@/components/auth/RegisterForm';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { toast } from 'sonner';
 
 /**
  * Página principal de autenticación
@@ -27,6 +28,22 @@ export default function AuthPage() {
       router.push(redirectTo);
     }
   }, [isAuthenticated, isLoading, router, searchParams]);
+
+  // Mostrar mensajes de confirmación de email
+  useEffect(() => {
+    const confirmed = searchParams.get('confirmed');
+    const message = searchParams.get('message');
+    if (confirmed === 'true') {
+      toast.success('Correo confirmado con éxito. Ya puedes iniciar sesión.');
+    } else if (confirmed === 'false') {
+      const msgMap: Record<string,string> = {
+        token_missing: 'Falta token de confirmación en la URL.',
+        token_invalid: 'Token de confirmación inválido.',
+        token_expired: 'Token de confirmación expirado.'
+      };
+      toast.error(msgMap[message || ''] || 'Error al confirmar correo.');
+    }
+  }, [searchParams]);
 
   // Mostrar loading si está verificando autenticación
   if (isLoading) {

@@ -9,6 +9,7 @@ export type { UserRole, Permission };
 export interface User {
   id: string;
   username: string;
+  twoFactorEnabled: boolean;
   email: string;
   firstName: string;
   lastName: string;
@@ -42,10 +43,12 @@ export interface LoginCredentials {
   email: string;
   password: string;
   rememberMe?: boolean;
+  recaptchaToken?: string;
 }
 
 export interface RegisterData {
   username: string;
+  recaptchaToken: string;
   email: string;
   password: string;
   confirmPassword: string;
@@ -145,6 +148,7 @@ export const UserSchema = z.object({
   profilePicture: z.string().optional(),
   preferences: z.record(z.string(), z.any()).optional(),
   pejecoins: z.number(),
+  twoFactorEnabled: z.boolean(),
 });
 
 export const JWTPayloadSchema = z.object({

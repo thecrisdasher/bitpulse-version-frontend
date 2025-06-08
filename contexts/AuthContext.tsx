@@ -15,6 +15,7 @@ import type {
 } from '@/lib/types/auth';
 import { AUTH_CONFIG, ROLE_PERMISSIONS } from '@/lib/config/auth';
 import { useRouter } from 'next/navigation';
+import { NextResponse } from 'next/server';
 
 /**
  * Context para manejo de autenticación en React con logging integrado
@@ -296,7 +297,27 @@ export function AuthProvider({ children }: AuthProviderProps) {
         email: data.email
       });
 
-      toast.success('¡Cuenta creada exitosamente! Puedes iniciar sesión ahora.');
+      toast.success('¡Cuenta creada! Revisa tu correo para confirmarlo.', {
+        action: {
+          label: 'Reenviar correo',
+          onClick: async () => {
+            try {
+              const res = await fetch('/api/auth/resend-confirmation', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: data.email })
+              });
+              const json = await res.json();
+              if (json.success) {
+                toast.success('Correo de confirmación reenviado');
+              } else {
+                toast.error(json.message || 'No se pudo reenviar');
+              }
+            } catch (err) {
+              toast.error('Error al reenviar correo');
+            }
+          }
+        }
+      });
 
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error desconocido';
