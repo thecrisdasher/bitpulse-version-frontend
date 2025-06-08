@@ -32,6 +32,7 @@ enum PositionStatus {
 
 model User {
   id             String     @id @default(uuid())
+  username       String     @unique
   email          String     @unique
   password       String
   firstName      String
@@ -43,15 +44,15 @@ model User {
   isActive       Boolean    @default(true)
   profilePicture String?
   preferences    Json?
-  pejecoins      Int        @default(0)
+  pejecoins      Float      @default(0)
   sessions       Session[]
   positions      TradePosition[]
   transactionsTo PejeCoinTransaction[] @relation("TransactionsTo")
   transactionsFrom PejeCoinTransaction[] @relation("TransactionsFrom")
   activities     UserActivity[]
   balance        Float      @default(10000)
-  profile        Profile?
-  settings       UserSettings?
+//  profile        Profile?
+//  settings       UserSettings?
   refreshTokens  RefreshToken[]
   @@map("users")
 }
@@ -76,10 +77,10 @@ model PejeCoinTransaction {
   fromUserId    String?
   toUser        User              @relation("TransactionsTo", fields: [toUserId], references: [id])
   toUserId      String
-  amount        Int
+  amount        Float
   concept       String
   timestamp     DateTime          @default(now())
-  status        TransactionStatus @default(pending)
+  status        String
   referenceId   String?
 }
 
@@ -92,13 +93,15 @@ model TradePosition {
   openPrice      Float
   currentPrice   Float
   amount         Float
-  leverage       Int
+  leverage       Float
   openTime       DateTime          @default(now())
   closeTime      DateTime?
   profit         Float?
   status         PositionStatus    @default(open)
   stopLoss       Float?
   takeProfit     Float?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
 }
 
 model UserActivity {
@@ -113,15 +116,13 @@ model UserActivity {
 }
 
 model RefreshToken {
-  id        String   @id @default(cuid())
+  id        String   @id @default(uuid())
   token     String   @unique
+  userId    String
   expiresAt DateTime
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   
   user   User   @relation(fields: [userId], references: [id])
-  userId String
-  
-  @@index([userId])
 } 

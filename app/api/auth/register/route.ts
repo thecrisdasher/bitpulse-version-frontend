@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { AuthService } from '@/lib/services/authService';
-import { combineMiddlewares, RateLimiter, sanitizeHeaders, validateJSON } from '@/lib/middleware/authMiddleware';
 import { SecurityUtils } from '@/lib/utils/security';
 import type { RegisterData } from '@/lib/types/auth';
 
@@ -98,9 +97,5 @@ async function handleRegister(request: NextRequest): Promise<NextResponse> {
   }
 }
 
-// Aplicar middlewares
-export const POST = combineMiddlewares(
-  sanitizeHeaders,
-  validateJSON,
-  RateLimiter.middleware(5, 15 * 60 * 1000) // 5 registros por 15 minutos
-)(handleRegister); 
+// Export the handler directly for Next.js API route
+export const POST = handleRegister; 

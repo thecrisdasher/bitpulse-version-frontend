@@ -1,4 +1,5 @@
-import { prisma, User } from '@/lib/db';
+import { prisma } from '@/lib/db';
+import type { User } from '@/lib/types/auth';
 import type { TradePosition } from '@/lib/types/trading';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -47,7 +48,20 @@ export async function createPosition(positionData: TradePosition): Promise<Trade
     data: { pejecoins: newBalance },
   });
 
-  // 2. Crear la posición en la "base de datos"
+  // 2.a Registrar transacción de PejeCoins por apertura de posición
+  await prisma.pejeCoinTransaction.create({
+    data: {
+      fromUserId: user.id,
+      toUserId: user.id,
+      amount: positionData.amount,
+      concept: 'trade_open',
+      timestamp: new Date(),
+      status: 'completed',
+      referenceId: positionData.id
+    }
+  });
+
+  // 2. Crear la posición en la base de datos
   const newPosition = await prisma.tradePosition.create({
     data: {
       ...positionData,
@@ -55,6 +69,16 @@ export async function createPosition(positionData: TradePosition): Promise<Trade
     },
   });
 
-  // 3. Devolver la posición creada (que ahora incluye el ID)
+  // 2.b Registrar actividad de usuario
+  await prisma.userActivity.create({
+    data: {
+      userId: user.id,
+      action: 'position_opened',
+      details: positionData as any,
+      timestamp: new Date()
+    }
+  });
+
+  // 3. Devolver la posición creada
   return newPosition as TradePosition;
 } 

@@ -449,25 +449,25 @@ export function AuthProvider({ children }: AuthProviderProps) {
     win.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
       try {
         const response = await originalFetch(input, init);
+      
+      // Si recibimos 401 y tenemos un usuario autenticado, intentar refresh
+      if (response.status === 401 && state.isAuthenticated) {
+        logger.warn('auth', 'Received 401, attempting token refresh');
+        const refreshed = await refreshToken();
         
-        // Si recibimos 401 y tenemos un usuario autenticado, intentar refresh
-        if (response.status === 401 && state.isAuthenticated) {
-          logger.warn('auth', 'Received 401, attempting token refresh');
-          const refreshed = await refreshToken();
-          
-          if (refreshed && state.tokens) {
-            // Reintentar la petición original con el nuevo token
-            const newOptions = {
+        if (refreshed && state.tokens) {
+          // Reintentar la petición original con el nuevo token
+          const newOptions = {
               ...init,
-              headers: {
+            headers: {
                 ...((init as RequestInit)?.headers || {}),
-                'Authorization': `Bearer ${state.tokens.accessToken}`
-              }
-            };
+              'Authorization': `Bearer ${state.tokens.accessToken}`
+            }
+          };
             return originalFetch(input, newOptions);
-          }
         }
-        return response;
+      }
+      return response;
       } catch (error) {
         // Log de error de red o CORS en fetch
         console.error('Fetch failed for', input, error);
