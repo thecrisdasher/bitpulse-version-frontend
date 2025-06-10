@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Search, Star } from "lucide-react"
 import { cryptocurrencies, getTopGainers, getTopLosers, getTrending, favorites, toggleFavorite } from "@/lib/mockData"
+import useBinanceTickers from '@/hooks/useBinanceTickers';
 import Sidebar from "@/components/Sidebar"
 import MarketSentimentHeader from "@/components/MarketSentimentHeader"
 import { useTheme } from "next-themes"
@@ -127,6 +128,18 @@ export default function CryptoDashboard() {
   const [favList, setFavList] = useState<number[]>([])
   const [liveUpdates, setLiveUpdates] = useState(true)
   const [cryptoData, setCryptoData] = useState(cryptocurrencies)
+  // Fetch Binance tickers for all crypto symbols
+  const binanceTickers = useBinanceTickers(cryptocurrencies.map(c => c.symbol));
+  // Merge live Binance data into cryptoData
+  const displayData = cryptoData.map(crypto => {
+    const ticker = binanceTickers[crypto.symbol];
+    return {
+      ...crypto,
+      price: ticker?.price ?? crypto.price,
+      change24h: ticker?.change24h ?? crypto.change24h,
+      volume24h: ticker?.volume ?? crypto.volume24h,
+    };
+  });
   const [selectedInstrument, setSelectedInstrument] = useState<any>(null)
   const [showTradePanel, setShowTradePanel] = useState(false)
   const [isClient, setIsClient] = useState(false)
@@ -159,7 +172,7 @@ export default function CryptoDashboard() {
     }
   }, [liveUpdates])
 
-  const filteredCryptos = cryptoData.filter(
+  const filteredCryptos = displayData.filter(
     (crypto) =>
       crypto.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       crypto.symbol.toLowerCase().includes(searchTerm.toLowerCase()),
@@ -316,6 +329,7 @@ export default function CryptoDashboard() {
                 <TableCell colSpan={9} className="p-0">
                   <div className="border-t bg-muted/20">
                     <TradeControlPanel
+                      marketId={selectedInstrument.symbol}
                       marketName={selectedInstrument.name}
                       marketPrice={selectedInstrument.price}
                       marketColor={selectedInstrument.change24h >= 0 ? '#10b981' : '#ef4444'}
@@ -406,7 +420,7 @@ export default function CryptoDashboard() {
             <DailyChallengeWidget />
           </div>
 
-          <BentoGrid liveUpdates={liveUpdates} cryptoData={cryptoData} />
+          <BentoGrid liveUpdates={liveUpdates} cryptoData={displayData} />
           <Tabs defaultValue="all" className="space-y-4 mt-8">
             <TabsList className="bg-card">
               <TabsTrigger value="all">All Cryptocurrencies</TabsTrigger>
