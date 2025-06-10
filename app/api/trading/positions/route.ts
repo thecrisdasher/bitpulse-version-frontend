@@ -3,6 +3,7 @@ import { getAuth } from '@/lib/auth';
 import { createPosition, validatePosition } from '@/lib/trading/positionService';
 import { ZodError } from 'zod';
 import { TradePositionSchema } from '@/lib/types/trading';
+import { prisma } from '@/lib/db';
 
 /**
  * Endpoint para crear una nueva posición de trading.
@@ -91,4 +92,26 @@ function getContractSize(instrumentName: string): number {
     return 100; // Gold
   }
   return 100000; // Forex standard
+}
+
+/**
+ * List all open positions for the authenticated user.
+ */
+export async function GET(request: Request) {
+  try {
+    // Authenticate
+    const { user } = await getAuth(request);
+    if (!user) {
+      return NextResponse.json({ success: false, message: 'No autorizado' }, { status: 401 });
+    }
+    // Fetch open positions from database
+    const positions = await prisma.tradePosition.findMany({
+      where: { userId: user.id, status: 'open' },
+      orderBy: { openTime: 'desc' }
+    });
+    return NextResponse.json({ success: true, data: positions }, { status: 200 });
+  } catch (error) {
+    console.error('[API_LIST_POSITIONS_ERROR]', error);
+    return NextResponse.json({ success: false, message: 'Error interno del servidor' }, { status: 500 });
+  }
 } 

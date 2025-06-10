@@ -23,7 +23,6 @@ import { useTradePositions } from "@/contexts/TradePositionsContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import axios from 'axios';
 
 interface TradeControlPanelProps {
   marketId: string;
@@ -161,9 +160,11 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
     setIsSubmitting(true);
     
     try {
-      const tradeData = {
+      // Llamar addPosition del contexto API-driven
+      const id = await addPosition({
         instrumentId: marketName,
         instrumentName: marketName,
+        marketColor: marketColor,
         direction: tradeDirection,
         amount: capitalToUse,
         stake: capitalToUse,
@@ -172,54 +173,19 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
         leverage: leverage,
         capitalFraction: capitalFraction,
         lotSize: lotSize
-      };
+      });
+      if (!id) throw new Error('No se recibió ID de posición');
 
-      // Llamada a la nueva API
-      const response = await axios.post('/api/trading/positions', tradeData);
+      toast.success("🚀 Operación ejecutada", {
+        description: `Posición #${id.slice(-6)} en ${marketName} creada exitosamente.`,
+      });
 
-      if (response.data.success) {
-        const created = response.data.data;
-        // Map API response and client data into context position shape
-        const positionToAdd = {
-          id: created.id,
-          marketId: marketId,
-          marketName: marketName,
-          marketColor: marketColor,
-          direction: tradeDirection,
-          type: tradeDirection === 'up' ? 'buy' : 'sell',
-          openPrice: created.openPrice,
-          currentPrice: created.currentPrice,
-          amount: created.amount,
-          stake: created.amount,
-          openTime: new Date(created.openTime),
-          duration: { value: duration, unit: durationUnit },
-          profit: 0,
-          profitPercentage: 0,
-          capitalFraction: capitalFraction,
-          lotSize: lotSize,
-          leverage: leverage,
-          marginRequired: riskMetrics.marginRequired,
-          positionValue: riskMetrics.positionValue,
-        };
-        // Add to context
-        addPosition(positionToAdd);
-
-        toast.success("🚀 Operación ejecutada", {
-          description: `Posición #${created.id.slice(-6)} en ${marketName} creada exitosamente.`,
-        });
-
-        // Cerrar panel después de una operación exitosa
-        setTimeout(() => {
-          onClose();
-        }, 500);
-
-      } else {
-        throw new Error(response.data.message || "El servidor rechazó la operación.");
-      }
+      // Cerrar panel después de una operación exitosa
+      setTimeout(onClose, 500);
 
     } catch (error: any) {
       console.error('Error al ejecutar la operación:', error);
-      const errorMessage = error.response?.data?.message || error.message || "Error desconocido al ejecutar la operación.";
+      const errorMessage = (error.response?.data?.message) || error.message || "Error desconocido al ejecutar la operación.";
       toast.error("Error en la operación", {
         description: errorMessage,
       });

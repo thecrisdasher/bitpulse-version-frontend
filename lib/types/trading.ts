@@ -11,6 +11,7 @@ export const TradePositionSchema = z.object({
   userId: z.string(),
   instrumentId: z.string(),
   instrumentName: z.string(),
+  marketColor: z.string().optional(),
   direction: z.enum(['up', 'down']), // 'up' para compra (long), 'down' para venta (short)
   
   // --- Datos Financieros ---

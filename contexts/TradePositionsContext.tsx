@@ -45,8 +45,8 @@ export interface NewTradeParams {
 
 interface TradePositionsContextType {
   positions: TradePosition[];
-  addPosition: (positionData: any) => string;
-  removePosition: (id: string) => void;
+  addPosition: (tradeParams: any) => Promise<string>;
+  removePosition: (id: string) => Promise<void>;
   updatePositionPrices: (marketName: string, newPrice: number) => void;
   getTotalMarginUsed: () => number;
   getTotalFreeMargin: (totalCapital: number) => number;
@@ -71,44 +71,105 @@ interface TradePositionsProviderProps {
 export const TradePositionsProvider: React.FC<TradePositionsProviderProps> = ({ children }) => {
   const [positions, setPositions] = useState<TradePosition[]>([]);
 
+  // Hydrate positions from backend on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch('/api/trading/positions');
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          const serverPositions = json.data.map((pos: any): TradePosition => ({
+            id: pos.id,
+            marketId: pos.instrument,
+            marketName: pos.instrument,
+            marketColor: '', // backend does not store color
+            direction: pos.direction === 'long' ? 'up' : 'down',
+            type: pos.direction === 'long' ? 'buy' : 'sell',
+            openPrice: pos.openPrice,
+            currentPrice: pos.currentPrice,
+            amount: pos.amount,
+            stake: pos.amount,
+            openTime: new Date(pos.openTime),
+            duration: { value: 1, unit: 'hour' }, // default until DB supports duration
+            profit: 0,
+            profitPercentage: 0,
+            capitalFraction: 0,
+            lotSize: 0,
+            leverage: pos.leverage,
+            marginRequired: 0,
+            positionValue: 0,
+          }));
+          setPositions(serverPositions);
+        }
+      } catch (err) {
+        console.error('Error fetching positions', err);
+      }
+    })();
+  }, []);
+
   // Generar ID único para posición
   const generatePositionId = (): string => {
     return `pos_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   };
 
-  // Agregar nueva posición desde UI o API
-  const addPosition = useCallback((positionData: any): string => {
-    const newPosition: TradePosition = {
-      id: positionData.id || generatePositionId(),
-      marketId: positionData.marketId || positionData.instrumentId || '',
-      marketName: positionData.marketName || positionData.instrumentName || '',
-      marketColor: positionData.marketColor || '',
-      direction: positionData.direction,
-      type: positionData.direction === 'up' ? 'buy' : 'sell',
-      openPrice: positionData.openPrice,
-      currentPrice: positionData.currentPrice ?? positionData.openPrice,
-      amount: positionData.amount,
-      stake: positionData.stake ?? 0,
-      openTime: positionData.openTime instanceof Date
-        ? positionData.openTime
-        : new Date(positionData.openTime),
-      duration: positionData.duration,
-      profit: positionData.profit ?? 0,
-      profitPercentage: positionData.profitPercentage ?? 0,
-      capitalFraction: positionData.capitalFraction ?? 0,
-      lotSize: positionData.lotSize ?? 0,
-      leverage: positionData.leverage ?? 0,
-      marginRequired: positionData.marginRequired ?? 0,
-      positionValue: positionData.positionValue ?? 0,
-    };
-
-    setPositions(prev => [...prev, newPosition]);
-    return newPosition.id;
+  // Agregar nueva posición mediante API y actualizar contexto
+  const addPosition = useCallback(async (tradeParams: any): Promise<string> => {
+    try {
+      // Iniciar creación en backend
+      const res = await fetch('/api/trading/positions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(tradeParams)
+      });
+      const json = await res.json();
+      if (!json.success) {
+        console.error('Error creating position:', json.message);
+        return '';
+      }
+      const created = json.data;
+      // Mapear datos de API y parámetros de cliente a TradePosition
+      const newPosition: TradePosition = {
+        id: created.id,
+        marketId: tradeParams.instrumentId || created.instrument,
+        marketName: tradeParams.instrumentName || created.instrument,
+        marketColor: tradeParams.marketColor || '',
+        direction: tradeParams.direction,
+        type: tradeParams.direction === 'up' ? 'buy' : 'sell',
+        openPrice: created.openPrice,
+        currentPrice: created.currentPrice ?? created.openPrice,
+        amount: tradeParams.amount,
+        stake: tradeParams.stake,
+        openTime: new Date(created.openTime),
+        duration: tradeParams.duration,
+        profit: 0,
+        profitPercentage: 0,
+        capitalFraction: tradeParams.capitalFraction ?? 0,
+        lotSize: tradeParams.lotSize ?? 0,
+        leverage: tradeParams.leverage ?? 0,
+        marginRequired: tradeParams.marginRequired ?? 0,
+        positionValue: tradeParams.positionValue ?? 0,
+      };
+      setPositions(prev => [...prev, newPosition]);
+      return newPosition.id;
+    } catch (err) {
+      console.error('OpenPositions: error creando posición', err);
+      return '';
+    }
   }, []);
 
-  // Remover posición
-  const removePosition = useCallback((id: string) => {
-    setPositions(prev => prev.filter(pos => pos.id !== id));
+  // Remover posición en servidor y contexto
+  const removePosition = useCallback(async (id: string): Promise<void> => {
+    try {
+      const res = await fetch(`/api/trading/positions/${id}`, { method: 'DELETE' });
+      const json = await res.json();
+      if (json.success) {
+        setPositions(prev => prev.filter(pos => pos.id !== id));
+      } else {
+        console.warn('OpenPositions: no se pudo eliminar posición en el servidor', json.message);
+      }
+    } catch (err) {
+      console.error('OpenPositions: error eliminando posición', err);
+    }
   }, []);
 
   // Actualizar precios y calcular PnL
