@@ -70,6 +70,7 @@ import {
 import {
   Calendar,
 } from "@/components/ui/calendar";
+import useBinanceData, { ChartDataPoint as BinancePoint } from '@/hooks/useBinanceData';
 
 // Dynamically import the chart client to avoid SSR issues
 const RealTimeMarketChartClient = dynamic(
@@ -579,7 +580,16 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
     isHistoricalMode
   });
 
-  // Determinar si debemos hacer fallback a datos simulados
+  // Prepare Binance data when selected
+  const cryptoSymbolMatch = currentMarketConfig.name.match(/\((\w+)\/USD\)/);
+  const binanceSymbol = cryptoSymbolMatch ? `${cryptoSymbolMatch[1]}USDT` : currentMarketConfig.id.toUpperCase();
+  const binanceData = useBinanceData(
+    binanceSymbol,
+    timeRange,
+    effectiveDataSource === 'BINANCE' && realTimeEnabled && !isHistoricalMode
+  );
+
+  // Determine if we should fallback to simulated
   const shouldFallbackToSimulated = useMemo(() => {
     return effectiveDataSource === "BITSTAMP" && 
            bitstampData.error && 
@@ -673,8 +683,14 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
   useEffect(() => {
     if (!isClient || !currentMarketConfig) return;
 
+    // If Binance is selected, use its data
+    if (effectiveDataSource === 'BINANCE') {
+      setChartData(binanceData as any);
+      setCandlestickData([]);
+      return;
+    }
     if (shouldUseBitstamp && bitstampData.isSupported && !shouldFallbackToSimulated) {
-      // Usar datos de Bitstamp solo si están disponibles y no hay errores
+      // Use Bitstamp data
       if (!bitstampData.isLoading && !bitstampData.error && bitstampData.data.length > 0) {
         setChartData(bitstampData.data);
         setCandlestickData(bitstampData.candlestickData);
@@ -683,29 +699,28 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
         }
       }
     } else {
-      // Usar datos simulados (fallback o por defecto)
+      // Simulated data
       const newData = generateMarketData(currentMarketConfig, timeRange, timeOffset);
       setChartData(newData);
-      
       const newCandleData = generateCandlestickData(currentMarketConfig, timeRange, timeOffset);
       setCandlestickData(newCandleData);
-      
-      // Establecer precio inicial para datos simulados
       if (newData.length > 0) {
         setCurrentPrice(newData[newData.length - 1].value);
       }
     }
   }, [
-    isClient, 
-    currentMarketConfig.id, 
-    timeRange, 
-    timeOffset, 
+    isClient,
+    currentMarketConfig.id,
+    timeRange,
+    timeOffset,
     shouldUseBitstamp,
     shouldFallbackToSimulated,
-    bitstampData.isLoading, 
-    bitstampData.error, 
+    bitstampData.isLoading,
+    bitstampData.error,
     bitstampData.data.length,
-    bitstampData.currentPrice
+    bitstampData.currentPrice,
+    effectiveDataSource,
+    binanceData
   ]);
   
   // Update data in real-time if enabled with more fluid updates (solo para datos simulados)
@@ -1155,6 +1170,11 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
   useEffect(() => {
     updatePositionPrices(currentMarketConfig.name, currentPrice);
   }, [currentMarketConfig.name, currentPrice, updatePositionPrices]);
+
+  // al definir effectiveDataSource:
+  useEffect(() => {
+    console.log('>> Data source efectivo:', effectiveDataSource)
+  }, [effectiveDataSource]);
 
   return (
     <div className="space-y-4">

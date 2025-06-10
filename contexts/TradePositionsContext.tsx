@@ -128,7 +128,7 @@ export const TradePositionsProvider: React.FC<TradePositionsProviderProps> = ({ 
       }
       const created = json.data;
       // Mapear datos de API y parámetros de cliente a TradePosition
-      const newPosition: TradePosition = {
+    const newPosition: TradePosition = {
         id: created.id,
         marketId: tradeParams.instrumentId || created.instrument,
         marketName: tradeParams.instrumentName || created.instrument,
@@ -141,16 +141,16 @@ export const TradePositionsProvider: React.FC<TradePositionsProviderProps> = ({ 
         stake: tradeParams.stake,
         openTime: new Date(created.openTime),
         duration: tradeParams.duration,
-        profit: 0,
-        profitPercentage: 0,
+      profit: 0,
+      profitPercentage: 0,
         capitalFraction: tradeParams.capitalFraction ?? 0,
         lotSize: tradeParams.lotSize ?? 0,
         leverage: tradeParams.leverage ?? 0,
         marginRequired: tradeParams.marginRequired ?? 0,
         positionValue: tradeParams.positionValue ?? 0,
-      };
-      setPositions(prev => [...prev, newPosition]);
-      return newPosition.id;
+    };
+    setPositions(prev => [...prev, newPosition]);
+    return newPosition.id;
     } catch (err) {
       console.error('OpenPositions: error creando posición', err);
       return '';
@@ -163,7 +163,7 @@ export const TradePositionsProvider: React.FC<TradePositionsProviderProps> = ({ 
       const res = await fetch(`/api/trading/positions/${id}`, { method: 'DELETE' });
       const json = await res.json();
       if (json.success) {
-        setPositions(prev => prev.filter(pos => pos.id !== id));
+    setPositions(prev => prev.filter(pos => pos.id !== id));
       } else {
         console.warn('OpenPositions: no se pudo eliminar posición en el servidor', json.message);
       }

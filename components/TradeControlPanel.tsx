@@ -176,11 +176,11 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
       });
       if (!id) throw new Error('No se recibió ID de posición');
 
-      toast.success("🚀 Operación ejecutada", {
+        toast.success("🚀 Operación ejecutada", {
         description: `Posición #${id.slice(-6)} en ${marketName} creada exitosamente.`,
-      });
+        });
 
-      // Cerrar panel después de una operación exitosa
+        // Cerrar panel después de una operación exitosa
       setTimeout(onClose, 500);
 
     } catch (error: any) {
