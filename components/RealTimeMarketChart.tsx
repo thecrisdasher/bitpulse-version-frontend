@@ -70,7 +70,7 @@ import {
 import {
   Calendar,
 } from "@/components/ui/calendar";
-import useBinanceData, { ChartDataPoint as BinancePoint } from '@/hooks/useBinanceData';
+import useBinanceData, { ChartDataPoint as BinancePoint, CandleDataPoint as BinanceCandlePoint } from '@/hooks/useBinanceData';
 
 // Dynamically import the chart client to avoid SSR issues
 const RealTimeMarketChartClient = dynamic(
@@ -583,7 +583,7 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
   // Prepare Binance data when selected
   const cryptoSymbolMatch = currentMarketConfig.name.match(/\((\w+)\/USD\)/);
   const binanceSymbol = cryptoSymbolMatch ? `${cryptoSymbolMatch[1]}USDT` : currentMarketConfig.id.toUpperCase();
-  const binanceData = useBinanceData(
+  const { data: binanceData, candlestickData: binanceCandles } = useBinanceData(
     binanceSymbol,
     timeRange,
     effectiveDataSource === 'BINANCE' && realTimeEnabled && !isHistoricalMode
@@ -685,8 +685,11 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
 
     // If Binance is selected, use its data
     if (effectiveDataSource === 'BINANCE') {
-      setChartData(binanceData as any);
-      setCandlestickData([]);
+      if (chartType === 'candle' || chartType === 'bar') {
+        setCandlestickData(binanceCandles as any);
+      } else {
+        setChartData(binanceData as any);
+      }
       return;
     }
     if (shouldUseBitstamp && bitstampData.isSupported && !shouldFallbackToSimulated) {
@@ -720,7 +723,9 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
     bitstampData.data.length,
     bitstampData.currentPrice,
     effectiveDataSource,
-    binanceData
+    binanceData,
+    binanceCandles,
+    chartType
   ]);
   
   // Update data in real-time if enabled with more fluid updates (solo para datos simulados)

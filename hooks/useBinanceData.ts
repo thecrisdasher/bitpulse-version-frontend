@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 
 export interface ChartDataPoint { time: number; value: number; }
+export interface CandleDataPoint { time: number; open: number; high: number; low: number; close: number; }
 
 // Map TimeRange to Binance interval
 const timeRangeToInterval = (range: '1h' | '24h' | '7d' | '30d'): string => {
@@ -23,8 +24,9 @@ export default function useBinanceData(
   symbol: string,
   timeRange: '1h' | '24h' | '7d' | '30d',
   realTimeEnabled: boolean
-): ChartDataPoint[] {
+): { data: ChartDataPoint[]; candlestickData: CandleDataPoint[] } {
   const [data, setData] = useState<ChartDataPoint[]>([]);
+  const [candlestickData, setCandleData] = useState<CandleDataPoint[]>([]);
   const wsRef = useRef<WebSocket|null>(null);
 
   // load historical data
@@ -33,15 +35,24 @@ export default function useBinanceData(
       try {
         const interval = timeRangeToInterval(timeRange);
         const limit = 100;
-        const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
+        // Use Next.js proxy to avoid CORS issues
+        const url = `/proxy/binance/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
         console.log('[Binance REST]', url);
         const res = await fetch(url);
         const raw = await res.json();
-        const points = raw.map((c: any) => ({
+        const linePoints: ChartDataPoint[] = raw.map((c: any) => ({
           time: Math.floor(c[0] / 1000),
           value: parseFloat(c[4])
-        } as ChartDataPoint));
-        setData(points);
+        }));
+        const candles: CandleDataPoint[] = raw.map((c: any) => ({
+          time: Math.floor(c[0] / 1000),
+          open: parseFloat(c[1]),
+          high: parseFloat(c[2]),
+          low: parseFloat(c[3]),
+          close: parseFloat(c[4])
+        }));
+        setData(linePoints);
+        setCandleData(candles);
       } catch (err) {
         console.error('Error fetching Binance history', err);
       }
@@ -77,5 +88,5 @@ export default function useBinanceData(
     return () => { ws.close(); };
   }, [symbol, realTimeEnabled]);
 
-  return data;
+  return { data, candlestickData };
 } 
