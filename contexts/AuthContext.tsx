@@ -240,10 +240,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error desconocido';
+      // If TOTP is required, redirect to 2FA challenge page with email param
+      if (message === 'TOTP_REQUIRED') {
+        router.push(`/auth/2fa?email=${credentials.email}`);
+        return;
+      }
       dispatch({ type: 'SET_ERROR', payload: message });
-      
       logger.error('auth', 'Login failed', error as Error);
-      
       toast.error(message);
       throw error;
     } finally {

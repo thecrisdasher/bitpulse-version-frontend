@@ -45,6 +45,7 @@ import {
 import { useTheme } from "next-themes";
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import TwoFactorSettings from '@/components/auth/TwoFactorSettings';
 
 // Tipos para las configuraciones
 interface UserSettings {
@@ -708,16 +709,10 @@ const SettingsPage = () => {
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold">Autenticación</h3>
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label htmlFor="twoFactorAuth">Autenticación de dos factores (2FA)</Label>
-                      <p className="text-sm text-muted-foreground">Añade una capa extra de seguridad</p>
-                    </div>
-                    <Switch
-                      id="twoFactorAuth"
-                      checked={securitySettings.twoFactorAuth}
-                      onCheckedChange={(checked) => updateSecuritySetting('twoFactorAuth', checked)}
-                    />
+                  <div className="space-y-2">
+                    <Label>Autenticación de dos factores (2FA)</Label>
+                    <p className="text-sm text-muted-foreground">Añade una capa extra de seguridad</p>
+                    <TwoFactorSettings />
                   </div>
                   <div className="flex items-center justify-between">
                     <div>

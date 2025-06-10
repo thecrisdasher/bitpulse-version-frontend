@@ -90,9 +90,13 @@ export class BitstampService {
   }
 
   /**
-   * Convertir datos de Bitstamp al formato interno
+   * Convertir datos de Bitstamp al formato interno, evitando fallos si no se recibe un array
    */
-  private convertToInternalFormat(ohlcData: BitstampOHLCResponse[]): BitstampOHLC[] {
+  private convertToInternalFormat(ohlcData?: BitstampOHLCResponse[]): BitstampOHLC[] {
+    if (!ohlcData || !Array.isArray(ohlcData)) {
+      console.warn('BitstampService: OHLC data inválido o indefinido:', ohlcData);
+      return [];
+    }
     return ohlcData
       .map(item => {
         const timestamp = parseInt(item.timestamp);
@@ -136,8 +140,9 @@ export class BitstampService {
         }
       );
 
-      // Convertir el formato interno usando la función existente
-      return this.convertToInternalFormat(res.data.data.ohlc);
+      // Convertir el formato interno usando la función existente (proteger contra datos indefinidos)
+      const rawOhlc = res.data?.data?.ohlc;
+      return this.convertToInternalFormat(rawOhlc);
     } catch (error) {
       console.error('Error obteniendo datos OHLC de Bitstamp:', error);
       throw error;

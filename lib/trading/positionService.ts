@@ -34,7 +34,7 @@ export async function validatePosition(
  * @param positionData - Los datos validados de la nueva posición.
  * @returns La posición recién creada.
  */
-export async function createPosition(positionData: TradePosition): Promise<TradePosition> {
+export async function createPosition(positionData: TradePosition): Promise<any> {
   // 1. Descontar el capital del saldo del usuario
   const user = await prisma.user.findUnique({ where: { id: positionData.userId } });
   
@@ -61,11 +61,19 @@ export async function createPosition(positionData: TradePosition): Promise<Trade
     }
   });
 
-  // 2. Crear la posición en la base de datos
+  // 2. Crear la posición en la base de datos con solo los campos requeridos
   const newPosition = await prisma.tradePosition.create({
     data: {
-      ...positionData,
-      id: uuidv4(), // Aseguramos que tenga un ID único
+      id: uuidv4(),
+      userId: positionData.userId,
+      instrument: positionData.instrumentName,
+      direction: positionData.direction === 'up' ? 'long' : 'short',
+      openPrice: positionData.openPrice,
+      currentPrice: positionData.openPrice, // Inicialmente igual al precio de apertura
+      amount: positionData.amount,
+      leverage: positionData.leverage ?? 0,
+      status: positionData.status,
+      openTime: new Date(positionData.openTimestamp),
     },
   });
 
@@ -80,5 +88,5 @@ export async function createPosition(positionData: TradePosition): Promise<Trade
   });
 
   // 3. Devolver la posición creada
-  return newPosition as TradePosition;
+  return newPosition;
 } 

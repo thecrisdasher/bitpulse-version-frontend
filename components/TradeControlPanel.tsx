@@ -26,6 +26,7 @@ import { toast } from "sonner";
 import axios from 'axios';
 
 interface TradeControlPanelProps {
+  marketId: string;
   marketName: string;
   marketPrice: number;
   marketColor: string;
@@ -40,6 +41,7 @@ interface TradeControlPanelProps {
 }
 
 const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
+  marketId,
   marketName,
   marketPrice,
   marketColor,
@@ -176,13 +178,34 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
       const response = await axios.post('/api/trading/positions', tradeData);
 
       if (response.data.success) {
-        const newPosition = response.data.data;
-
-        // Usar la posición devuelta por la API para actualizar el contexto
-        addPosition(newPosition, { marketColor });
+        const created = response.data.data;
+        // Map API response and client data into context position shape
+        const positionToAdd = {
+          id: created.id,
+          marketId: marketId,
+          marketName: marketName,
+          marketColor: marketColor,
+          direction: tradeDirection,
+          type: tradeDirection === 'up' ? 'buy' : 'sell',
+          openPrice: created.openPrice,
+          currentPrice: created.currentPrice,
+          amount: created.amount,
+          stake: created.amount,
+          openTime: new Date(created.openTime),
+          duration: { value: duration, unit: durationUnit },
+          profit: 0,
+          profitPercentage: 0,
+          capitalFraction: capitalFraction,
+          lotSize: lotSize,
+          leverage: leverage,
+          marginRequired: riskMetrics.marginRequired,
+          positionValue: riskMetrics.positionValue,
+        };
+        // Add to context
+        addPosition(positionToAdd);
 
         toast.success("🚀 Operación ejecutada", {
-          description: `Posición #${newPosition.id.slice(-6)} en ${marketName} creada exitosamente.`,
+          description: `Posición #${created.id.slice(-6)} en ${marketName} creada exitosamente.`,
         });
 
         // Cerrar panel después de una operación exitosa

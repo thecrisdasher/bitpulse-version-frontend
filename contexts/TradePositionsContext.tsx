@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 
 // Tipo de posición de trading
 export interface TradePosition {
@@ -45,7 +45,7 @@ export interface NewTradeParams {
 
 interface TradePositionsContextType {
   positions: TradePosition[];
-  addPosition: (positionData: any, marketData: { marketColor: string }) => string;
+  addPosition: (positionData: any) => string;
   removePosition: (id: string) => void;
   updatePositionPrices: (marketName: string, newPrice: number) => void;
   getTotalMarginUsed: () => number;
@@ -76,41 +76,43 @@ export const TradePositionsProvider: React.FC<TradePositionsProviderProps> = ({ 
     return `pos_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   };
 
-  // Agregar nueva posición
-  const addPosition = (positionData: any, marketData: { marketColor: string }): string => {
+  // Agregar nueva posición desde UI o API
+  const addPosition = useCallback((positionData: any): string => {
     const newPosition: TradePosition = {
       id: positionData.id || generatePositionId(),
-      marketId: positionData.instrumentId,
-      marketName: positionData.instrumentName,
-      marketColor: marketData.marketColor,
+      marketId: positionData.marketId || positionData.instrumentId || '',
+      marketName: positionData.marketName || positionData.instrumentName || '',
+      marketColor: positionData.marketColor || '',
       direction: positionData.direction,
       type: positionData.direction === 'up' ? 'buy' : 'sell',
       openPrice: positionData.openPrice,
-      currentPrice: positionData.openPrice,
+      currentPrice: positionData.currentPrice ?? positionData.openPrice,
       amount: positionData.amount,
-      stake: positionData.stake,
-      openTime: new Date(positionData.openTimestamp),
+      stake: positionData.stake ?? 0,
+      openTime: positionData.openTime instanceof Date
+        ? positionData.openTime
+        : new Date(positionData.openTime),
       duration: positionData.duration,
-      profit: 0,
-      profitPercentage: 0,
-      capitalFraction: positionData.capitalFraction || 0,
-      lotSize: positionData.lotSize || 0,
-      leverage: positionData.leverage || 0,
-      marginRequired: positionData.marginRequired || 0,
-      positionValue: positionData.positionValue || 0,
+      profit: positionData.profit ?? 0,
+      profitPercentage: positionData.profitPercentage ?? 0,
+      capitalFraction: positionData.capitalFraction ?? 0,
+      lotSize: positionData.lotSize ?? 0,
+      leverage: positionData.leverage ?? 0,
+      marginRequired: positionData.marginRequired ?? 0,
+      positionValue: positionData.positionValue ?? 0,
     };
 
     setPositions(prev => [...prev, newPosition]);
     return newPosition.id;
-  };
+  }, []);
 
   // Remover posición
-  const removePosition = (id: string) => {
+  const removePosition = useCallback((id: string) => {
     setPositions(prev => prev.filter(pos => pos.id !== id));
-  };
+  }, []);
 
   // Actualizar precios y calcular PnL
-  const updatePositionPrices = (marketName: string, newPrice: number) => {
+  const updatePositionPrices = useCallback((marketName: string, newPrice: number) => {
     setPositions(prev => prev.map(pos => {
       if (pos.marketName === marketName) {
         // Calcular profit basado en la dirección
@@ -131,7 +133,7 @@ export const TradePositionsProvider: React.FC<TradePositionsProviderProps> = ({ 
       }
       return pos;
     }));
-  };
+  }, []);
 
   // Calcular margen total usado
   const getTotalMarginUsed = (): number => {

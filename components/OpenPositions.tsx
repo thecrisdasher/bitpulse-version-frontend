@@ -88,9 +88,56 @@ const OpenPositions: React.FC<OpenPositionsProps> = ({ positions, onClosePositio
     });
   };
   
+  // Default duration value and sanitizer
+  const DEFAULT_DURATION = { value: 1, unit: 'hour' } as const;
+  const sanitizeDuration = (input?: any): { value: number; unit: 'minute' | 'hour' | 'day' } => {
+    // Handle string formats like "1h", "30m", "2d"
+    if (typeof input === 'string') {
+      const match = input.match(/^(\d+(?:\.\d+)?)([a-zA-Z]+)$/);
+      if (match) {
+        const num = parseFloat(match[1]);
+        const unitStr = match[2].toLowerCase();
+        let unit: 'minute' | 'hour' | 'day' | null = null;
+        if (unitStr.startsWith('h')) unit = 'hour';
+        else if (unitStr.startsWith('d')) unit = 'day';
+        else if (unitStr.startsWith('m')) unit = 'minute';
+        if (!isNaN(num) && unit) {
+          return { value: num, unit };
+        }
+      }
+    }
+    // Handle object with value and unit, including numeric strings
+    if (input && typeof input === 'object') {
+      const valRaw = (input as any).value;
+      let num: number | null = null;
+      if (typeof valRaw === 'number') num = valRaw;
+      else if (typeof valRaw === 'string' && !isNaN(Number(valRaw))) num = Number(valRaw);
+      const unitRaw = (input as any).unit;
+      let unit: 'minute' | 'hour' | 'day' | null = null;
+      if (typeof unitRaw === 'string') {
+        const unitStr = unitRaw.toLowerCase();
+        if (unitStr.startsWith('h')) unit = 'hour';
+        else if (unitStr.startsWith('d')) unit = 'day';
+        else if (unitStr.startsWith('m')) unit = 'minute';
+      }
+      if (num !== null && unit) {
+        return { value: num, unit };
+      }
+      // Numeric value present but invalid or missing unit
+      if (num !== null && !unit) {
+        console.warn('OpenPositions: unidad inválida o indefinida, usando unidad por defecto', input);
+        return { value: num, unit: DEFAULT_DURATION.unit };
+      }
+    }
+    // Fallback to default duration
+    console.warn('OpenPositions: duration inválido o indefinido, usando valor por defecto', input, DEFAULT_DURATION);
+    return DEFAULT_DURATION;
+  };
+  
   // Format duration
-  const formatDuration = (duration: { value: number; unit: string }): string => {
-    return `${duration.value} ${duration.unit}${duration.value > 1 ? 's' : ''}`;
+  const formatDuration = (duration?: { value: number; unit: string }): string => {
+    const { value, unit } = sanitizeDuration(duration);
+    return `${value} ${unit}${value > 1 ? 's' : ''}`;
   };
   
   // Calculate time remaining and return formatted string
@@ -99,8 +146,11 @@ const OpenPositions: React.FC<OpenPositionsProps> = ({ positions, onClosePositio
     percentage: number;
     isExpiringSoon: boolean;
   } => {
-    // Get expiration time
+    // Get expiration time, skip if duration invalid
     const durationMs = getDurationInMs(position.duration);
+    if (durationMs <= 0) {
+      return { text: 'N/A', percentage: 0, isExpiringSoon: false };
+    }
     const expirationTime = new Date(position.openTime.getTime() + durationMs);
     
     // Calculate time remaining in ms
@@ -141,27 +191,32 @@ const OpenPositions: React.FC<OpenPositionsProps> = ({ positions, onClosePositio
     }
   };
   
-  // Calculate milliseconds for a duration
-  const getDurationInMs = (duration: { value: number; unit: string }): number => {
+  // Calculate milliseconds for a duration, guard invalid values
+  const getDurationInMs = (duration?: { value: number; unit: string }): number => {
     const multipliers: Record<string, number> = {
       'minute': 60 * 1000,
       'hour': 60 * 60 * 1000,
       'day': 24 * 60 * 60 * 1000
     };
-    
-    return duration.value * multipliers[duration.unit];
+    const { value, unit } = sanitizeDuration(duration);
+    return value * multipliers[unit];
   };
 
   // Risk metrics calculation for each position
   const calculatePositionRiskMetrics = (position: TradePosition) => {
+    // Normalize marketName to avoid undefined
+    const marketNameSafe = typeof position.marketName === 'string' ? position.marketName : '';
+    if (!marketNameSafe) {
+      console.warn('OpenPositions: position.marketName inválido o indefinido, usando cadena vacía', position);
+    }
     const leverage = 100; // Apalancamiento estándar
     const fraction = 0.10; // Fracción por defecto
     
     // Determinar tamaño del contrato según el activo
     let contractSize = 100000; // Forex standard
-    if (position.marketName.includes('BTC') || position.marketName.includes('ETH')) {
+    if (marketNameSafe.includes('BTC') || marketNameSafe.includes('ETH')) {
       contractSize = 1; // Crypto
-    } else if (position.marketName.includes('XAU')) {
+    } else if (marketNameSafe.includes('XAU')) {
       contractSize = 100; // Gold
     }
     
@@ -209,6 +264,8 @@ const OpenPositions: React.FC<OpenPositionsProps> = ({ positions, onClosePositio
                 const timeInfo = getTimeRemaining(position);
                 const isExpanded = expandedPositions.includes(position.id);
                 const riskMetrics = showRiskMetrics ? calculatePositionRiskMetrics(position) : null;
+                // Calculate expiration date/time
+                const expirationDate = new Date(position.openTime.getTime() + getDurationInMs(position.duration));
                 
                 return (
                   <React.Fragment key={position.id}>
@@ -358,6 +415,10 @@ const OpenPositions: React.FC<OpenPositionsProps> = ({ positions, onClosePositio
                                   <div className="flex justify-between">
                                     <span>Duración total:</span>
                                     <span className="font-medium">{formatDuration(position.duration)}</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span>Expiración:</span>
+                                    <span className="font-medium">{expirationDate.toLocaleDateString('es-CO')} {formatTime(expirationDate)}</span>
                                   </div>
                                 </div>
                               </div>

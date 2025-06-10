@@ -495,7 +495,7 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
   const [showCalendar, setShowCalendar] = useState<boolean>(false);
   
   // Usar el contexto de posiciones en lugar del estado local
-  const { positions, addPosition, removePosition } = useTradePositions();
+  const { positions, addPosition, removePosition, updatePositionPrices } = useTradePositions();
   
   // Animation ref for trading panel transition
   const chartHeightRef = useRef<number>(400);
@@ -1151,6 +1151,11 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
     });
   }, []);
 
+  // Update open positions currentPrice in context whenever market price changes
+  useEffect(() => {
+    updatePositionPrices(currentMarketConfig.name, currentPrice);
+  }, [currentMarketConfig.name, currentPrice, updatePositionPrices]);
+
   return (
     <div className="space-y-4">
       <Card className="mb-4 overflow-hidden transition-all duration-300">
@@ -1697,12 +1702,12 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
 
           {/* Trading Panel */}
           <TradeControlPanel 
+            marketId={currentMarketConfig.id}
             marketName={currentMarketConfig.name}
             marketPrice={currentPrice}
             marketColor={currentMarketConfig.color}
             isVisible={showTradingPanel}
             onClose={() => setShowTradingPanel(false)}
-            onPlaceTrade={handlePlaceTrade}
           />
 
           {/* New level dialog */}
