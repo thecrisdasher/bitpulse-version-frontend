@@ -44,7 +44,7 @@ import {
 import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
 import axios from "axios";
-import useRealTimeMarketData, { useBatchRealTimeMarketData, useCleanupWebSockets } from "@/hooks/useRealTimeMarketData";
+import useBinanceTickers from '@/hooks/useBinanceTickers';
 import { toast } from "sonner";
 
 // Importar RealTimeMarketChart con SSR desactivado
@@ -162,12 +162,25 @@ const MarketsNavigation = ({ onInstrumentSelect }: MarketsNavigationProps = {}) 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  useCleanupWebSockets();
-  
-  const { data: realTimeData } = useBatchRealTimeMarketData(
-    instruments.map(i => ({ symbol: i.symbol, category: i.category })), {
-    refreshInterval: 5000,
-    initialFetch: false
+  // Use Binance tickers for crypto instruments to override prices
+  const cryptoSymbols = instruments
+    .filter(inst => inst.category === 'criptomonedas')
+    .map(inst => inst.symbol.split('/')[0]);
+  const binanceTickers = useBinanceTickers(cryptoSymbols);
+
+  // Derive display list with real Binance data for cryptos
+  const displayInstruments = instruments.map(inst => {
+    if (inst.category === 'criptomonedas') {
+      // Use base symbol for ticker lookup
+      const base = inst.symbol.split('/')[0];
+      const ticker = binanceTickers[base];
+      return {
+        ...inst,
+        price: ticker?.price ?? inst.price,
+        change24h: ticker?.change24h ?? inst.change24h
+      };
+    }
+    return inst;
   });
   
   useEffect(() => {
@@ -213,6 +226,7 @@ const MarketsNavigation = ({ onInstrumentSelect }: MarketsNavigationProps = {}) 
         
         if (response.data.success) {
           const instrumentsData = response.data.data || [];
+          // set raw instruments; displayInstruments applies live data
           setInstruments(instrumentsData);
           if (instrumentsData.length > 0 && !selectedMarketForChart) {
             setSelectedMarketForChart(instrumentsData[0].symbol);
@@ -235,25 +249,6 @@ const MarketsNavigation = ({ onInstrumentSelect }: MarketsNavigationProps = {}) 
        fetchInstruments(selectedCategory);
     }
   }, [selectedCategory, categories]);
-  
-  useEffect(() => {
-    if (realTimeData && Object.keys(realTimeData).length > 0) {
-      setInstruments(prevInstruments => 
-        prevInstruments.map(inst => {
-          const update = realTimeData[inst.symbol];
-          if (update) {
-            return {
-              ...inst,
-              price: update.currentPrice,
-              change24h: update.change24h,
-              changePercent: update.changePercent24h
-            };
-          }
-          return inst;
-        })
-      );
-    }
-  }, [realTimeData]);
   
   const handleCategoryClick = (category: string) => {
     setSelectedCategory(category);
@@ -312,7 +307,8 @@ const MarketsNavigation = ({ onInstrumentSelect }: MarketsNavigationProps = {}) 
     }
   };
   
-  const filteredInstruments = instruments.filter(
+  // Filter on displayInstruments to include live Binance overrides
+  const filteredInstruments = displayInstruments.filter(
     (instrument) =>
       instrument.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       instrument.symbol.toLowerCase().includes(searchQuery.toLowerCase())
@@ -438,7 +434,7 @@ const MarketsNavigation = ({ onInstrumentSelect }: MarketsNavigationProps = {}) 
             </div>
           </div>
           
-          {isLoading && !instruments.length ? (
+          {isLoading && !displayInstruments.length ? (
              <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
                {[...Array(6)].map((_, i) => (
                  <div key={i} className="h-24 bg-muted/50 rounded-lg animate-pulse" />

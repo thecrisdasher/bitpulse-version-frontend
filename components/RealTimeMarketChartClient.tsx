@@ -407,7 +407,7 @@ const RealTimeMarketChartClient: React.FC<ChartProps> = ({
       // Validate and sort incoming data
       const validated = validateChartData(data);
       if (validated.length === 0) {
-        console.warn('No valid data points after validation');
+              console.warn('No valid data points after validation');
         return;
       }
       // If first load or prev length is different (e.g. user switched timeframe), do full setData

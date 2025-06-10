@@ -28,10 +28,6 @@ export default function MarketsPage() {
     <div className="flex min-h-screen bg-background text-foreground">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="p-4 border-b border-border">
-          <MarketSimulator />
-        </div>
-        
         <main className="flex-1 flex">
           <div className={`flex-1 transition-all duration-300 ${showTradePanel ? 'max-w-[calc(100%-350px)]' : 'w-full'}`}>
             <MarketsNavigation onInstrumentSelect={handleInstrumentSelect} />
@@ -40,6 +36,7 @@ export default function MarketsPage() {
           {showTradePanel && selectedInstrument && (
             <div className="w-[350px] border-l border-border p-4 transition-all duration-300 ease-in-out">
               <TradeControlPanel
+                marketId={selectedInstrument.id}
                 marketName={selectedInstrument.name}
                 marketPrice={selectedInstrument.price}
                 marketColor={selectedInstrument.color || ''}
@@ -49,6 +46,10 @@ export default function MarketsPage() {
             </div>
           )}
         </main>
+        
+        <div className="p-4 border-b border-border">
+          <MarketSimulator />
+        </div>
       </div>
     </div>
   )

@@ -720,14 +720,14 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
       }
     }
   }, [
-    isClient,
-    currentMarketConfig.id,
-    timeRange,
-    timeOffset,
+    isClient, 
+    currentMarketConfig.id, 
+    timeRange, 
+    timeOffset, 
     shouldUseBitstamp,
     shouldFallbackToSimulated,
-    bitstampData.isLoading,
-    bitstampData.error,
+    bitstampData.isLoading, 
+    bitstampData.error, 
     bitstampData.data.length,
     bitstampData.currentPrice,
     effectiveDataSource,
@@ -740,7 +740,7 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
   useEffect(() => {
     // Only simulate updates when using simulated data
     if (!realTimeEnabled || !isClient || !currentMarketConfig || isHistoricalMode || shouldUseBitstamp || !isSimulatedData) return;
-
+    
     // Clear any existing interval for chart updates
     if (updateIntervalRef.current) {
       clearInterval(updateIntervalRef.current);

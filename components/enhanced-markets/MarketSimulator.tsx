@@ -27,6 +27,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
+import useAIMarketInsights from '@/hooks/useAIMarketInsights';
+import useMarketSentiment from '@/hooks/useMarketSentiment';
 
 interface MarketPrediction {
   market: string;
@@ -40,7 +42,7 @@ interface MarketPrediction {
 
 interface SmartAlert {
   id: string;
-  type: 'pattern' | 'price' | 'volume' | 'ai';
+  type: 'breakout' | 'support' | 'volatility';
   market: string;
   message: string;
   urgency: 'low' | 'medium' | 'high';
@@ -54,73 +56,21 @@ export function MarketSimulator() {
   const [autoTradingEnabled, setAutoTradingEnabled] = useState(false);
   const [selectedPrediction, setSelectedPrediction] = useState<MarketPrediction | null>(null);
 
-  const [predictions] = useState<MarketPrediction[]>([
-    {
-      market: 'BTC/USD',
-      direction: 'up',
-      confidence: 92,
-      timeframe: '4H',
-      potentialGain: '+12.5%',
-      riskLevel: 'medium',
-      reasoning: 'Breakout técnico confirmado con volumen elevado'
-    },
-    {
-      market: 'Volatility 100',
-      direction: 'down',
-      confidence: 78,
-      timeframe: '1H',
-      potentialGain: '+8.3%',
-      riskLevel: 'high',
-      reasoning: 'Patrón de reversión en sobrecompra'
-    },
-    {
-      market: 'EUR/USD',
-      direction: 'up',
-      confidence: 85,
-      timeframe: '2H',
-      potentialGain: '+6.7%',
-      riskLevel: 'low',
-      reasoning: 'Divergencia alcista en RSI con soporte clave'
-    }
+  const { predictions, alerts: smartAlerts, monitored, patterns, activeAlerts, precisionToday } = useAIMarketInsights([
+    'BTCUSDT',
+    'ETHUSDT',
+    'BNBUSDT',
+    'MATICUSDT'
   ]);
 
-  const [smartAlerts] = useState<SmartAlert[]>([
-    {
-      id: '1',
-      type: 'ai',
-      market: 'BTC/USD',
-      message: 'AI detectó oportunidad de breakout inminente',
-      urgency: 'high',
-      timestamp: new Date(),
-      action: 'Considerar posición LONG'
-    },
-    {
-      id: '2',
-      type: 'pattern',
-      market: 'Volatility 100',
-      message: 'Patrón Doji detectado en resistencia clave',
-      urgency: 'medium',
-      timestamp: new Date(),
-      action: 'Monitorear para reversión'
-    },
-    {
-      id: '3',
-      type: 'volume',
-      market: 'EUR/USD',
-      message: 'Volumen anómalo detectado - 300% del promedio',
-      urgency: 'high',
-      timestamp: new Date(),
-      action: 'Preparar para movimiento fuerte'
-    }
-  ]);
-
-  const [marketSentiment] = useState({
-    overall: 'alcista',
-    fear: 25,
-    greed: 75,
+  const sentiment = useMarketSentiment();
+  const marketSentiment = {
+    overall: sentiment.text === 'miedo' ? 'bajista' : sentiment.text === 'codicia' ? 'alcista' : 'neutral',
+    fear: sentiment.score < 50 ? sentiment.score : 100 - sentiment.score,
+    greed: sentiment.score >= 50 ? sentiment.score : 100 - sentiment.score,
     momentum: 'fuerte',
     volatilidad: 'moderada'
-  });
+  };
 
   const getRiskColor = (level: string) => {
     switch (level) {
@@ -220,19 +170,19 @@ export function MarketSimulator() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               <div>
                 <span className="text-muted-foreground">Mercados monitoreados:</span>
-                <span className="font-medium ml-1">15</span>
+                <span className="font-medium ml-1">{monitored}</span>
               </div>
               <div>
                 <span className="text-muted-foreground">Patrones detectados:</span>
-                <span className="font-medium ml-1">7</span>
+                <span className="font-medium ml-1">{patterns}</span>
               </div>
               <div>
                 <span className="text-muted-foreground">Alertas activas:</span>
-                <span className="font-medium ml-1">{smartAlerts.length}</span>
+                <span className="font-medium ml-1">{activeAlerts}</span>
               </div>
               <div>
                 <span className="text-muted-foreground">Precisión del día:</span>
-                <span className="font-medium ml-1 text-green-600">87%</span>
+                <span className="font-medium ml-1 text-green-600">{precisionToday}%</span>
               </div>
             </div>
           </motion.div>
@@ -346,9 +296,10 @@ export function MarketSimulator() {
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <div className="flex items-center gap-1">
-                        {alert.type === 'ai' && <Brain className="w-4 h-4 text-purple-500" />}
-                        {alert.type === 'pattern' && <ChartLine className="w-4 h-4 text-blue-500" />}
-                        {alert.type === 'volume' && <Activity className="w-4 h-4 text-orange-500" />}
+                        {/* {alert.type === 'ai' && <Brain className="w-4 h-4 text-purple-500" />} */}
+                        {alert.type === 'breakout' && <Rocket className="w-4 h-4 text-green-500" />}
+                        {alert.type === 'support' && <Shield className="w-4 h-4 text-blue-500" />}
+                        {alert.type === 'volatility' && <Gauge className="w-4 h-4 text-orange-500" />}
                         <span className="text-sm font-medium">{alert.market}</span>
                       </div>
                       {alert.urgency === 'high' && (

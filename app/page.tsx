@@ -390,25 +390,8 @@ export default function CryptoDashboard() {
           
           <MarketOverviewBanner liveUpdates={liveUpdates} />
           
-          {/* Nuevos Widgets Inteligentes */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-            <AIOpportunityWidget />
-            <PersonalStreakWidget />
-            <TradingPositionsWidget />
-          </div>
-          
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-            <AchievementsWidget />
-            <HotMarketWidget />
-          </div>
-          
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-            <SmartAlertsWidget />
-            <DailyChallengeWidget />
-          </div>
-
-          <BentoGrid liveUpdates={liveUpdates} cryptoData={displayData} />
-          <Tabs defaultValue="all" className="space-y-4 mt-8">
+          {/* Tabla de Mercados primero */}
+          <Tabs defaultValue="all" className="space-y-4 mt-8 mb-8">
             <TabsList className="bg-card">
               <TabsTrigger value="all">All Cryptocurrencies</TabsTrigger>
               <TabsTrigger value="favorites">Favorites</TabsTrigger>
@@ -432,6 +415,25 @@ export default function CryptoDashboard() {
               {renderCryptoList(getTopLosers(cryptoData))}
             </TabsContent>
           </Tabs>
+
+          <BentoGrid liveUpdates={liveUpdates} cryptoData={displayData} />
+
+          {/* Nuevos Widgets Inteligentes */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+            <AIOpportunityWidget />
+            <PersonalStreakWidget />
+            <TradingPositionsWidget />
+          </div>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <AchievementsWidget />
+            <HotMarketWidget />
+          </div>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <SmartAlertsWidget />
+            <DailyChallengeWidget />
+          </div>
         </main>
       </div>
     </div>

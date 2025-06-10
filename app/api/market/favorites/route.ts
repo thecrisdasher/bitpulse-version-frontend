@@ -34,9 +34,9 @@ export async function GET() {
           hasRealTime: mapping[inst.symbol] != null,
           lastUpdated: mapping[inst.symbol] ? new Date() : inst.lastUpdated
         }));
-        return NextResponse.json({
-          favorites: enhancedFavorites,
-          count: enhancedFavorites.length,
+      return NextResponse.json({
+        favorites: enhancedFavorites,
+        count: enhancedFavorites.length,
           timestamp: Date.now(),
           success: true
         });
