@@ -222,32 +222,6 @@ export const TradePositionsProvider: React.FC<TradePositionsProviderProps> = ({ 
     return positions.reduce((total, pos) => total + pos.profit, 0);
   };
 
-  // Simular actualizaciones de precios en tiempo real
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const marketPrices: Record<string, number> = {
-        'EURUSD': 1.0850,
-        'GBPUSD': 1.2650,
-        'USDJPY': 149.50,
-        'BTCUSD': 43250.00,
-        'ETHUSD': 2640.00,
-        'XAUUSD': 2040.50,
-        'Bitcoin': 43250.00,
-        'Ethereum': 2640.00,
-        'Gold': 2040.50
-      };
-
-      // Actualizar precios con variación aleatoria
-      Object.keys(marketPrices).forEach(market => {
-        const change = (Math.random() - 0.5) * 0.02; // ±1% cambio
-        const newPrice = marketPrices[market] * (1 + change);
-        updatePositionPrices(market, newPrice);
-      });
-    }, 3000); // Actualizar cada 3 segundos
-
-    return () => clearInterval(interval);
-  }, [positions.length]);
-
   const value: TradePositionsContextType = {
     positions,
     addPosition,

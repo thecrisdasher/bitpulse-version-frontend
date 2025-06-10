@@ -140,7 +140,8 @@ export default function CryptoDashboard() {
       volume24h: ticker?.volume ?? crypto.volume24h,
     };
   });
-  const [selectedInstrument, setSelectedInstrument] = useState<any>(null)
+  // Track selected instrument by its numeric ID
+  const [selectedInstrumentId, setSelectedInstrumentId] = useState<number | null>(null)
   const [showTradePanel, setShowTradePanel] = useState(false)
   const [isClient, setIsClient] = useState(false)
   const { theme } = useTheme()
@@ -154,23 +155,7 @@ export default function CryptoDashboard() {
     setIsClient(true)
   }, [])
 
-  // Other existing useEffect for live updates
-  useEffect(() => {
-    if (liveUpdates) {
-      const interval = setInterval(() => {
-        setCryptoData((prevData) =>
-          prevData.map((crypto) => ({
-            ...crypto,
-            price: crypto.price * (1 + (Math.random() * 0.02 - 0.01)),
-            change24h: crypto.change24h + (Math.random() * 2 - 1),
-            change7d: crypto.change7d + (Math.random() * 2 - 1),
-          })),
-        )
-      }, 2000)
-
-      return () => clearInterval(interval)
-    }
-  }, [liveUpdates])
+  // Removed simulated live updates; table now uses API data only
 
   const filteredCryptos = displayData.filter(
     (crypto) =>
@@ -184,43 +169,45 @@ export default function CryptoDashboard() {
   }
 
   const handleCryptoSelection = (crypto: any) => {
-    setSelectedInstrument(crypto)
+    setSelectedInstrumentId(crypto.id)
     setShowTradePanel(true)
   }
 
   const closeTradePanel = () => {
     setShowTradePanel(false)
+    setSelectedInstrumentId(null)
   }
+
+  // Always derive current instrument from live displayData
+  const currentInstrument = selectedInstrumentId !== null
+    ? displayData.find(c => c.id === selectedInstrumentId)
+    : null;
 
   // Handle trade execution from TradeControlPanel
   const handleTradeExecution = useCallback((
-    direction: 'up' | 'down', 
-    amount: number, 
-    stake: number, 
-    duration: {value: number, unit: 'minute' | 'hour' | 'day'}
+    direction: 'up' | 'down',
+    amount: number,
+    stake: number,
+    duration: { value: number; unit: 'minute' | 'hour' | 'day' }
   ) => {
-    if (!selectedInstrument) return;
-
+    if (!currentInstrument) return;
     try {
-      // Get a good color for the selected instrument
-      const instrumentColor = selectedInstrument.change24h >= 0 ? '#10b981' : '#ef4444';
-      
-      // Create the position using the context
+      const instrumentColor = currentInstrument.change24h >= 0 ? '#10b981' : '#ef4444';
       addPosition({
-        marketName: selectedInstrument.name,
-        marketPrice: selectedInstrument.price,
+        marketName: currentInstrument.name,
+        marketPrice: currentInstrument.price,
         marketColor: instrumentColor,
         direction,
         amount,
         stake,
         duration,
-        capitalFraction: 0.10, // Default 10% will be overridden by TradeControlPanel
-        lotSize: 1.0, // Default will be overridden by TradeControlPanel
-        leverage: 100 // Default leverage
+        capitalFraction: 0.10,
+        lotSize: 1.0,
+        leverage: 100
       });
-
-      console.log('Trade executed successfully:', {
-        instrument: selectedInstrument.name,
+    
+    console.log('Trade executed successfully:', {
+        instrument: currentInstrument.name,
         direction,
         amount,
         stake,
@@ -229,7 +216,7 @@ export default function CryptoDashboard() {
     } catch (error) {
       console.error('Error executing trade:', error);
     }
-  }, [selectedInstrument, addPosition]);
+  }, [currentInstrument, addPosition]);
 
   const renderCryptoList = (cryptos: { 
     id: number;
@@ -324,15 +311,15 @@ export default function CryptoDashboard() {
             </TableRow>
             
             {/* Panel de Trading Inline - Se despliega debajo del elemento seleccionado */}
-            {showTradePanel && selectedInstrument && selectedInstrument.id === crypto.id && (
+            {showTradePanel && currentInstrument && currentInstrument.id === crypto.id && (
               <TableRow>
                 <TableCell colSpan={9} className="p-0">
                   <div className="border-t bg-muted/20">
                     <TradeControlPanel
-                      marketId={selectedInstrument.symbol}
-                      marketName={selectedInstrument.name}
-                      marketPrice={selectedInstrument.price}
-                      marketColor={selectedInstrument.change24h >= 0 ? '#10b981' : '#ef4444'}
+                      marketId={currentInstrument.symbol}
+                      marketName={currentInstrument.name}
+                      marketPrice={currentInstrument.price}
+                      marketColor={currentInstrument.change24h >= 0 ? '#10b981' : '#ef4444'}
                       isVisible={showTradePanel}
                       onClose={closeTradePanel}
                       onPlaceTrade={handleTradeExecution}
