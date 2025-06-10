@@ -13,7 +13,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Checkbox } from "@/components/ui/checkbox";
-import useRealTimeMarketData from "@/hooks/useRealTimeMarketData";
 import { Slider } from "@/components/ui/slider";
 import { Toggle } from "@/components/ui/toggle";
 import { Switch } from "@/components/ui/switch";
@@ -79,13 +78,6 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
   
   // Get trading positions context
   const { addPosition } = useTradePositions();
-  
-  // Get real-time market data
-  const { data: marketData, isLoading } = useRealTimeMarketData(
-    marketName,
-    'indices',
-    { refreshInterval: 5000 }
-  );
   
   // Actualizar el monto de inversión cuando el usuario cambie
   useEffect(() => {
@@ -160,6 +152,8 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
     setIsSubmitting(true);
     
     try {
+      // Use the marketPrice prop (passed from parent) as the open price
+      const priceToUse = marketPrice;
       // Llamar addPosition del contexto API-driven
       const id = await addPosition({
         instrumentId: marketName,
@@ -168,7 +162,7 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
         direction: tradeDirection,
         amount: capitalToUse,
         stake: capitalToUse,
-        openPrice: marketPrice,
+        openPrice: priceToUse,
         duration: { value: duration, unit: durationUnit },
         leverage: leverage,
         capitalFraction: capitalFraction,

@@ -687,8 +687,16 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
     if (effectiveDataSource === 'BINANCE') {
       if (chartType === 'candle' || chartType === 'bar') {
         setCandlestickData(binanceCandles as any);
+        // Update current price from last candle close
+        if (binanceCandles && binanceCandles.length > 0) {
+          setCurrentPrice(binanceCandles[binanceCandles.length - 1].close);
+        }
       } else {
         setChartData(binanceData as any);
+        // Update current price from last data point
+        if (binanceData && binanceData.length > 0) {
+          setCurrentPrice(binanceData[binanceData.length - 1].value);
+        }
       }
       return;
     }
@@ -730,8 +738,9 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
   
   // Update data in real-time if enabled with more fluid updates (solo para datos simulados)
   useEffect(() => {
-    if (!realTimeEnabled || !isClient || !currentMarketConfig || isHistoricalMode || shouldUseBitstamp) return;
-    
+    // Only simulate updates when using simulated data
+    if (!realTimeEnabled || !isClient || !currentMarketConfig || isHistoricalMode || shouldUseBitstamp || !isSimulatedData) return;
+
     // Clear any existing interval for chart updates
     if (updateIntervalRef.current) {
       clearInterval(updateIntervalRef.current);
@@ -840,7 +849,7 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
         updateIntervalRef.current = null;
       }
     };
-  }, [realTimeEnabled, isClient, currentMarketConfig, chartType, chartData, candlestickData, isHistoricalMode]);
+  }, [realTimeEnabled, isClient, currentMarketConfig, chartType, chartData, candlestickData, isHistoricalMode, shouldUseBitstamp, isSimulatedData]);
   
   // Filtered markets by search (memoized)
   const filteredMarkets = useMemo(() => 
