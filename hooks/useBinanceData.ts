@@ -35,8 +35,7 @@ export default function useBinanceData(
       try {
         const interval = timeRangeToInterval(timeRange);
         const limit = 100;
-        // Use Next.js proxy to avoid CORS issues
-        const url = `/proxy/binance/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
+        const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
         console.log('[Binance REST]', url);
         const res = await fetch(url);
         const raw = await res.json();

@@ -154,6 +154,9 @@ const RealTimeMarketChartClient: React.FC<ChartProps> = ({
     height: height || 300
   });
 
+  // Track previous data length for incremental updates
+  const prevDataLengthRef = useRef<number>(0);
+
   // Function to add price levels to chart
   const addPriceLevels = useCallback(() => {
     if (!seriesRef.current || !levels) return;
@@ -398,28 +401,27 @@ const RealTimeMarketChartClient: React.FC<ChartProps> = ({
   // Update data when it changes
   useEffect(() => {
     if (!seriesRef.current || !data || data.length === 0) return;
-    
     try {
-      // Check if chart is still valid before updating
-      if (chartRef.current) {
-        try {
-          // Only update if we can access chart options (chart is not disposed)
-          const options = chartRef.current.options();
-          if (options) {
-            const validatedData = validateChartData(data);
-            if (validatedData.length > 0) {
-              seriesRef.current.setData(validatedData);
-              chartRef.current.timeScale().fitContent();
-            } else {
-              console.warn('No valid data points after validation');
-            }
-          }
-        } catch (err) {
-          // Chart is disposed, reinitialize if needed
-          console.log("Chart disposed, skipping data update");
-          initializedRef.current = false;
-        }
+      const chart = chartRef.current;
+      if (!chart) return;
+      // Validate and sort incoming data
+      const validated = validateChartData(data);
+      if (validated.length === 0) {
+        console.warn('No valid data points after validation');
+        return;
       }
+      // If first load or prev length is different (e.g. user switched timeframe), do full setData
+      if (prevDataLengthRef.current === 0 || validated.length !== prevDataLengthRef.current) {
+        seriesRef.current.setData(validated);
+        chart.timeScale().fitContent();
+      } else {
+        // Incremental update: add only the newest point
+        const lastPoint = validated[validated.length - 1];
+        seriesRef.current.update(lastPoint as any);
+        // Smooth real-time scroll to latest
+        chart.timeScale().scrollToRealTime();
+      }
+      prevDataLengthRef.current = validated.length;
     } catch (err) {
       console.error('Error updating chart data:', err);
     }
