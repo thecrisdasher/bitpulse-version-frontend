@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFavoriteInstruments, toggleInstrumentFavorite } from '@/lib/mockData';
-import { getBatchMarketData } from '@/lib/api/marketDataService';
 
 /**
  * GET /api/market/favorites
@@ -8,49 +7,56 @@ import { getBatchMarketData } from '@/lib/api/marketDataService';
  */
 export async function GET() {
   try {
-    // Obtener favoritos desde el mock
     const mockFavorites = getFavoriteInstruments();
     
-    // Preparar solicitudes en batch para datos en tiempo real
-    const dataRequests = mockFavorites.map(instrument => ({
-      symbol: instrument.symbol,
-      category: instrument.category
-    }));
-    
+    // Fetch real-time ticker data from Binance directly
     try {
-      // Intentar obtener datos en tiempo real para todos los instrumentos
-      const realTimeData = await getBatchMarketData(dataRequests);
-      
-      // Mejorar datos simulados con información en tiempo real
-      const enhancedFavorites = mockFavorites.map(instrument => {
-        const rtData = realTimeData[instrument.symbol];
-        if (rtData) {
-          return {
-            ...instrument,
-            price: rtData.currentPrice,
-            change24h: rtData.changePercent24h,
-            lastUpdated: new Date(rtData.lastUpdated),
-            hasRealTime: rtData.isRealTime
+      // Build list of symbols (exclude USDT itself)
+      const baseSymbols = mockFavorites.map(inst => inst.symbol).filter(sym => sym !== 'USDT');
+      if (baseSymbols.length > 0) {
+        const fullSymbols = baseSymbols.map(sym => `${sym}USDT`);
+        const url = `https://api.binance.com/api/v3/ticker/24hr?symbols=${encodeURIComponent(JSON.stringify(fullSymbols))}`;
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error(`Binance API error ${resp.status}`);
+        const data = await resp.json(); // Array of tickers
+        const mapping: Record<string, { price: number; change24h: number }> = {};
+        data.forEach((item: any) => {
+          const base = String(item.symbol).replace(/USDT$/i, '');
+          mapping[base] = {
+            price: parseFloat(item.lastPrice),
+            change24h: parseFloat(item.priceChangePercent),
           };
-        }
-        return instrument;
-      });
-      
+        });
+        const enhancedFavorites = mockFavorites.map(inst => ({
+          ...inst,
+          price: mapping[inst.symbol]?.price ?? inst.price,
+          change24h: mapping[inst.symbol]?.change24h ?? inst.change24h,
+          hasRealTime: mapping[inst.symbol] != null,
+          lastUpdated: mapping[inst.symbol] ? new Date() : inst.lastUpdated
+        }));
+        return NextResponse.json({
+          favorites: enhancedFavorites,
+          count: enhancedFavorites.length,
+          timestamp: Date.now(),
+          success: true
+        });
+      }
+      // If no symbols to fetch, return mock favorites
       return NextResponse.json({
-        favorites: enhancedFavorites,
-        count: enhancedFavorites.length,
+        favorites: mockFavorites,
+        count: mockFavorites.length,
         timestamp: Date.now(),
         success: true
       });
     } catch (error) {
-      // Si falla la obtención de datos en tiempo real, devolver datos simulados
-      console.error('Error al obtener datos en tiempo real:', error);
+      console.error('Error al obtener tickers de Binance:', error);
+      // Fallback a datos simulados
       return NextResponse.json({
         favorites: mockFavorites,
         count: mockFavorites.length,
         timestamp: Date.now(),
         success: true,
-        message: 'Datos obtenidos de caché local, error en tiempo real'
+        message: 'Error en datos reales; usando datos de mock'
       });
     }
   } catch (error: any) {
