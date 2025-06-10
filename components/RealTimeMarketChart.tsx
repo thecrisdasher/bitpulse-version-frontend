@@ -500,7 +500,7 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
   
   // Animation ref for trading panel transition
   const chartHeightRef = useRef<number>(400);
-  const [chartContainerHeight, setChartContainerHeight] = useState<number>(400);
+  const [chartContainerHeight, setChartContainerHeight] = useState<number>(300);
   
   // Estados para niveles
   const [showLevels, setShowLevels] = useState<boolean>(true);
@@ -538,7 +538,7 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
       setChartContainerHeight(240);
     } else {
       // Restore chart height when hiding trading panel
-      setChartContainerHeight(400);
+      setChartContainerHeight(300);
     }
   };
   
@@ -1190,6 +1190,16 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
     console.log('>> Data source efectivo:', effectiveDataSource)
   }, [effectiveDataSource]);
 
+  // Update market when prop changes and open trading panel
+  useEffect(() => {
+    if (initialMarketId && initialMarketId !== currentMarket) {
+      setCurrentMarket(initialMarketId);
+      // Open trading panel and adjust chart height
+      setShowTradingPanel(true);
+      setChartContainerHeight(240);
+    }
+  }, [initialMarketId]);
+
   return (
     <div className="space-y-4">
       <Card className="mb-4 overflow-hidden transition-all duration-300">
@@ -1402,7 +1412,7 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
                     </div>
                     {effectiveDataSource === "BITSTAMP" && bitstampData.lastUpdate && (
                       <div className="text-xs text-green-600">
-                        Última actualización: {bitstampData.lastUpdate.toLocaleTimeString()}
+                        Última actualización: {bitstampData.lastUpdate?.toLocaleTimeString()}
                       </div>
                     )}
                     {effectiveDataSource === "BITSTAMP" && bitstampData.error && (

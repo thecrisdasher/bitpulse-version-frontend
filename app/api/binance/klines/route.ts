@@ -3,13 +3,16 @@ import { NextResponse } from 'next/server';
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const symbol = searchParams.get('symbol');
+    const rawSymbol = searchParams.get('symbol');
     const interval = searchParams.get('interval') || '1m';
     const limitParam = searchParams.get('limit');
     const limit = limitParam ? parseInt(limitParam, 10) : 100;
-    if (!symbol) {
+    if (!rawSymbol) {
       return NextResponse.json({ error: 'Missing symbol parameter' }, { status: 400 });
     }
+    // Sanitize symbol: remove slashes, uppercase, append USDT if missing
+    const base = rawSymbol.replace(/\//g, '').toUpperCase();
+    const symbol = base.endsWith('USDT') ? base : `${base}USDT`;
     const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
     const res = await fetch(url);
     if (!res.ok) {

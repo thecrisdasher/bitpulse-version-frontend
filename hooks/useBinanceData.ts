@@ -35,15 +35,21 @@ export default function useBinanceData(
       try {
         const interval = timeRangeToInterval(timeRange);
         const limit = 100;
-        const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
-        console.log('[Binance REST]', url);
+        // Sanitize symbol for Binance: remove any slash and append USDT if missing
+        const base = symbol.includes('/') ? symbol.split('/')[0] : symbol;
+        const upper = base.toUpperCase();
+        const sym = upper.endsWith('USDT') ? upper : `${upper}USDT`;
+        const url = `/api/binance/klines?symbol=${encodeURIComponent(sym)}&interval=${interval}&limit=${limit}`;
+        console.log('[Binance REST via proxy]', url);
         const res = await fetch(url);
         const raw = await res.json();
-        const linePoints: ChartDataPoint[] = raw.map((c: any) => ({
+        // Ensure raw is an array
+        const rawArray = Array.isArray(raw) ? raw : [];
+        const linePoints: ChartDataPoint[] = rawArray.map((c: any) => ({
           time: Math.floor(c[0] / 1000),
           value: parseFloat(c[4])
         }));
-        const candles: CandleDataPoint[] = raw.map((c: any) => ({
+        const candles: CandleDataPoint[] = rawArray.map((c: any) => ({
           time: Math.floor(c[0] / 1000),
           open: parseFloat(c[1]),
           high: parseFloat(c[2]),
@@ -53,7 +59,7 @@ export default function useBinanceData(
         setData(linePoints);
         setCandleData(candles);
       } catch (err) {
-        console.error('Error fetching Binance history', err);
+        console.error('Error fetching Binance history via proxy', err);
       }
     };
     fetchHistory();

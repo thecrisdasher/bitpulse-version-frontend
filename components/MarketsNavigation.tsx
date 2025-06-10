@@ -53,6 +53,9 @@ const RealTimeMarketChart = dynamic(
   { ssr: false }
 );
 
+// Dynamically import trade panel for client only
+const TradeControlPanel = dynamic(() => import("@/components/TradeControlPanel"), { ssr: false });
+
 // Helper function for consistent number formatting
 const formatCurrency = (value?: number, minimumFractionDigits = 2, maximumFractionDigits = 4): string => {
   // Guard against undefined or null values
@@ -228,10 +231,9 @@ const MarketsNavigation = ({ onInstrumentSelect }: MarketsNavigationProps = {}) 
           const instrumentsData = response.data.data || [];
           // set raw instruments; displayInstruments applies live data
           setInstruments(instrumentsData);
-          if (instrumentsData.length > 0 && !selectedMarketForChart) {
-            setSelectedMarketForChart(instrumentsData[0].symbol);
-            setSelectedInstrument(instrumentsData[0]);
-          }
+          // Clear any previous selection so chart only shows when user clicks an instrument
+          setSelectedMarketForChart(null);
+          setSelectedInstrument(null);
         } else {
           setInstruments([]);
           throw new Error(response.data.message || `Error al cargar instrumentos para ${category}`);
@@ -269,7 +271,7 @@ const MarketsNavigation = ({ onInstrumentSelect }: MarketsNavigationProps = {}) 
   
   const handleInstrumentClick = (instrument: MarketInstrument) => {
     setSelectedInstrument(instrument);
-    setSelectedMarketForChart(instrument.symbol);
+    setSelectedMarketForChart(instrument.id);
     onInstrumentSelect?.(instrument);
   };
   
@@ -406,7 +408,7 @@ const MarketsNavigation = ({ onInstrumentSelect }: MarketsNavigationProps = {}) 
       {/* Contenido Principal (Gráfico y Lista de Instrumentos) */}
       <div className="flex-1 flex flex-col">
         {/* Gráfico en Tiempo Real */}
-        <div className="h-[300px] border-b border-border p-2">
+        <div className="border-b border-border p-2">
           {selectedMarketForChart ? (
             <RealTimeMarketChart 
               marketId={selectedMarketForChart} 
@@ -417,6 +419,22 @@ const MarketsNavigation = ({ onInstrumentSelect }: MarketsNavigationProps = {}) 
             </div>
           )}
         </div>
+        {/* Operar: Trade panel appears before the market list */}
+        {selectedInstrument && (
+          <div className="border-b border-border p-4">
+            <TradeControlPanel
+              marketId={selectedInstrument.id}
+              marketName={selectedInstrument.name}
+              marketPrice={selectedInstrument.price}
+              marketColor={selectedInstrument.color || ''}
+              isVisible={true}
+              onClose={() => {
+                setSelectedInstrument(null);
+                setSelectedMarketForChart(null);
+              }}
+            />
+          </div>
+        )}
 
         {/* Lista de Instrumentos */}
         <div className="flex-1 p-4 overflow-y-auto">

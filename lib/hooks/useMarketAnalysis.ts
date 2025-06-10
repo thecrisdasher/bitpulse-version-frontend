@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { marketAnalysisService } from '../services/marketAnalysisService';
-import { bitstampService } from '../services/bitstampService';
+import { binanceService } from '../services/binanceService';
 import type { MarketAnalysis } from '../services/marketAnalysisService';
 
 interface UseMarketAnalysisProps {
@@ -28,18 +28,16 @@ export function useMarketAnalysis({ symbol, timeframe }: UseMarketAnalysisProps)
       try {
         setState(prev => ({ ...prev, loading: true, error: null }));
 
-        // Obtener datos del par actual
-        const formattedSymbol = bitstampService.formatSymbol(symbol);
-        const currentPairData = await bitstampService.getOHLCData(formattedSymbol, timeframe);
+        // Obtener datos del par actual desde Binance
+        const currentPairData = await binanceService.getOHLCData(symbol, timeframe);
 
-        // Obtener datos de todos los pares disponibles para comparación
+        // Obtener datos de todos los pares disponibles para comparación desde Binance
         const allPairsData: Record<string, any> = {};
         const pairs = ['BTC/USD', 'ETH/USD', 'XRP/USD'];
         
         await Promise.all(
           pairs.map(async (pair) => {
-            const formattedPair = bitstampService.formatSymbol(pair);
-            const data = await bitstampService.getOHLCData(formattedPair, timeframe);
+            const data = await binanceService.getOHLCData(pair, timeframe);
             allPairsData[pair] = data;
           })
         );
