@@ -60,58 +60,122 @@ interface PerformanceData {
   winRate: number;
 }
 
-const StatisticsPage = () => {
+// Type for closed positions
+interface ClosedPosition {
+  id: string;
+  instrument: string;
+  openTime: string;
+  closeTimestamp?: string;
+  openPrice: number;
+  closePrice?: number;
+  pnl?: number;
+}
+
+export const StatisticsPage = () => {
   const { positions } = useTradePositions();
+  // Closed positions for history and stats
+  const [closedPositions, setClosedPositions] = useState<ClosedPosition[]>([]);
+  // Fetch closed positions
+  useEffect(() => {
+    const fetchClosed = async () => {
+      try {
+        const res = await fetch('/api/trading/positions?status=closed', { credentials: 'include' });
+        const json = await res.json();
+        if (json.success) {
+          setClosedPositions(json.data);
+        }
+      } catch (err) {
+        console.error('Error fetching closed positions', err);
+      }
+    };
+    fetchClosed();
+  }, []);
+
+  // Compute trading stats from closed positions
+  const tradingStats = React.useMemo((): TradingStats => {
+    const data: any[] = closedPositions;
+    const totalTrades = data.length;
+    const pnlArray = data.map(p => p.pnl || 0);
+    const totalProfit = pnlArray.reduce((sum, v) => sum + (v > 0 ? v : 0), 0);
+    const totalLoss = pnlArray.reduce((sum, v) => sum + (v < 0 ? v : 0), 0);
+    const winCount = pnlArray.filter(v => v > 0).length;
+    const winRate = totalTrades > 0 ? (winCount / totalTrades) * 100 : 0;
+    const averageProfit = winCount > 0 ? totalProfit / winCount : 0;
+    const lossCount = totalTrades - winCount;
+    const averageLoss = lossCount > 0 ? totalLoss / lossCount : 0;
+    const profitFactor = totalLoss !== 0 ? totalProfit / Math.abs(totalLoss) : 0;
+    // Sharpe ratio: mean(pnl)/std(pnl)
+    const meanPnl = totalTrades > 0 ? pnlArray.reduce((a,b)=>a+b,0)/totalTrades : 0;
+    const variance = totalTrades > 1 ? pnlArray.reduce((a,b)=>a+Math.pow(b-meanPnl,2),0)/(totalTrades-1) : 0;
+    const stdDev = Math.sqrt(variance);
+    const sharpeRatio = stdDev !== 0 ? meanPnl / stdDev : 0;
+    // Max drawdown
+    const cumArray: number[] = [];
+    pnlArray.reduce((cum, v) => { cumArray.push(cum + v); return cum + v; }, 0);
+    let peak = 0; let maxDd = 0;
+    cumArray.forEach(val => {
+      peak = Math.max(peak, val);
+      const dd = peak - val;
+      maxDd = Math.max(maxDd, dd);
+    });
+    const maxDrawdown = peak !== 0 ? -(maxDd/peak)*100 : 0;
+    // Consecutive wins/losses
+    let currentWinStreak = 0, maxWinStreak = 0;
+    let currentLossStreak = 0, maxLossStreak = 0;
+    pnlArray.forEach(v => {
+      if (v > 0) {
+        currentWinStreak++; maxWinStreak = Math.max(maxWinStreak, currentWinStreak);
+        currentLossStreak = 0;
+      } else {
+        currentLossStreak++; maxLossStreak = Math.max(maxLossStreak, currentLossStreak);
+        currentWinStreak = 0;
+      }
+    });
+    // Hold times
+    const holdTimes = data.map(p => {
+      const open = new Date(p.openTime).getTime();
+      const close = p.closeTimestamp ? new Date(p.closeTimestamp).getTime() : open;
+      return (close-open)/60000;
+    });
+    const avgHoldTime = holdTimes.length>0 ? holdTimes.reduce((a,b)=>a+b,0)/holdTimes.length : 0;
+    const bestTrade = pnlArray.length>0 ? Math.max(...pnlArray) : 0;
+    const worstTrade = pnlArray.length>0 ? Math.min(...pnlArray) : 0;
+    return { totalTrades, winRate, averageProfit, totalProfit, averageLoss, totalLoss, profitFactor, sharpeRatio, maxDrawdown, consecutiveWins: maxWinStreak, consecutiveLosses: maxLossStreak, averageHoldTime: avgHoldTime, bestTrade, worstTrade };
+  }, [closedPositions]);
+
+  // Compute market stats from closed positions
+  const marketStats = React.useMemo((): MarketStats => {
+    const data: any[] = closedPositions;
+    const markets = data.map(p => p.instrument);
+    const counts: Record<string, number> = {};
+    markets.forEach(m => counts[m] = (counts[m]||0) + 1);
+    const mostTradedMarket = Object.entries(counts).sort((a,b)=>b[1]-a[1])[0]?.[0] || '';
+    // favoriteTimeframe/best direction not available, using defaults
+    const favoriteTimeframe = '';
+    const preferredDirection: 'long'|'short' = 'long';
+    const activeDays = 0;
+    const tradingStreak = 0;
+    return { mostTradedMarket, favoriteTimeframe, preferredDirection, activeDays, tradingStreak };
+  }, [closedPositions]);
+
+  // Compute performance data for chart
+  const performanceData = React.useMemo((): PerformanceData[] => {
+    // Group by month-year
+    const data: any[] = closedPositions;
+    const groups: Record<string, { profit: number; trades: number; wins: number }> = {};
+    data.forEach(p => {
+      const date = new Date(p.closeTimestamp||p.openTime);
+      const period = date.toLocaleString('es-ES', { month: 'short', year: 'numeric' });
+      if (!groups[period]) groups[period] = { profit: 0, trades: 0, wins: 0 };
+      groups[period].profit += (p.pnl||0);
+      groups[period].trades += 1;
+      if ((p.pnl||0) > 0) groups[period].wins += 1;
+    });
+    return Object.entries(groups).map(([period, g]) => ({ period, profit: g.profit, trades: g.trades, winRate: g.trades>0 ? (g.wins/g.trades)*100 : 0 }));
+  }, [closedPositions]);
+
   const [selectedPeriod, setSelectedPeriod] = useState<'day' | 'week' | 'month' | 'year'>('month');
   
-  // Estadísticas simuladas
-  const [tradingStats] = useState<TradingStats>({
-    totalTrades: 247,
-    winRate: 68.5,
-    averageProfit: 125.30,
-    totalProfit: 15420.50,
-    averageLoss: -89.20,
-    totalLoss: -6950.40,
-    profitFactor: 2.21,
-    sharpeRatio: 1.85,
-    maxDrawdown: -12.5,
-    consecutiveWins: 8,
-    consecutiveLosses: 3,
-    averageHoldTime: 45, // minutos
-    bestTrade: 850.75,
-    worstTrade: -320.15
-  });
-
-  const [marketStats] = useState<MarketStats>({
-    mostTradedMarket: 'Volatility 100',
-    favoriteTimeframe: '1H',
-    preferredDirection: 'long',
-    activeDays: 156,
-    tradingStreak: 12
-  });
-
-  const [performanceData] = useState<PerformanceData[]>([
-    { period: 'Enero', profit: 1250.30, trades: 45, winRate: 71.1 },
-    { period: 'Febrero', profit: 890.50, trades: 38, winRate: 65.8 },
-    { period: 'Marzo', profit: 1580.20, trades: 52, winRate: 75.0 },
-    { period: 'Abril', profit: -320.10, trades: 29, winRate: 55.2 },
-    { period: 'Mayo', profit: 2140.75, trades: 61, winRate: 78.7 },
-    { period: 'Junio', profit: 1650.80, trades: 48, winRate: 68.8 }
-  ]);
-
-  // Calcular estadísticas en tiempo real basadas en las posiciones actuales
-  const liveStats = React.useMemo(() => {
-    const totalProfit = positions.reduce((sum, pos) => sum + pos.profit, 0);
-    const profitablePositions = positions.filter(pos => pos.profit > 0);
-    const currentWinRate = positions.length > 0 ? (profitablePositions.length / positions.length) * 100 : 0;
-    
-    return {
-      activePositions: positions.length,
-      unrealizedPnL: totalProfit,
-      currentWinRate
-    };
-  }, [positions]);
-
   const formatCurrency = (amount: number): string => {
     return new Intl.NumberFormat('es-CO', {
       style: 'currency',
@@ -127,6 +191,13 @@ const StatisticsPage = () => {
     const mins = minutes % 60;
     return `${hours}h ${mins}m`;
   };
+
+  const liveStats = React.useMemo(() => {
+    const totalProfit = positions.reduce((sum, pos) => sum + pos.profit, 0);
+    const profitablePositions = positions.filter(pos => pos.profit > 0);
+    const currentWinRate = positions.length > 0 ? (profitablePositions.length / positions.length) * 100 : 0;
+    return { activePositions: positions.length, unrealizedPnL: totalProfit, currentWinRate };
+  }, [positions]);
 
   return (
     <div className="flex min-h-screen bg-background text-foreground">
