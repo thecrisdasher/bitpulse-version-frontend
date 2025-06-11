@@ -29,13 +29,14 @@ export async function DELETE(
   }
 
   try {
-    // Attempt to delete the position only if it belongs to the user
-    const result = await prisma.tradePosition.deleteMany({
+    // Attempt to mark the position as closed instead of deleting
+    const result = await prisma.tradePosition.updateMany({
       where: { id, userId: user.id },
+      data: { status: 'closed', closeTime: new Date() }
     });
 
     if (result.count === 0) {
-      // No records deleted -> either not found or not owned by this user
+      // No records updated -> either not found or not owned by this user
       return NextResponse.json(
         { success: false, message: 'Position not found or forbidden' },
         { status: 404 }

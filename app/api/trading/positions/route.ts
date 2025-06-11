@@ -104,8 +104,30 @@ export async function GET(request: Request) {
     if (!user) {
       return NextResponse.json({ success: false, message: 'No autorizado' }, { status: 401 });
     }
-    // Fetch open positions from database
-    const positions = await prisma.tradePosition.findMany({
+    // Determine status filter
+    const url = new URL(request.url);
+    const statusFilter = url.searchParams.get('status');
+    let positions;
+    if (statusFilter === 'closed') {
+      // Fetch closed positions
+      positions = await prisma.tradePosition.findMany({
+        where: { userId: user.id, status: 'closed' },
+        orderBy: { closeTime: 'desc' }
+      });
+      // Map to history schema
+      const data = positions.map(p => ({
+        id: p.id,
+        instrument: p.instrument,
+        openTime: p.openTime.toISOString(),
+        closeTimestamp: p.closeTime?.toISOString(),
+        openPrice: p.openPrice,
+        closePrice: p.currentPrice,
+        pnl: p.profit
+      }));
+      return NextResponse.json({ success: true, data }, { status: 200 });
+    }
+    // Fetch open positions by default
+    positions = await prisma.tradePosition.findMany({
       where: { userId: user.id, status: 'open' },
       orderBy: { openTime: 'desc' }
     });

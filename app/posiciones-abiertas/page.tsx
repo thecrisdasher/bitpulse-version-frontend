@@ -21,14 +21,26 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import type { TradePosition } from '@/lib/types/trading';
+
+// Type for closed positions fetched from API
+interface ClosedPosition {
+  id: string;
+  instrument: string;
+  openTime: string;
+  closeTimestamp?: string;
+  openPrice: number;
+  closePrice?: number;
+  pnl?: number;
+}
 
 export default function PosicionesAbiertasPage() {
-  const [performance, setPerformance] = useState({ 
-    daily: 2.5, 
-    weekly: -1.2, 
-    monthly: 15.3, 
-    allTime: 45.7 
-  })
+  const [stats, setStats] = useState({
+    totalTrades: 0,
+    winRate: 0,
+    avgPnl: 0,
+    totalPnl: 0
+  });
   
   // Obtener las posiciones abiertas del contexto
   const { 
@@ -59,6 +71,50 @@ export default function PosicionesAbiertasPage() {
     'ETHUSD': 2640.00,
     'XAUUSD': 2040.50
   });
+
+  // Closed positions history
+  const [closedPositions, setClosedPositions] = useState<ClosedPosition[]>([]);
+  // Fetch closed positions history
+  useEffect(() => {
+    const fetchClosed = async () => {
+      try {
+        const res = await fetch('/api/trading/positions?status=closed', { credentials: 'include' });
+        const json = await res.json();
+        if (json.success) {
+          setClosedPositions(json.data);
+        }
+      } catch (err) {
+        console.error('Error fetching closed positions', err);
+      }
+    };
+    fetchClosed();
+  }, []);
+
+  // Compute performance statistics from closed positions
+  useEffect(() => {
+    const total = closedPositions.length;
+    const totalPnl = closedPositions.reduce((sum, pos) => sum + (pos.pnl || 0), 0);
+    const winCount = closedPositions.filter(pos => (pos.pnl || 0) > 0).length;
+    const avgPnl = total > 0 ? totalPnl / total : 0;
+    const winRate = total > 0 ? (winCount / total) * 100 : 0;
+    setStats({ totalTrades: total, winRate, avgPnl, totalPnl });
+  }, [closedPositions]);
+
+  // Fetch user balance for total capital
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const res = await fetch('/api/auth/profile', { credentials: 'include' });
+        const json = await res.json();
+        if (json.success) {
+          setRiskMetrics(prev => ({ ...prev, totalCapital: json.data.pejecoins }));
+        }
+      } catch (err) {
+        console.error('Error fetching profile', err);
+      }
+    };
+    fetchProfile();
+  }, []);
 
   // Actualizar precios en tiempo real
   useEffect(() => {
@@ -368,11 +424,38 @@ export default function PosicionesAbiertasPage() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-center py-8 text-muted-foreground">
-                      <Clock className="w-16 h-16 mx-auto mb-4" />
-                      <p>No hay operaciones cerradas para mostrar</p>
-                      <p className="text-sm mt-2">Las operaciones cerradas aparecerán aquí</p>
-                    </div>
+                    {closedPositions.length > 0 ? (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Instrumento</TableHead>
+                            <TableHead>Apertura</TableHead>
+                            <TableHead>Cierre</TableHead>
+                            <TableHead>Precio Apertura</TableHead>
+                            <TableHead>Precio Cierre</TableHead>
+                            <TableHead>PnL</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {closedPositions.map((pos: any) => (
+                            <TableRow key={pos.id}>
+                              <TableCell>{pos.instrument}</TableCell>
+                              <TableCell>{new Date(pos.openTime).toLocaleString()}</TableCell>
+                              <TableCell>{pos.closeTimestamp ? new Date(pos.closeTimestamp).toLocaleString() : '-'}</TableCell>
+                              <TableCell>${pos.openPrice.toFixed(2)}</TableCell>
+                              <TableCell>${pos.closePrice?.toFixed(2) ?? '-'}</TableCell>
+                              <TableCell>${pos.pnl?.toFixed(2) ?? '-'}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Clock className="w-16 h-16 mx-auto mb-4" />
+                        <p>No hay operaciones cerradas para mostrar</p>
+                        <p className="text-sm mt-2">Las operaciones cerradas aparecerán aquí</p>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -388,20 +471,20 @@ export default function PosicionesAbiertasPage() {
                   <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                       <div className="text-center p-4 border rounded-lg">
-                        <div className="text-2xl font-bold text-green-500">+{performance.daily}%</div>
-                        <div className="text-sm text-muted-foreground">24h</div>
+                        <div className="text-2xl font-bold">{stats.totalTrades}</div>
+                        <div className="text-sm text-muted-foreground">Total Operaciones</div>
                       </div>
                       <div className="text-center p-4 border rounded-lg">
-                        <div className="text-2xl font-bold text-red-500">{performance.weekly}%</div>
-                        <div className="text-sm text-muted-foreground">7 días</div>
+                        <div className="text-2xl font-bold">{stats.winRate.toFixed(1)}%</div>
+                        <div className="text-sm text-muted-foreground">Tasa de Éxito</div>
                       </div>
                       <div className="text-center p-4 border rounded-lg">
-                        <div className="text-2xl font-bold text-green-500">+{performance.monthly}%</div>
-                        <div className="text-sm text-muted-foreground">30 días</div>
+                        <div className="text-2xl font-bold">{stats.avgPnl.toFixed(2)}</div>
+                        <div className="text-sm text-muted-foreground">Pnl Promedio</div>
                       </div>
                       <div className="text-center p-4 border rounded-lg">
-                        <div className="text-2xl font-bold text-green-500">+{performance.allTime}%</div>
-                        <div className="text-sm text-muted-foreground">Total</div>
+                        <div className="text-2xl font-bold">{stats.totalPnl.toFixed(2)}</div>
+                        <div className="text-sm text-muted-foreground">Pnl Total</div>
                       </div>
                     </div>
                   </CardContent>
