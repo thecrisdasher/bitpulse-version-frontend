@@ -475,20 +475,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const response = await originalFetch(input, init);
       
       // Si recibimos 401 y tenemos un usuario autenticado, intentar refresh
-      if (response.status === 401 && state.isAuthenticated) {
+      // Evitar bucle infinito: no intentar refresh si el propio endpoint fallido es /api/auth/refresh
+      const url = typeof input === 'string' ? input : (input as Request).url;
+      const isRefreshEndpoint = url.includes('/api/auth/refresh');
+
+      if (response.status === 401 && state.isAuthenticated && !isRefreshEndpoint) {
         logger.warn('auth', 'Received 401, attempting token refresh');
         const refreshed = await refreshToken();
         
         if (refreshed && state.tokens) {
           // Reintentar la petición original con el nuevo token
           const newOptions = {
-              ...init,
+            ...init,
             headers: {
-                ...((init as RequestInit)?.headers || {}),
+              ...((init as RequestInit)?.headers || {}),
               'Authorization': `Bearer ${state.tokens.accessToken}`
             }
           };
-            return originalFetch(input, newOptions);
+          return originalFetch(input, newOptions);
         }
       }
       return response;

@@ -15,12 +15,9 @@ import {
   MoreVertical, 
   Paperclip, 
   Smile, 
-  Mic,
-  MicOff,
   Users,
   Clock,
   CheckCheck,
-  Check,
   AlertCircle,
   User,
   MessageSquare
@@ -39,94 +36,43 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-
-// Tipos
-interface Message {
-  id: string;
-  text: string;
-  senderId: string;
-  senderName: string;
-  senderType: 'user' | 'mentor' | 'system';
-  timestamp: Date;
-  status: 'sending' | 'sent' | 'delivered' | 'read';
-  attachments?: Attachment[];
-}
-
-interface Attachment {
-  id: string;
-  name: string;
-  url: string;
-  type: 'image' | 'file' | 'video';
-  size: number;
-}
-
-interface Mentor {
-  id: string;
-  name: string;
-  avatar?: string;
-  status: 'online' | 'away' | 'busy' | 'offline';
-  specialty: string;
-  rating: number;
-  responseTime: string;
-}
+import { useChat } from "@/contexts/ChatContext";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface LiveChatProps {
   className?: string;
   minimized?: boolean;
   onToggleMinimize?: () => void;
+  roomId?: string;
 }
-
-// Datos de ejemplo
-const MENTORS: Mentor[] = [
-  {
-    id: 'mentor-1',
-    name: 'Carlos Rodriguez',
-    avatar: '/avatars/carlos.jpg',
-    status: 'online',
-    specialty: 'Trading Técnico',
-    rating: 4.9,
-    responseTime: '< 2 min'
-  },
-  {
-    id: 'mentor-2',
-    name: 'Ana García',
-    avatar: '/avatars/ana.jpg',
-    status: 'online',
-    specialty: 'Análisis Fundamental',
-    rating: 4.8,
-    responseTime: '< 5 min'
-  },
-  {
-    id: 'mentor-3',
-    name: 'Miguel Torres',
-    avatar: '/avatars/miguel.jpg',
-    status: 'away',
-    specialty: 'Gestión de Riesgo',
-    rating: 4.7,
-    responseTime: '< 10 min'
-  }
-];
 
 const LiveChat: React.FC<LiveChatProps> = ({ 
   className,
   minimized = false,
-  onToggleMinimize
+  onToggleMinimize,
+  roomId
 }) => {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const { user } = useAuth();
+  const { 
+    isConnected, 
+    currentRoom, 
+    messages, 
+    onlineUsers, 
+    typingUsers,
+    sendMessage,
+    joinRoom,
+    startTyping,
+    stopTyping,
+    setCurrentRoom,
+    rooms
+  } = useChat();
+  
   const [newMessage, setNewMessage] = useState('');
-  const [isConnected, setIsConnected] = useState(false);
-  const [selectedMentor, setSelectedMentor] = useState<Mentor | null>(null);
-  const [isTyping, setIsTyping] = useState(false);
-  const [currentUser] = useState({
-    id: 'user-1',
-    name: 'Usuario',
-    avatar: '/avatars/user.jpg'
-  });
+  const [typingTimeout, setTypingTimeout] = useState<NodeJS.Timeout | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-scroll a nuevos mensajes
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
@@ -135,83 +81,32 @@ const LiveChat: React.FC<LiveChatProps> = ({
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
-  // Simular conexión inicial
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsConnected(true);
-      setSelectedMentor(MENTORS[0]);
-      
-      // Mensaje de bienvenida
-      const welcomeMessage: Message = {
-        id: 'welcome-1',
-        text: '¡Hola! Soy Carlos, tu mentor de trading técnico. ¿En qué puedo ayudarte hoy?',
-        senderId: 'mentor-1',
-        senderName: 'Carlos Rodriguez',
-        senderType: 'mentor',
-        timestamp: new Date(),
-        status: 'delivered'
-      };
-      
-      setMessages([welcomeMessage]);
-    }, 1000);
+    if (roomId && isConnected) {
+      const room = rooms.find(r => r.id === roomId);
+      if (room) {
+        setCurrentRoom(room);
+        joinRoom(roomId);
+      }
+    }
+  }, [roomId, isConnected, rooms, setCurrentRoom, joinRoom]);
 
-    return () => clearTimeout(timer);
-  }, []);
+  const currentMessages = currentRoom ? (messages[currentRoom.id] || []) : [];
+  const currentTypingUsers = currentRoom ? (typingUsers[currentRoom.id] || []) : [];
 
-  // Simular respuesta del mentor
-  const simulateMentorResponse = useCallback((userMessage: string) => {
-    setIsTyping(true);
-    
-    setTimeout(() => {
-      const responses = [
-        'Excelente pregunta. Déjame explicarte esto paso a paso...',
-        'Entiendo tu preocupación. Aquí tienes algunas estrategias que puedes considerar:',
-        'Eso es muy común en el trading. Te recomiendo que...',
-        'Perfecto momento para revisar este concepto. ¿Has considerado...?',
-        'Muy buena observación. En mi experiencia...'
-      ];
-      
-      const response = responses[Math.floor(Math.random() * responses.length)];
-      
-      const mentorMessage: Message = {
-        id: `mentor-${Date.now()}`,
-        text: response,
-        senderId: 'mentor-1',
-        senderName: 'Carlos Rodriguez',
-        senderType: 'mentor',
-        timestamp: new Date(),
-        status: 'delivered'
-      };
-      
-             setMessages(prev => prev.map(msg => 
-         msg.status === 'sending' ? { ...msg, status: 'delivered' as const } : msg
-       ).concat(mentorMessage));
-      setIsTyping(false);
-    }, 2000 + Math.random() * 2000);
-  }, []);
-
-  // Enviar mensaje
   const handleSendMessage = useCallback(() => {
-    if (!newMessage.trim() || !selectedMentor) return;
+    if (!newMessage.trim() || !currentRoom || !user) return;
 
-    const userMessage: Message = {
-      id: `user-${Date.now()}`,
-      text: newMessage.trim(),
-      senderId: currentUser.id,
-      senderName: currentUser.name,
-      senderType: 'user',
-      timestamp: new Date(),
-      status: 'sending'
-    };
-
-    setMessages(prev => [...prev, userMessage]);
+    sendMessage(currentRoom.id, newMessage.trim());
     setNewMessage('');
     
-    // Simular respuesta
-    simulateMentorResponse(userMessage.text);
-  }, [newMessage, selectedMentor, currentUser, simulateMentorResponse]);
+    if (typingTimeout) {
+      clearTimeout(typingTimeout);
+      setTypingTimeout(null);
+    }
+    stopTyping(currentRoom.id);
+  }, [newMessage, currentRoom, user, sendMessage, typingTimeout, stopTyping]);
 
-  // Manejar tecla Enter
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -219,15 +114,43 @@ const LiveChat: React.FC<LiveChatProps> = ({
     }
   };
 
-  // Formatear tiempo
-  const formatTime = (date: Date) => {
+  const handleTyping = useCallback((value: string) => {
+    setNewMessage(value);
+    
+    if (!currentRoom) return;
+
+    if (value.trim() && !typingTimeout) {
+      startTyping(currentRoom.id);
+    }
+
+    if (typingTimeout) {
+      clearTimeout(typingTimeout);
+    }
+
+    const timeout = setTimeout(() => {
+      stopTyping(currentRoom.id);
+      setTypingTimeout(null);
+    }, 1000);
+
+    setTypingTimeout(timeout);
+  }, [currentRoom, typingTimeout, startTyping, stopTyping]);
+
+  const formatTime = (dateString: string) => {
+    const date = new Date(dateString);
     return date.toLocaleTimeString('es-ES', { 
       hour: '2-digit', 
       minute: '2-digit' 
     });
   };
 
-  // Estado del mentor
+  const isUserOnline = (userId: string) => {
+    return onlineUsers.has(userId);
+  };
+
+  const getUserStatus = (userId: string) => {
+    return isUserOnline(userId) ? 'online' : 'offline';
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'online': return 'bg-green-500';
@@ -237,16 +160,21 @@ const LiveChat: React.FC<LiveChatProps> = ({
     }
   };
 
-  // Icono de estado del mensaje
   const getMessageStatusIcon = (status: string) => {
     switch (status) {
       case 'sending': return <Clock className="w-3 h-3 text-muted-foreground" />;
-      case 'sent': return <Check className="w-3 h-3 text-muted-foreground" />;
       case 'delivered': return <CheckCheck className="w-3 h-3 text-muted-foreground" />;
       case 'read': return <CheckCheck className="w-3 h-3 text-blue-500" />;
       default: return null;
     }
   };
+
+  const getOtherParticipant = () => {
+    if (!currentRoom || currentRoom.type !== 'private' || !user) return null;
+    return currentRoom.participants.find(p => p.id !== user.id);
+  };
+
+  const otherParticipant = getOtherParticipant();
 
   if (minimized) {
     return (
@@ -258,9 +186,9 @@ const LiveChat: React.FC<LiveChatProps> = ({
         >
           <MessageSquare className="h-6 w-6" />
         </Button>
-        {selectedMentor && isConnected && (
+        {currentRoom && isConnected && (
           <div className="absolute -top-1 -right-1">
-            <div className={cn("w-3 h-3 rounded-full", getStatusColor(selectedMentor.status))} />
+            <div className="w-3 h-3 rounded-full bg-green-500" />
           </div>
         )}
       </div>
@@ -270,57 +198,72 @@ const LiveChat: React.FC<LiveChatProps> = ({
   return (
     <TooltipProvider>
       <Card className={cn("flex flex-col h-[600px] w-full max-w-md mx-auto", className)}>
-        {/* Header */}
         <CardHeader className="p-4 pb-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="relative">
                 <Avatar className="h-10 w-10">
-                  <AvatarImage src={selectedMentor?.avatar} />
+                  <AvatarImage src={otherParticipant?.profilePicture || currentRoom?.participants[0]?.profilePicture} />
                   <AvatarFallback>
-                    {selectedMentor?.name.split(' ').map(n => n[0]).join('')}
+                    {currentRoom?.type === 'general' ? (
+                      <Users className="h-4 w-4" />
+                    ) : (
+                      otherParticipant?.firstName?.charAt(0) || 'U'
+                    )}
                   </AvatarFallback>
                 </Avatar>
-                {selectedMentor && (
+                {otherParticipant && (
                   <div className={cn(
                     "absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-background",
-                    getStatusColor(selectedMentor.status)
+                    getStatusColor(getUserStatus(otherParticipant.id))
                   )} />
                 )}
               </div>
               <div className="flex-1">
                 <CardTitle className="text-sm font-medium">
-                  {selectedMentor?.name || 'Conectando...'}
+                  {currentRoom?.type === 'general' 
+                    ? 'Chat General' 
+                    : otherParticipant 
+                      ? `${otherParticipant.firstName} ${otherParticipant.lastName}`
+                      : 'Chat'
+                  }
                 </CardTitle>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  {selectedMentor && (
+                  {otherParticipant && (
                     <>
                       <Badge variant="secondary" className="text-xs">
-                        {selectedMentor.specialty}
+                        {otherParticipant.role === 'maestro' ? 'Mentor' : 'Usuario'}
                       </Badge>
-                      <span>⭐ {selectedMentor.rating}</span>
+                      <span>{isUserOnline(otherParticipant.id) ? 'En línea' : 'Desconectado'}</span>
                     </>
+                  )}
+                  {currentRoom?.type === 'general' && (
+                    <span>{currentRoom.participants.length} participantes</span>
                   )}
                 </div>
               </div>
             </div>
             <div className="flex items-center gap-1">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <Phone className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Llamada de voz</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <Video className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Videollamada</TooltipContent>
-              </Tooltip>
+              {currentRoom?.type === 'private' && (
+                <>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <Phone className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Llamada de voz</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <Video className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Videollamada</TooltipContent>
+                  </Tooltip>
+                </>
+              )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -330,21 +273,22 @@ const LiveChat: React.FC<LiveChatProps> = ({
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem>
                     <Users className="h-4 w-4 mr-2" />
-                    Cambiar mentor
+                    Ver participantes
                   </DropdownMenuItem>
                   <DropdownMenuItem>
                     <AlertCircle className="h-4 w-4 mr-2" />
                     Reportar problema
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={onToggleMinimize}>
-                    Minimizar chat
-                  </DropdownMenuItem>
+                  {onToggleMinimize && (
+                    <DropdownMenuItem onClick={onToggleMinimize}>
+                      Minimizar chat
+                    </DropdownMenuItem>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
           </div>
-          {/* Estado de conexión */}
           <div className="flex items-center gap-2 mt-2">
             <div className={cn(
               "w-2 h-2 rounded-full",
@@ -352,73 +296,68 @@ const LiveChat: React.FC<LiveChatProps> = ({
             )} />
             <span className="text-xs text-muted-foreground">
               {isConnected ? 'Conectado' : 'Conectando...'}
-              {selectedMentor && isConnected && (
-                <span className="ml-2">• Responde en {selectedMentor.responseTime}</span>
-              )}
             </span>
           </div>
         </CardHeader>
 
         <Separator />
 
-        {/* Mensajes */}
         <CardContent className="flex-1 p-0">
           <ScrollArea className="h-full p-4">
             <div className="space-y-4">
-              {messages.map((message) => (
+              {currentMessages.map((message) => (
                 <div
                   key={message.id}
                   className={cn(
                     "flex gap-2",
-                    message.senderType === 'user' ? "justify-end" : "justify-start"
+                    message.senderId === user?.id ? "justify-end" : "justify-start"
                   )}
                 >
-                  {message.senderType !== 'user' && (
+                  {message.senderId !== user?.id && (
                     <Avatar className="h-8 w-8 mt-1">
-                      <AvatarImage src={selectedMentor?.avatar} />
+                      <AvatarImage src={message.sender.profilePicture} />
                       <AvatarFallback>
-                        <User className="h-4 w-4" />
+                        {message.sender.firstName?.charAt(0) || <User className="h-4 w-4" />}
                       </AvatarFallback>
                     </Avatar>
                   )}
                   <div className={cn(
                     "max-w-[70%] space-y-1",
-                    message.senderType === 'user' ? "items-end" : "items-start"
+                    message.senderId === user?.id ? "items-end" : "items-start"
                   )}>
                     <div className={cn(
                       "rounded-lg px-3 py-2 text-sm",
-                      message.senderType === 'user'
+                      message.senderId === user?.id
                         ? "bg-primary text-primary-foreground"
                         : "bg-muted"
                     )}>
-                      {message.text}
+                      {message.body}
                     </div>
                     <div className={cn(
                       "flex items-center gap-1 text-xs text-muted-foreground",
-                      message.senderType === 'user' ? "justify-end" : "justify-start"
+                      message.senderId === user?.id ? "justify-end" : "justify-start"
                     )}>
-                      <span>{formatTime(message.timestamp)}</span>
-                      {message.senderType === 'user' && getMessageStatusIcon(message.status)}
+                      <span>{formatTime(message.createdAt)}</span>
+                      {message.senderId === user?.id && getMessageStatusIcon(message.status)}
                     </div>
                   </div>
-                  {message.senderType === 'user' && (
+                  {message.senderId === user?.id && (
                     <Avatar className="h-8 w-8 mt-1">
-                      <AvatarImage src={currentUser.avatar} />
+                      <AvatarImage src={user.profilePicture} />
                       <AvatarFallback>
-                        <User className="h-4 w-4" />
+                        {user.firstName?.charAt(0) || <User className="h-4 w-4" />}
                       </AvatarFallback>
                     </Avatar>
                   )}
                 </div>
               ))}
               
-              {/* Indicador de typing */}
-              {isTyping && (
+              {currentTypingUsers.length > 0 && (
                 <div className="flex gap-2 justify-start">
                   <Avatar className="h-8 w-8 mt-1">
-                    <AvatarImage src={selectedMentor?.avatar} />
+                    <AvatarImage src={currentTypingUsers[0].profilePicture} />
                     <AvatarFallback>
-                      <User className="h-4 w-4" />
+                      {currentTypingUsers[0].firstName?.charAt(0) || <User className="h-4 w-4" />}
                     </AvatarFallback>
                   </Avatar>
                   <div className="bg-muted rounded-lg px-3 py-2 text-sm">
@@ -437,47 +376,52 @@ const LiveChat: React.FC<LiveChatProps> = ({
 
         <Separator />
 
-        {/* Input de mensaje */}
         <div className="p-4">
-          <div className="flex items-end gap-2">
-            <div className="flex-1 relative">
-              <Input
-                ref={inputRef}
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="Escribe tu mensaje..."
-                disabled={!isConnected || !selectedMentor}
-                className="pr-20"
-              />
-              <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
+          {currentRoom ? (
+            <div className="flex items-end gap-2">
+              <div className="flex-1 relative">
+                <Input
+                  ref={inputRef}
+                  value={newMessage}
+                  onChange={(e) => handleTyping(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder="Escribe tu mensaje..."
                   disabled={!isConnected}
-                >
-                  <Paperclip className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
-                  disabled={!isConnected}
-                >
-                  <Smile className="h-4 w-4" />
-                </Button>
+                  className="pr-20"
+                />
+                <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    disabled={!isConnected}
+                  >
+                    <Paperclip className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    disabled={!isConnected}
+                  >
+                    <Smile className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
+              <Button
+                onClick={handleSendMessage}
+                disabled={!newMessage.trim() || !isConnected}
+                size="icon"
+                className="h-10 w-10"
+              >
+                <Send className="h-4 w-4" />
+              </Button>
             </div>
-            <Button
-              onClick={handleSendMessage}
-              disabled={!newMessage.trim() || !isConnected || !selectedMentor}
-              size="icon"
-              className="h-10 w-10"
-            >
-              <Send className="h-4 w-4" />
-            </Button>
-          </div>
+          ) : (
+            <div className="text-center text-muted-foreground">
+              Selecciona una sala de chat para comenzar
+            </div>
+          )}
         </div>
       </Card>
     </TooltipProvider>
