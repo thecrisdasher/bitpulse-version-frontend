@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { 
   Send, 
@@ -303,75 +302,73 @@ const LiveChat: React.FC<LiveChatProps> = ({
         <Separator />
 
         <CardContent className="flex-1 p-0">
-          <ScrollArea className="h-full p-4">
-            <div className="space-y-4">
-              {currentMessages.map((message) => (
-                <div
-                  key={message.id}
-                  className={cn(
-                    "flex gap-2",
-                    message.senderId === user?.id ? "justify-end" : "justify-start"
-                  )}
-                >
-                  {message.senderId !== user?.id && (
-                    <Avatar className="h-8 w-8 mt-1">
-                      <AvatarImage src={message.sender.profilePicture} />
-                      <AvatarFallback>
-                        {message.sender.firstName?.charAt(0) || <User className="h-4 w-4" />}
-                      </AvatarFallback>
-                    </Avatar>
-                  )}
-                  <div className={cn(
-                    "max-w-[70%] space-y-1",
-                    message.senderId === user?.id ? "items-end" : "items-start"
-                  )}>
-                    <div className={cn(
-                      "rounded-lg px-3 py-2 text-sm",
-                      message.senderId === user?.id
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted"
-                    )}>
-                      {message.body}
-                    </div>
-                    <div className={cn(
-                      "flex items-center gap-1 text-xs text-muted-foreground",
-                      message.senderId === user?.id ? "justify-end" : "justify-start"
-                    )}>
-                      <span>{formatTime(message.createdAt)}</span>
-                      {message.senderId === user?.id && getMessageStatusIcon(message.status)}
-                    </div>
-                  </div>
-                  {message.senderId === user?.id && (
-                    <Avatar className="h-8 w-8 mt-1">
-                      <AvatarImage src={user.profilePicture} />
-                      <AvatarFallback>
-                        {user.firstName?.charAt(0) || <User className="h-4 w-4" />}
-                      </AvatarFallback>
-                    </Avatar>
-                  )}
-                </div>
-              ))}
-              
-              {currentTypingUsers.length > 0 && (
-                <div className="flex gap-2 justify-start">
+          <div className="p-4 h-[400px] overflow-y-auto flex flex-col space-y-4">
+            {currentMessages.map((message) => (
+              <div
+                key={message.id}
+                className={cn(
+                  "flex gap-2",
+                  message.senderId === user?.id ? "justify-end" : "justify-start"
+                )}
+              >
+                {message.senderId !== user?.id && (
                   <Avatar className="h-8 w-8 mt-1">
-                    <AvatarImage src={currentTypingUsers[0].profilePicture} />
+                    <AvatarImage src={message.sender.profilePicture} />
                     <AvatarFallback>
-                      {currentTypingUsers[0].firstName?.charAt(0) || <User className="h-4 w-4" />}
+                      {message.sender.firstName?.charAt(0) || <User className="h-4 w-4" />}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="bg-muted rounded-lg px-3 py-2 text-sm">
-                    <div className="flex space-x-1">
-                      <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" />
-                      <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
-                      <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
-                    </div>
+                )}
+                <div className={cn(
+                  "max-w-[70%] space-y-1",
+                  message.senderId === user?.id ? "items-end" : "items-start"
+                )}>
+                  <div className={cn(
+                    "rounded-lg px-3 py-2 text-sm",
+                    message.senderId === user?.id
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted"
+                  )}>
+                    {message.body}
+                  </div>
+                  <div className={cn(
+                    "flex items-center gap-1 text-xs text-muted-foreground",
+                    message.senderId === user?.id ? "justify-end" : "justify-start"
+                  )}>
+                    <span>{formatTime(message.createdAt)}</span>
+                    {message.senderId === user?.id && getMessageStatusIcon(message.status)}
                   </div>
                 </div>
-              )}
-              <div ref={messagesEndRef} />
-            </div>
-          </ScrollArea>
+                {message.senderId === user?.id && (
+                  <Avatar className="h-8 w-8 mt-1">
+                    <AvatarImage src={user.profilePicture} />
+                    <AvatarFallback>
+                      {user.firstName?.charAt(0) || <User className="h-4 w-4" />}
+                    </AvatarFallback>
+                  </Avatar>
+                )}
+              </div>
+            ))}
+            
+            {currentTypingUsers.length > 0 && (
+              <div className="flex gap-2 justify-start">
+                <Avatar className="h-8 w-8 mt-1">
+                  <AvatarImage src={currentTypingUsers[0].profilePicture} />
+                  <AvatarFallback>
+                    {currentTypingUsers[0].firstName?.charAt(0) || <User className="h-4 w-4" />}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="bg-muted rounded-lg px-3 py-2 text-sm">
+                  <div className="flex space-x-1">
+                    <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" />
+                    <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
+                    <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
+                  </div>
+                </div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
         </CardContent>
 
         <Separator />
