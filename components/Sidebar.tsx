@@ -30,6 +30,47 @@ const Sidebar = () => {
 
   const canAccessCrm = isAdmin;
 
+  const currentPath = pathname || "";
+
+  if (isAdmin) {
+    return (
+      <div className="hidden lg:flex flex-col h-screen w-64 bg-card border-r border-border">
+        <div className="p-6">
+          <h1 className="text-2xl font-bold text-primary">BitPulse</h1>
+        </div>
+        <nav className="flex-1 overflow-y-auto">
+          <ul className="px-2 space-y-1">
+            <li>
+              <Link href="/admin" className={cn("flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors", currentPath === "/admin" ? "bg-primary text-primary-foreground" : "hover:bg-muted")}> <Shield size={18}/> Admin </Link>
+            </li>
+            <li>
+              <Link href="/crm" className={cn("flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors", currentPath.startsWith("/crm") ? "bg-primary text-primary-foreground" : "hover:bg-muted")}> <Shield size={18}/> CRM </Link>
+            </li>
+            <li>
+              <Link href="/pejecoins" className={cn("flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors", currentPath === "/pejecoins" ? "bg-primary text-primary-foreground" : "hover:bg-muted")}> <Coins size={18}/> PejeCoins </Link>
+            </li>
+            <li>
+              <Link href="/chat" className={cn("flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors", currentPath === "/chat" ? "bg-primary text-primary-foreground" : "hover:bg-muted")}> <MessageSquare size={18}/> Chat en Vivo </Link>
+            </li>
+          </ul>
+        </nav>
+        <div className="p-4 border-t border-border">
+          <ul className="space-y-1">
+            <li>
+              <Link href="/settings" className={cn("flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors", currentPath === "/settings" ? "bg-primary text-primary-foreground" : "hover:bg-muted")}> <Settings size={18}/> Ajustes </Link>
+            </li>
+            <li>
+              <Link href="/help" className={cn("flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors", currentPath === "/help" ? "bg-primary text-primary-foreground" : "hover:bg-muted")}> <HelpCircle size={18}/> Ayuda </Link>
+            </li>
+            <li>
+              <button onClick={logout} className="flex w-full items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors hover:bg-muted text-left"> <LogOut size={18}/> Cerrar sesión </button>
+            </li>
+          </ul>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="hidden lg:flex flex-col h-screen w-64 bg-card border-r border-border">
       <div className="p-6">
@@ -43,7 +84,7 @@ const Sidebar = () => {
               href="/" 
               className={cn(
                 "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
-                pathname === "/" ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+                currentPath === "/" ? "bg-primary text-primary-foreground" : "hover:bg-muted"
               )}
             >
               <Home size={18} />
@@ -56,7 +97,7 @@ const Sidebar = () => {
               href="/markets" 
               className={cn(
                 "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
-                pathname === "/markets" ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+                currentPath === "/markets" ? "bg-primary text-primary-foreground" : "hover:bg-muted"
               )}
             >
               <CandlestickChart size={18} />
@@ -69,7 +110,7 @@ const Sidebar = () => {
               href="/valores" 
               className={cn(
                 "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
-                pathname === "/valores" ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+                currentPath === "/valores" ? "bg-primary text-primary-foreground" : "hover:bg-muted"
               )}
             >
               <TrendingUp size={18} />
@@ -81,7 +122,7 @@ const Sidebar = () => {
               href="/trending" 
               className={cn(
                 "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
-                pathname === "/trending" ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+                currentPath === "/trending" ? "bg-primary text-primary-foreground" : "hover:bg-muted"
               )}
             >
               <LineChart size={18} />
@@ -95,7 +136,7 @@ const Sidebar = () => {
               href="/posiciones-abiertas" 
               className={cn(
                 "flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors",
-                pathname === "/posiciones-abiertas" ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+                currentPath === "/posiciones-abiertas" ? "bg-primary text-primary-foreground" : "hover:bg-muted"
               )}
             >
               <div className="flex items-center gap-3">
@@ -107,7 +148,7 @@ const Sidebar = () => {
                   variant="default"
                   className={cn(
                     "ml-auto bg-primary/20 text-primary-foreground hover:bg-primary/20",
-                    pathname === "/posiciones-abiertas" ? "bg-primary-foreground/20 text-primary" : ""
+                    currentPath === "/posiciones-abiertas" ? "bg-primary-foreground/20 text-primary" : ""
                   )}
                 >
                   {openPositionsCount}
@@ -120,7 +161,7 @@ const Sidebar = () => {
               href="/pejecoins" 
               className={cn(
                 "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
-                pathname === "/pejecoins" ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+                currentPath === "/pejecoins" ? "bg-primary text-primary-foreground" : "hover:bg-muted"
               )}
             >
               <Coins size={18} />
@@ -132,7 +173,7 @@ const Sidebar = () => {
               href="/statistics" 
               className={cn(
                 "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
-                pathname === "/statistics" ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+                currentPath === "/statistics" ? "bg-primary text-primary-foreground" : "hover:bg-muted"
               )}
             >
               <BarChart2 size={18} />
@@ -144,7 +185,7 @@ const Sidebar = () => {
               href="/learning" 
               className={cn(
                 "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
-                pathname === "/learning" ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+                currentPath === "/learning" ? "bg-primary text-primary-foreground" : "hover:bg-muted"
               )}
             >
               <BookOpen size={18} />
@@ -157,7 +198,7 @@ const Sidebar = () => {
               href="/chat" 
               className={cn(
                 "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
-                pathname === "/chat" ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+                currentPath === "/chat" ? "bg-primary text-primary-foreground" : "hover:bg-muted"
               )}
             >
               <MessageSquare size={18} />
@@ -176,7 +217,7 @@ const Sidebar = () => {
                   href="/crm"
                   className={cn(
                     "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
-                    pathname && pathname.startsWith("/crm") ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+                    currentPath && currentPath.startsWith("/crm") ? "bg-primary text-primary-foreground" : "hover:bg-muted"
                   )}
                 >
                   <Shield size={18} />
@@ -194,7 +235,7 @@ const Sidebar = () => {
               href="/settings" 
               className={cn(
                 "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
-                pathname === "/settings" ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+                currentPath === "/settings" ? "bg-primary text-primary-foreground" : "hover:bg-muted"
               )}
             >
               <Settings size={18} />
@@ -206,7 +247,7 @@ const Sidebar = () => {
               href="/help" 
               className={cn(
                 "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
-                pathname === "/help" ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+                currentPath === "/help" ? "bg-primary text-primary-foreground" : "hover:bg-muted"
               )}
             >
               <HelpCircle size={18} />

@@ -72,35 +72,31 @@ export default function Header() {
   
   let navigation: { name: string; href: string }[] = [];
 
-  if (isMaestro && !isAdmin) {
+  if (isAdmin) {
+    navigation = [
+      { name: 'Admin', href: '/admin' },
+      { name: 'CRM', href: '/crm' },
+      { name: 'PejeCoins', href: '/pejecoins' },
+      { name: 'Chat', href: '/chat' },
+    ];
+  } else if (isMaestro) {
     navigation = [
       { name: 'Mercados', href: '/markets' },
       { name: 'Análisis Técnico', href: '/valores' },
       { name: 'Trending', href: '/trending' },
       { name: 'Chat en Vivo', href: '/chat' },
+      { name: 'Educación', href: '/learning' },
     ];
   } else {
     navigation = [
-    { name: 'Dashboard', href: '/' },
-    { name: 'Mercados', href: '/markets' },
-    { name: 'Posiciones', href: '/posiciones-abiertas' },
-    { name: 'Portfolio', href: '/portfolio' },
+      { name: 'Dashboard', href: '/' },
+      { name: 'Mercados', href: '/markets' },
+      { name: 'Posiciones', href: '/posiciones-abiertas' },
+      { name: 'Portfolio', href: '/portfolio' },
       { name: 'Estadísticas', href: '/statistics' },
-  ];
-  }
-  
-  // Enlaces específicos para roles
-  if (isAdmin) {
-    navigation.push({ name: 'Admin', href: '/admin' });
-  }
-  
-  if (isMaestro) {
-    navigation.push({ name: 'Educación', href: '/learning' });
-  }
-
-  // Acceso al CRM sólo para admin
-  if (isAdmin) {
-    navigation.push({ name: 'CRM', href: '/crm' });
+      { name: 'PejeCoins', href: '/pejecoins' },
+      { name: 'Chat', href: '/chat' },
+    ];
   }
   
   return (
