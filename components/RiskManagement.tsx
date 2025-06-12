@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CompatButton as Button } from '@/components/ui/compat-button';
@@ -26,6 +26,8 @@ import {
   Settings
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useTradePositions } from '@/contexts/TradePositionsContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Tipos para las operaciones
 interface Position {
@@ -53,15 +55,17 @@ interface RiskManagementState {
 }
 
 export function RiskManagement() {
-  // Estado principal del sistema de gestión de riesgo
-  const [riskState, setRiskState] = useState<RiskManagementState>({
-    totalCapital: 10000, // Capital inicial de ejemplo
-    availableFunds: 10000,
-    usedMargin: 0,
-    freeMargin: 10000,
-    marginLevel: 0,
-    positions: []
-  });
+  // Contextos globales
+  const {
+    positions: ctxPositions,
+    addPosition,
+    removePosition: removeCtxPosition,
+    updatePositionPrices
+  } = useTradePositions();
+
+  const { user } = useAuth();
+
+  const totalCapital = user?.pejecoins ?? 0;
 
   // Estados para nueva operación
   const [newPosition, setNewPosition] = useState({
@@ -73,7 +77,7 @@ export function RiskManagement() {
     leverage: 100
   });
 
-  // Precios simulados para diferentes símbolos
+  // Precios simulados para diferentes símbolos (se actualizarán cada 2 s)
   const [marketPrices, setMarketPrices] = useState({
     'EURUSD': 1.0850,
     'GBPUSD': 1.2650,
@@ -91,18 +95,21 @@ export function RiskManagement() {
         Object.keys(updated).forEach(symbol => {
           const change = (Math.random() - 0.5) * 0.02; // Cambio de ±1%
           updated[symbol as keyof typeof updated] *= (1 + change);
+
+          // Actualizar posiciones en el contexto global para reflejar nuevo precio
+          updatePositionPrices(symbol, updated[symbol as keyof typeof updated]);
         });
         return updated;
       });
     }, 2000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [updatePositionPrices]);
 
   // Calcular margen requerido para una nueva posición
   const calculateMarginRequired = useCallback((fraction: number, symbol: string, lotSize: number, leverage: number = 100) => {
     const price = marketPrices[symbol as keyof typeof marketPrices] || 1;
-    const capitalToUse = riskState.totalCapital * fraction;
+    const capitalToUse = totalCapital * fraction;
     
     // Para forex, típicamente 1 lote = 100,000 unidades
     let contractSize = 100000;
@@ -116,44 +123,62 @@ export function RiskManagement() {
     const marginRequired = positionValue / leverage;
     
     return Math.min(marginRequired, capitalToUse);
-  }, [riskState.totalCapital, marketPrices]);
+  }, [totalCapital, marketPrices]);
 
-  // Actualizar posiciones en tiempo real
-  useEffect(() => {
-    setRiskState(prev => {
-      const updatedPositions = prev.positions.map(position => {
-        const currentPrice = marketPrices[position.symbol as keyof typeof marketPrices] || position.currentPrice;
-        
-        // Calcular PnL no realizado
-        let pnlMultiplier = 1;
-        if (position.type === 'sell' || position.direction === 'short') {
-          pnlMultiplier = -1;
-        }
-        
-        const priceDifference = currentPrice - position.entryPrice;
-        const unrealizedPnL = priceDifference * position.volume * pnlMultiplier;
-        
-        return {
-          ...position,
-          currentPrice,
-          unrealizedPnL
-        };
-      });
+  // Enriquecer posiciones con métricas de riesgo y calcular agregados
+  const riskState = useMemo(() => {
+    const enrichedPositions = ctxPositions.map(pos => {
+      const symbol = pos.marketName || pos.marketId;
+      const currentPrice = marketPrices[symbol as keyof typeof marketPrices] || pos.currentPrice;
 
-      const totalUsedMargin = updatedPositions.reduce((sum, pos) => sum + pos.marginRequired, 0);
-      const totalUnrealizedPnL = updatedPositions.reduce((sum, pos) => sum + pos.unrealizedPnL, 0);
-      const freeMargin = prev.totalCapital - totalUsedMargin + totalUnrealizedPnL;
-      const marginLevel = totalUsedMargin > 0 ? (freeMargin / totalUsedMargin) * 100 : 0;
+      // Determinar tamaño de contrato
+      let contractSize = 100000;
+      if (symbol.includes('BTC') || symbol.includes('ETH')) {
+        contractSize = 1;
+      } else if (symbol.includes('XAU')) {
+        contractSize = 100;
+      }
+
+      const lotSize = pos.lotSize || 1;
+      const positionValue = currentPrice * contractSize * lotSize;
+      const marginRequired = positionValue / (pos.leverage || 100);
+
+      // Calcular PnL no realizado
+      const directionMultiplier = (pos.direction === 'down' || pos.type === 'sell') ? -1 : 1;
+      const priceDifference = currentPrice - pos.openPrice;
+      const volume = contractSize * lotSize;
+      const unrealizedPnL = priceDifference * volume * directionMultiplier;
 
       return {
-        ...prev,
-        positions: updatedPositions,
-        usedMargin: totalUsedMargin,
-        freeMargin: Math.max(0, freeMargin),
-        marginLevel: Math.max(0, marginLevel)
-      };
+        id: pos.id,
+        type: pos.type ?? (pos.direction === 'up' ? 'buy' : 'sell'),
+        direction: pos.direction === 'up' ? 'long' : 'short',
+        symbol,
+        lotSize,
+        entryPrice: pos.openPrice,
+        currentPrice,
+        openTime: pos.openTime,
+        volume,
+        marginRequired,
+        unrealizedPnL,
+        fractionUsed: pos.capitalFraction || 0
+      } as Position;
     });
-  }, [marketPrices]);
+
+    const usedMargin = enrichedPositions.reduce((sum, p) => sum + p.marginRequired, 0);
+    const unrealizedPnL = enrichedPositions.reduce((sum, p) => sum + p.unrealizedPnL, 0);
+    const freeMargin = Math.max(0, totalCapital - usedMargin + unrealizedPnL);
+    const marginLevel = usedMargin > 0 ? (freeMargin / usedMargin) * 100 : 0;
+
+    return {
+      totalCapital,
+      availableFunds: totalCapital,
+      usedMargin,
+      freeMargin,
+      marginLevel,
+      positions: enrichedPositions
+    } as RiskManagementState;
+  }, [ctxPositions, marketPrices, totalCapital]);
 
   // Abrir nueva posición
   const openPosition = () => {
@@ -171,35 +196,20 @@ export function RiskManagement() {
 
     const currentPrice = marketPrices[newPosition.symbol as keyof typeof marketPrices] || 1;
     
-    // Calcular volumen basado en el tipo de activo
-    let contractSize = 100000;
-    if (newPosition.symbol.includes('BTC') || newPosition.symbol.includes('ETH')) {
-      contractSize = 1;
-    } else if (newPosition.symbol.includes('XAU')) {
-      contractSize = 100;
-    }
-    
-    const volume = contractSize * newPosition.lotSize;
-
-    const position: Position = {
-      id: `pos_${Date.now()}`,
-      type: newPosition.type,
-      direction: newPosition.direction,
-      symbol: newPosition.symbol,
-      lotSize: newPosition.lotSize,
-      entryPrice: currentPrice,
-      currentPrice,
-      openTime: new Date(),
-      volume,
-      marginRequired,
-      unrealizedPnL: 0,
-      fractionUsed: newPosition.fraction
-    };
-
-    setRiskState(prev => ({
-      ...prev,
-      positions: [...prev.positions, position]
-    }));
+    // Crear posición en backend/context
+    addPosition({
+      instrumentId: newPosition.symbol,
+      instrumentName: newPosition.symbol,
+      marketColor: '',
+      direction: newPosition.type === 'buy' ? 'up' : 'down',
+      amount: totalCapital * newPosition.fraction,
+      stake: totalCapital * newPosition.fraction,
+      openPrice: currentPrice,
+      duration: { value: 1, unit: 'hour' },
+      leverage: newPosition.leverage,
+      capitalFraction: newPosition.fraction,
+      lotSize: newPosition.lotSize
+    });
 
     // Reset form
     setNewPosition(prev => ({
@@ -211,20 +221,7 @@ export function RiskManagement() {
 
   // Cerrar posición
   const closePosition = (positionId: string) => {
-    setRiskState(prev => {
-      const position = prev.positions.find(p => p.id === positionId);
-      if (!position) return prev;
-
-      // Actualizar capital total con el PnL realizado
-      const newTotalCapital = prev.totalCapital + position.unrealizedPnL;
-      const updatedPositions = prev.positions.filter(p => p.id !== positionId);
-
-      return {
-        ...prev,
-        totalCapital: newTotalCapital,
-        positions: updatedPositions
-      };
-    });
+    removeCtxPosition(positionId);
   };
 
   // Obtener color del nivel de margen

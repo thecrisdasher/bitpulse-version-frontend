@@ -437,6 +437,33 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
                 />
               </div>
 
+              {/* Leverage Selector */}
+              <div className="space-y-2">
+                <h4 className="font-medium text-sm text-muted-foreground flex items-center gap-1">
+                  <Percent className="h-4 w-4" />
+                  Apalancamiento
+                </h4>
+                <div className="flex items-center gap-2">
+                  <Slider
+                    min={1}
+                    max={100}
+                    step={1}
+                    value={[leverage]}
+                    onValueChange={(val)=>setLeverage(val[0])}
+                    className="flex-1"
+                  />
+                  <Input
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={leverage}
+                    onChange={e=>setLeverage(Math.max(1, Math.min(100, Number(e.target.value))))}
+                    className="w-20 text-center"
+                  />
+                  <span className="text-sm">×</span>
+                </div>
+              </div>
+
               {/* Métricas de Riesgo en tiempo real */}
               <div className="grid grid-cols-2 gap-2">
                 <Tooltip>

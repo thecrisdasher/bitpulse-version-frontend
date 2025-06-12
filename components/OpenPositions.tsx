@@ -41,6 +41,7 @@ export type TradePosition = {
   };
   profit: number;
   profitPercentage: number;
+  leverage?: number;
 };
 
 interface OpenPositionsProps {
@@ -254,6 +255,7 @@ const OpenPositions: React.FC<OpenPositionsProps> = ({ positions, onClosePositio
                 <TableHead className="w-[80px]">Mercado</TableHead>
                 <TableHead>Dirección</TableHead>
                 <TableHead className="text-right">Inversión</TableHead>
+                <TableHead className="text-right">Lev.</TableHead>
                 <TableHead className="text-right">Ganancia</TableHead>
                 <TableHead className="text-right">Expira</TableHead>
                 <TableHead className="w-[40px]"></TableHead>
@@ -318,23 +320,21 @@ const OpenPositions: React.FC<OpenPositionsProps> = ({ positions, onClosePositio
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex flex-col">
-                          <span className="font-medium">{formatCurrency(position.amount)}</span>
-                          {showRiskMetrics && riskMetrics && (
-                            <span className="text-xs text-muted-foreground">
-                              {(riskMetrics.fraction * 100).toFixed(1)}% del capital
-                            </span>
-                          )}
+                          <span suppressHydrationWarning className="font-medium">{formatCurrency(position.amount)}</span>
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
+                        {position.leverage ? `${position.leverage}×` : '—'}
+                      </TableCell>
+                      <TableCell className="text-right">
                         <div className="flex flex-col">
-                          <span className={cn(
+                          <span suppressHydrationWarning className={cn(
                             "font-bold",
                             position.profit >= 0 ? "text-green-500" : "text-red-500"
                           )}>
                             {position.profit >= 0 ? "+" : ""}{formatCurrency(position.profit)}
                           </span>
-                          <span className={cn(
+                          <span suppressHydrationWarning className={cn(
                             "text-xs",
                             position.profitPercentage >= 0 ? "text-green-500" : "text-red-500"
                           )}>
@@ -415,6 +415,10 @@ const OpenPositions: React.FC<OpenPositionsProps> = ({ positions, onClosePositio
                                   <div className="flex justify-between">
                                     <span>Duración total:</span>
                                     <span className="font-medium">{formatDuration(position.duration)}</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span>Apalancamiento:</span>
+                                    <span className="font-medium">{(position.leverage ?? 1)}×</span>
                                   </div>
                                   <div className="flex justify-between">
                                     <span>Expiración:</span>
