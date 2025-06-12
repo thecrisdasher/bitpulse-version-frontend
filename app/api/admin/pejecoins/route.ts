@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { JWTService } from '@/lib/services/jwtService';
+import { createSessionFromRequest } from '@/lib/auth/session';
 import { PejeCoinService } from '@/lib/services/pejeCoinService';
 import { logger } from '@/lib/logging/logger';
 
@@ -11,24 +11,17 @@ import { logger } from '@/lib/logging/logger';
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    // Verificar autenticación del administrador
-    const authHeader = request.headers.get('authorization');
-    const token = JWTService.extractTokenFromHeader(authHeader);
-    
-    if (!token) {
-      return NextResponse.json({
-        success: false,
-        message: 'Token de autenticación no proporcionado'
-      }, { status: 401 });
+    // Verificar autenticación mediante cookie de sesión
+    const session = await createSessionFromRequest(request);
+    if (!session) {
+      return NextResponse.json({ success: false, message: 'No autorizado' }, { status: 401 });
     }
 
-    // Verificar que el usuario es administrador
-    const decodedToken = await JWTService.verifyToken(token);
-    if (decodedToken.role !== 'admin') {
-      logger.logSecurity('unauthorized_access', 'high', {
-        userId: decodedToken.userId,
+    if (session.role !== 'admin') {
+      logger.logSecurity('invalid_token', 'high', {
+        userId: session.sub,
         endpoint: '/api/admin/pejecoins',
-        userRole: decodedToken.role,
+        userRole: session.role,
         requiredRole: 'admin'
       });
       
@@ -51,15 +44,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     // Realizar la asignación de pejecoins
     const transaction = await PejeCoinService.assignCoins(
-      decodedToken.userId,
+      session.sub,
       userId,
       amount,
       concept || 'Asignación de pejecoins por administrador'
     );
 
-    logger.info('user_activity', `Admin ${decodedToken.userId} assigned ${amount} pejecoins to user ${userId}`, {
+    logger.info('user_activity', `Admin ${session.sub} assigned ${amount} pejecoins to user ${userId}`, {
       transactionId: transaction.id,
-      adminId: decodedToken.userId,
+      adminId: session.sub,
       userId,
       amount
     });
@@ -84,24 +77,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 // GET para obtener historial de transacciones de un usuario específico
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
-    // Verificar autenticación del administrador
-    const authHeader = request.headers.get('authorization');
-    const token = JWTService.extractTokenFromHeader(authHeader);
-    
-    if (!token) {
-      return NextResponse.json({
-        success: false,
-        message: 'Token de autenticación no proporcionado'
-      }, { status: 401 });
+    // Verificar autenticación mediante cookie de sesión
+    const session = await createSessionFromRequest(request);
+    if (!session) {
+      return NextResponse.json({ success: false, message: 'No autorizado' }, { status: 401 });
     }
 
-    // Verificar que el usuario es administrador
-    const decodedToken = await JWTService.verifyToken(token);
-    if (decodedToken.role !== 'admin') {
-      logger.logSecurity('unauthorized_access', 'high', {
-        userId: decodedToken.userId,
+    if (session.role !== 'admin') {
+      logger.logSecurity('invalid_token', 'high', {
+        userId: session.sub,
         endpoint: '/api/admin/pejecoins',
-        userRole: decodedToken.role,
+        userRole: session.role,
         requiredRole: 'admin'
       });
       

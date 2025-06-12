@@ -124,7 +124,7 @@ const Sidebar = () => {
               )}
             >
               <Coins size={18} />
-              Mis PejeCoins
+              {isAdmin ? 'Manejo de PejeCoins' : 'Mis PejeCoins'}
             </Link>
           </li>
           <li>

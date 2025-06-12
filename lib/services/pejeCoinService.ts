@@ -1,6 +1,8 @@
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from '@/lib/logging/logger';
 import type { PejeCoinTransaction, User } from '@/lib/db/schema';
+import { prisma } from '@/lib/db';
+import { Prisma } from '@prisma/client';
 
 /**
  * Servicio para gestionar las transacciones de pejecoins entre usuarios
@@ -25,26 +27,37 @@ export class PejeCoinService {
       // En un sistema real, aquí verificaríamos si el adminId tiene permisos
       // Por ahora simulamos una transacción con éxito
       
-      const transaction: PejeCoinTransaction = {
-        id: uuidv4(),
-        fromUserId: adminId, // El administrador que asigna
-        toUserId: userId,    // El usuario que recibe
-        amount,
-        concept: concept || 'Asignación de pejecoins por administrador',
-        timestamp: new Date(),
-        status: 'completed'
-      };
-
-      // En un sistema real, esto se almacenaría en la base de datos
-      // y se actualizaría el saldo del usuario
+      const txId = uuidv4();
       
+      const updated = await prisma.$transaction(async (tx) => {
+        // Sumar pejecoins al usuario destino
+        await tx.user.update({
+          where: { id: userId },
+          data: { pejecoins: { increment: amount } }
+        });
+
+        const createdTx = await tx.pejeCoinTransaction.create({
+          data: {
+            id: txId,
+            fromUserId: adminId,
+            toUserId: userId,
+            amount,
+            concept: concept || 'Asignación de pejecoins por administrador',
+            timestamp: new Date(),
+            status: 'completed' as const,
+            referenceId: null
+          }
+        });
+        return createdTx;
+      });
+
       logger.logUserActivity('pejeCoin_assigned', adminId, {
         toUserId: userId,
         amount,
-        transactionId: transaction.id
+        transactionId: updated.id
       });
 
-      return transaction;
+      return updated as PejeCoinTransaction;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error desconocido';
       logger.error('user_activity', 'Failed to assign coins', error as Error);
@@ -82,7 +95,7 @@ export class PejeCoinService {
         amount,
         concept: concept || 'Transferencia entre usuarios',
         timestamp: new Date(),
-        status: 'completed'
+        status: 'completed' as const
       };
 
       logger.logUserActivity('pejeCoin_transferred', fromUserId, {
@@ -104,9 +117,8 @@ export class PejeCoinService {
    */
   static async getUserBalance(userId: string): Promise<number> {
     try {
-      // En un sistema real, obtendríamos esto de la base de datos
-      // Por ahora, devolvemos un valor de ejemplo
-      return 1000;
+      const user = await prisma.user.findUnique({ where: { id: userId }, select: { pejecoins: true } });
+      return user?.pejecoins ?? 0;
     } catch (error) {
       logger.error('user_activity', 'Failed to get user balance', error as Error);
       throw new Error('Error al obtener el saldo');
@@ -118,28 +130,11 @@ export class PejeCoinService {
    */
   static async getUserTransactions(userId: string): Promise<PejeCoinTransaction[]> {
     try {
-      // En un sistema real, obtendríamos esto de la base de datos
-      // Por ahora, devolvemos transacciones ficticias
-      return [
-        {
-          id: '1',
-          fromUserId: null,
-          toUserId: userId,
-          amount: 1000,
-          concept: 'Saldo inicial',
-          timestamp: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 días atrás
-          status: 'completed'
-        },
-        {
-          id: '2',
-          fromUserId: null,
-          toUserId: userId,
-          amount: 500,
-          concept: 'Bonus de bienvenida',
-          timestamp: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000),
-          status: 'completed'
-        }
-      ];
+      const txs = await prisma.pejeCoinTransaction.findMany({
+        where: { toUserId: userId },
+        orderBy: { timestamp: 'desc' },
+      });
+      return txs as PejeCoinTransaction[];
     } catch (error) {
       logger.error('user_activity', 'Failed to get transaction history', error as Error);
       throw new Error('Error al obtener el historial de transacciones');
