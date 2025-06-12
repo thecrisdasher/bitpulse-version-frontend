@@ -41,16 +41,16 @@ export class PejeCoinService {
             id: txId,
             fromUserId: adminId,
             toUserId: userId,
-            amount,
-            concept: concept || 'Asignación de pejecoins por administrador',
-            timestamp: new Date(),
+        amount,
+        concept: concept || 'Asignación de pejecoins por administrador',
+        timestamp: new Date(),
             status: 'completed' as const,
             referenceId: null
           }
         });
         return createdTx;
       });
-
+      
       logger.logUserActivity('pejeCoin_assigned', adminId, {
         toUserId: userId,
         amount,

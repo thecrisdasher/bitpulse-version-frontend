@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'roomId es requerido' }, { status: 400 });
     }
 
-    // Verificar que el usuario tenga acceso a la sala
+    // Verificar que el usuario tenga acceso a la sala o sea admin
     const participant = await prisma.chatParticipant.findFirst({
       where: {
         roomId,
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    if (!participant) {
+    if (!participant && user.role !== 'admin') {
       return NextResponse.json({ error: 'No tienes acceso a esta sala' }, { status: 403 });
     }
 

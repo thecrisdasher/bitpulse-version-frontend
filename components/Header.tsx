@@ -81,12 +81,12 @@ export default function Header() {
     ];
   } else {
     navigation = [
-      { name: 'Dashboard', href: '/' },
-      { name: 'Mercados', href: '/markets' },
-      { name: 'Posiciones', href: '/posiciones-abiertas' },
-      { name: 'Portfolio', href: '/portfolio' },
+    { name: 'Dashboard', href: '/' },
+    { name: 'Mercados', href: '/markets' },
+    { name: 'Posiciones', href: '/posiciones-abiertas' },
+    { name: 'Portfolio', href: '/portfolio' },
       { name: 'Estadísticas', href: '/statistics' },
-    ];
+  ];
   }
   
   // Enlaces específicos para roles

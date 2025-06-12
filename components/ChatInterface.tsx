@@ -28,6 +28,8 @@ import { cn } from "@/lib/utils";
 import { useChat } from "@/contexts/ChatContext";
 import { useAuth } from "@/contexts/AuthContext";
 import LiveChat from "./LiveChat";
+import GroupModal from "./modals/GroupModal";
+import { Switch } from "@/components/ui/switch";
 
 interface ChatInterfaceProps {
   className?: string;
@@ -49,10 +51,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [showMentorAssignment, setShowMentorAssignment] = useState(false);
+  const [showGroupModal, setShowGroupModal] = useState(false);
+  const [showAllChats, setShowAllChats] = useState(false);
 
   useEffect(() => {
-    loadRooms();
-  }, [loadRooms]);
+    loadRooms(showAllChats && user?.role === 'admin');
+  }, [loadRooms, showAllChats, user]);
 
   // Filtrar salas según término de búsqueda
   const filteredRooms = rooms.filter(room => {
@@ -115,10 +119,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
                     <MessageSquare className="h-4 w-4 mr-2" />
                     Nuevo chat
                   </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <Users className="h-4 w-4 mr-2" />
-                    Crear grupo
-                  </DropdownMenuItem>
+                  {user?.role === 'admin' && (
+                    <DropdownMenuItem onClick={() => setShowGroupModal(true)}>
+                      <Users className="h-4 w-4 mr-2" />
+                      Crear grupo
+                    </DropdownMenuItem>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -136,16 +142,24 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
           </div>
         </div>
 
-        {/* Estado de conexión */}
+        {/* Estado de conexión y toggle admin */}
         <div className="px-4 py-2 border-b border-border">
-          <div className="flex items-center gap-2">
-            <div className={cn(
-              "w-2 h-2 rounded-full",
-              isConnected ? "bg-green-500" : "bg-red-500"
-            )} />
-            <span className="text-sm text-muted-foreground">
-              {isConnected ? 'Conectado' : 'Conectando...'}
-            </span>
+          <div className="flex items-center gap-2 justify-between">
+            <div className="flex items-center gap-2">
+              <div className={cn(
+                "w-2 h-2 rounded-full",
+                isConnected ? "bg-green-500" : "bg-red-500"
+              )} />
+              <span className="text-sm text-muted-foreground">
+                {isConnected ? 'Conectado' : 'Conectando...'}
+              </span>
+            </div>
+            {user?.role === 'admin' && (
+              <div className="flex items-center gap-1 text-xs">
+                <Switch checked={showAllChats} onCheckedChange={setShowAllChats} id="allchats" />
+                <label htmlFor="allchats">Todos los chats</label>
+              </div>
+            )}
           </div>
         </div>
 
@@ -289,6 +303,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
           </div>
         )}
       </div>
+
+      {/* Modal de creación/edición de grupo */}
+      {user?.role === 'admin' && (
+        <GroupModal 
+          open={showGroupModal}
+          onOpenChange={setShowGroupModal}
+        />
+      )}
     </div>
   );
 };

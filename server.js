@@ -107,13 +107,13 @@ app.prepare().then(() => {
           }
         });
 
-        if (!participant) {
+        if (!participant && socket.user.role !== 'admin') {
           socket.emit('error', { message: 'No tienes acceso a esta sala' });
           return;
         }
 
         socket.join(roomId);
-        socket.emit('joined_room', { roomId, room: participant.room });
+        socket.emit('joined_room', { roomId, room: participant?.room || undefined });
         
         // Notificar a otros en la sala
         socket.to(roomId).emit('user_joined_room', {

@@ -27,7 +27,7 @@ interface Message {
 
 interface ChatRoom {
   id: string;
-  type: 'private' | 'general';
+  type: 'private' | 'general' | 'group';
   name?: string;
   participants: User[];
   lastMessage?: Message;
@@ -65,7 +65,7 @@ interface ChatContextType {
   userMentor: User | null;
   
   // Funciones de carga
-  loadRooms: () => Promise<void>;
+  loadRooms: (all?: boolean) => Promise<void>;
   loadMessages: (roomId: string) => Promise<void>;
   loadMentors: () => Promise<void>;
 }
@@ -202,9 +202,9 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
   }, [isConnected, user]);
 
   // Funciones de API
-  const loadRooms = useCallback(async () => {
+  const loadRooms = useCallback(async (all: boolean = false) => {
     try {
-      const response = await fetch('/api/chat/rooms', {
+      const response = await fetch(`/api/chat/rooms${all ? '?scope=all' : ''}`, {
         credentials: 'include'
       });
       

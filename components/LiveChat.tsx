@@ -19,7 +19,9 @@ import {
   CheckCheck,
   AlertCircle,
   User,
-  MessageSquare
+  MessageSquare,
+  Pencil,
+  Trash
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -37,6 +39,9 @@ import {
 import { cn } from "@/lib/utils";
 import { useChat } from "@/contexts/ChatContext";
 import { useAuth } from "@/contexts/AuthContext";
+import GroupModal from "./modals/GroupModal";
+import { toast } from "sonner";
+import ParticipantsModal from "./modals/ParticipantsModal";
 
 interface LiveChatProps {
   className?: string;
@@ -63,11 +68,15 @@ const LiveChat: React.FC<LiveChatProps> = ({
     startTyping,
     stopTyping,
     setCurrentRoom,
-    rooms
+    rooms,
+    loadRooms
   } = useChat();
   
   const [newMessage, setNewMessage] = useState('');
   const [typingTimeout, setTypingTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [showEditGroupModal, setShowEditGroupModal] = useState(false);
+  const [groupToEdit, setGroupToEdit] = useState<any>(null);
+  const [showParticipantsModal, setShowParticipantsModal] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -175,6 +184,40 @@ const LiveChat: React.FC<LiveChatProps> = ({
 
   const otherParticipant = getOtherParticipant();
 
+  const isReadOnly = Boolean(currentRoom && user?.role === 'admin' && !currentRoom.participants.some(p => p.id === user.id));
+
+  const handleEditGroup = () => {
+    if (!currentRoom) return;
+    setGroupToEdit({
+      id: currentRoom.id,
+      name: currentRoom.name || "",
+      participants: currentRoom.participants
+    });
+    setShowEditGroupModal(true);
+  };
+
+  const handleDeleteGroup = async () => {
+    if (!currentRoom) return;
+    const confirmDelete = window.confirm("¿Estás seguro de eliminar este grupo?");
+    if (!confirmDelete) return;
+    try {
+      const res = await fetch(`/api/chat/groups?id=${currentRoom.id}`, {
+        method: "DELETE",
+        credentials: "include"
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast.success("Grupo eliminado");
+        setCurrentRoom(null);
+        loadRooms(true);
+      } else {
+        toast.error(json.message || "Error eliminando grupo");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Error eliminando grupo");
+    }
+  };
+
   if (minimized) {
     return (
       <div className={cn("fixed bottom-4 right-4 z-50", className)}>
@@ -220,12 +263,13 @@ const LiveChat: React.FC<LiveChatProps> = ({
               </div>
               <div className="flex-1">
                 <CardTitle className="text-sm font-medium">
-                  {currentRoom?.type === 'general' 
-                    ? 'Chat General' 
-                    : otherParticipant 
-                      ? `${otherParticipant.firstName} ${otherParticipant.lastName}`
-                      : 'Chat'
-                  }
+                  {currentRoom?.type === 'general'
+                    ? 'Chat General'
+                    : currentRoom?.type === 'private'
+                      ? (otherParticipant 
+                          ? `${otherParticipant.firstName} ${otherParticipant.lastName}`
+                          : 'Chat Privado')
+                      : currentRoom?.name ?? 'Grupo'}
                 </CardTitle>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   {otherParticipant && (
@@ -237,7 +281,10 @@ const LiveChat: React.FC<LiveChatProps> = ({
                     </>
                   )}
                   {currentRoom?.type === 'general' && (
-                    <span>{currentRoom.participants.length} participantes</span>
+                    <>
+                      <span>{currentRoom.participants.length} participantes</span>
+                      <span className="italic">Grupo: {currentRoom?.name || 'Chat General'}</span>
+                    </>
                   )}
                 </div>
               </div>
@@ -270,7 +317,7 @@ const LiveChat: React.FC<LiveChatProps> = ({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setShowParticipantsModal(true)}>
                     <Users className="h-4 w-4 mr-2" />
                     Ver participantes
                   </DropdownMenuItem>
@@ -283,6 +330,19 @@ const LiveChat: React.FC<LiveChatProps> = ({
                   <DropdownMenuItem onClick={onToggleMinimize}>
                     Minimizar chat
                   </DropdownMenuItem>
+                  )}
+                  {user?.role === 'admin' && currentRoom?.type === 'general' && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={handleEditGroup}>
+                        <Pencil className="h-4 w-4 mr-2" />
+                        Editar grupo
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleDeleteGroup} className="text-red-600 focus:text-red-600">
+                        <Trash className="h-4 w-4 mr-2" />
+                        Eliminar grupo
+                      </DropdownMenuItem>
+                    </>
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -304,77 +364,80 @@ const LiveChat: React.FC<LiveChatProps> = ({
         <CardContent className="flex-1 p-0">
           <div className="p-4 h-[400px] overflow-y-auto flex flex-col space-y-4">
             {currentMessages.map((message) => (
-              <div
-                key={message.id}
-                className={cn(
-                  "flex gap-2",
+                <div
+                  key={message.id}
+                  className={cn(
+                    "flex gap-2",
                   message.senderId === user?.id ? "justify-end" : "justify-start"
-                )}
-              >
+                  )}
+                >
                 {message.senderId !== user?.id && (
-                  <Avatar className="h-8 w-8 mt-1">
+                    <Avatar className="h-8 w-8 mt-1">
                     <AvatarImage src={message.sender.profilePicture} />
-                    <AvatarFallback>
+                      <AvatarFallback>
                       {message.sender.firstName?.charAt(0) || <User className="h-4 w-4" />}
-                    </AvatarFallback>
-                  </Avatar>
-                )}
-                <div className={cn(
-                  "max-w-[70%] space-y-1",
+                      </AvatarFallback>
+                    </Avatar>
+                  )}
+                  <div className={cn(
+                    "max-w-[70%] space-y-1",
                   message.senderId === user?.id ? "items-end" : "items-start"
-                )}>
-                  <div className={cn(
-                    "rounded-lg px-3 py-2 text-sm",
+                  )}>
+                    <div className={cn(
+                      "rounded-lg px-3 py-2 text-sm",
                     message.senderId === user?.id
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted"
-                  )}>
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted"
+                    )}>
                     {message.body}
-                  </div>
-                  <div className={cn(
-                    "flex items-center gap-1 text-xs text-muted-foreground",
+                    </div>
+                    <div className={cn(
+                      "flex items-center gap-1 text-xs text-muted-foreground",
                     message.senderId === user?.id ? "justify-end" : "justify-start"
-                  )}>
+                    )}>
                     <span>{formatTime(message.createdAt)}</span>
                     {message.senderId === user?.id && getMessageStatusIcon(message.status)}
                   </div>
                 </div>
                 {message.senderId === user?.id && (
-                  <Avatar className="h-8 w-8 mt-1">
+                    <Avatar className="h-8 w-8 mt-1">
                     <AvatarImage src={user.profilePicture} />
-                    <AvatarFallback>
+                      <AvatarFallback>
                       {user.firstName?.charAt(0) || <User className="h-4 w-4" />}
+                      </AvatarFallback>
+                    </Avatar>
+                  )}
+                </div>
+              ))}
+              
+            {currentTypingUsers.length > 0 && (
+                <div className="flex gap-2 justify-start">
+                  <Avatar className="h-8 w-8 mt-1">
+                  <AvatarImage src={currentTypingUsers[0].profilePicture} />
+                    <AvatarFallback>
+                    {currentTypingUsers[0].firstName?.charAt(0) || <User className="h-4 w-4" />}
                     </AvatarFallback>
                   </Avatar>
-                )}
-              </div>
-            ))}
-            
-            {currentTypingUsers.length > 0 && (
-              <div className="flex gap-2 justify-start">
-                <Avatar className="h-8 w-8 mt-1">
-                  <AvatarImage src={currentTypingUsers[0].profilePicture} />
-                  <AvatarFallback>
-                    {currentTypingUsers[0].firstName?.charAt(0) || <User className="h-4 w-4" />}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="bg-muted rounded-lg px-3 py-2 text-sm">
-                  <div className="flex space-x-1">
-                    <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" />
-                    <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
-                    <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
+                  <div className="bg-muted rounded-lg px-3 py-2 text-sm">
+                    <div className="flex space-x-1">
+                      <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" />
+                      <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
+                      <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
         </CardContent>
 
         <Separator />
 
         <div className="p-4">
           {currentRoom ? (
+          isReadOnly ? (
+            <div className="text-center text-muted-foreground text-sm">Vista solo lectura.</div>
+          ) : (
           <div className="flex items-end gap-2">
             <div className="flex-1 relative">
               <Input
@@ -383,7 +446,7 @@ const LiveChat: React.FC<LiveChatProps> = ({
                   onChange={(e) => handleTyping(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Escribe tu mensaje..."
-                  disabled={!isConnected}
+                  disabled={!isConnected || isReadOnly}
                 className="pr-20"
               />
               <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center gap-1">
@@ -391,7 +454,7 @@ const LiveChat: React.FC<LiveChatProps> = ({
                   variant="ghost"
                   size="icon"
                   className="h-6 w-6"
-                  disabled={!isConnected}
+                  disabled={!isConnected || isReadOnly}
                 >
                   <Paperclip className="h-4 w-4" />
                 </Button>
@@ -399,7 +462,7 @@ const LiveChat: React.FC<LiveChatProps> = ({
                   variant="ghost"
                   size="icon"
                   className="h-6 w-6"
-                  disabled={!isConnected}
+                  disabled={!isConnected || isReadOnly}
                 >
                   <Smile className="h-4 w-4" />
                 </Button>
@@ -407,20 +470,41 @@ const LiveChat: React.FC<LiveChatProps> = ({
             </div>
             <Button
               onClick={handleSendMessage}
-                disabled={!newMessage.trim() || !isConnected}
+                disabled={!newMessage.trim() || !isConnected || isReadOnly}
               size="icon"
               className="h-10 w-10"
             >
               <Send className="h-4 w-4" />
             </Button>
           </div>
-          ) : (
+          )) : (
             <div className="text-center text-muted-foreground">
               Selecciona una sala de chat para comenzar
             </div>
           )}
         </div>
       </Card>
+      {user?.role === 'admin' && (
+        <GroupModal
+          open={showEditGroupModal}
+          onOpenChange={(open) => {
+            setShowEditGroupModal(open);
+            if (!open) {
+              setGroupToEdit(null);
+              loadRooms(true);
+            }
+          }}
+          group={groupToEdit || undefined}
+        />
+      )}
+      {currentRoom && (
+        <ParticipantsModal
+          open={showParticipantsModal}
+          onOpenChange={setShowParticipantsModal}
+          groupId={currentRoom.id}
+          participants={currentRoom.participants}
+        />
+      )}
     </TooltipProvider>
   );
 };

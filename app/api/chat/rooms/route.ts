@@ -42,6 +42,84 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
+    // Revisar si el administrador solicita todas las salas
+    const { searchParams } = new URL(request.url);
+    const scope = searchParams.get('scope');
+
+    if (scope === 'all') {
+      // Sólo los administradores pueden solicitar todas las salas
+      if (user.role !== 'admin') {
+        return NextResponse.json({ error: 'Acceso denegado' }, { status: 403 });
+      }
+
+      const roomsData = await prisma.chatRoom.findMany({
+        include: {
+          participants: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  username: true,
+                  firstName: true,
+                  lastName: true,
+                  role: true,
+                  profilePicture: true
+                }
+              }
+            }
+          },
+          messages: {
+            take: 1,
+            orderBy: { createdAt: 'desc' },
+            include: {
+              sender: {
+                select: {
+                  id: true,
+                  username: true,
+                  firstName: true,
+                  lastName: true,
+                  role: true
+                }
+              }
+            }
+          }
+        }
+      });
+
+      // Ordenar por fecha de actualización (si existe) o de creación
+      (roomsData as any).sort((a: any, b: any) => {
+        const dateA = a.updatedAt ?? a.createdAt;
+        const dateB = b.updatedAt ?? b.createdAt;
+        return dateB.getTime() - dateA.getTime();
+      });
+
+      // Formatear datos para el frontend
+      const rooms = (roomsData as any).map((room: any) => {
+        const lastMessage = room.messages[0] || null;
+
+        // Para salas privadas, tomar el primer participante como referencia (el administrador no forma parte)
+        const otherParticipant = room.type === 'private'
+          ? room.participants[0]?.user || null
+          : null;
+
+        return {
+          id: room.id,
+          type: room.type,
+          name: room.type === 'private'
+            ? `${otherParticipant?.firstName} ${otherParticipant?.lastName}`
+            : room.name,
+          participants: room.participants.map((p: any) => p.user),
+          lastMessage,
+          unreadCount: 0,
+          createdAt: room.createdAt,
+          updatedAt: room.updatedAt,
+          otherParticipant,
+        };
+      });
+
+      return NextResponse.json({ rooms });
+    }
+
     // Obtener salas del usuario con información adicional
     const userRooms = await prisma.chatParticipant.findMany({
       where: { userId: user.id },

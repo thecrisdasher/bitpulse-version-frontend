@@ -130,15 +130,15 @@ export function RiskManagement() {
     const enrichedPositions = ctxPositions.map(pos => {
       const symbol = pos.marketName || pos.marketId;
       const currentPrice = marketPrices[symbol as keyof typeof marketPrices] || pos.currentPrice;
-
+        
       // Determinar tamaño de contrato
       let contractSize = 100000;
       if (symbol.includes('BTC') || symbol.includes('ETH')) {
         contractSize = 1;
       } else if (symbol.includes('XAU')) {
         contractSize = 100;
-      }
-
+        }
+        
       const lotSize = pos.lotSize || 1;
       const positionValue = currentPrice * contractSize * lotSize;
       const marginRequired = positionValue / (pos.leverage || 100);
