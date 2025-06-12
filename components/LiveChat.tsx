@@ -246,22 +246,22 @@ const LiveChat: React.FC<LiveChatProps> = ({
             <div className="flex items-center gap-1">
               {currentRoom?.type === 'private' && (
                 <>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <Phone className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Llamada de voz</TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <Video className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Videollamada</TooltipContent>
-                  </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <Phone className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Llamada de voz</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <Video className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Videollamada</TooltipContent>
+              </Tooltip>
                 </>
               )}
               <DropdownMenu>
@@ -281,9 +281,9 @@ const LiveChat: React.FC<LiveChatProps> = ({
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   {onToggleMinimize && (
-                    <DropdownMenuItem onClick={onToggleMinimize}>
-                      Minimizar chat
-                    </DropdownMenuItem>
+                  <DropdownMenuItem onClick={onToggleMinimize}>
+                    Minimizar chat
+                  </DropdownMenuItem>
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -378,45 +378,45 @@ const LiveChat: React.FC<LiveChatProps> = ({
 
         <div className="p-4">
           {currentRoom ? (
-            <div className="flex items-end gap-2">
-              <div className="flex-1 relative">
-                <Input
-                  ref={inputRef}
-                  value={newMessage}
+          <div className="flex items-end gap-2">
+            <div className="flex-1 relative">
+              <Input
+                ref={inputRef}
+                value={newMessage}
                   onChange={(e) => handleTyping(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Escribe tu mensaje..."
+                onKeyPress={handleKeyPress}
+                placeholder="Escribe tu mensaje..."
                   disabled={!isConnected}
-                  className="pr-20"
-                />
-                <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6"
-                    disabled={!isConnected}
-                  >
-                    <Paperclip className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6"
-                    disabled={!isConnected}
-                  >
-                    <Smile className="h-4 w-4" />
-                  </Button>
-                </div>
+                className="pr-20"
+              />
+              <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  disabled={!isConnected}
+                >
+                  <Paperclip className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  disabled={!isConnected}
+                >
+                  <Smile className="h-4 w-4" />
+                </Button>
               </div>
-              <Button
-                onClick={handleSendMessage}
-                disabled={!newMessage.trim() || !isConnected}
-                size="icon"
-                className="h-10 w-10"
-              >
-                <Send className="h-4 w-4" />
-              </Button>
             </div>
+            <Button
+              onClick={handleSendMessage}
+                disabled={!newMessage.trim() || !isConnected}
+              size="icon"
+              className="h-10 w-10"
+            >
+              <Send className="h-4 w-4" />
+            </Button>
+          </div>
           ) : (
             <div className="text-center text-muted-foreground">
               Selecciona una sala de chat para comenzar

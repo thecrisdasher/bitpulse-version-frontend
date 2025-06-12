@@ -70,13 +70,24 @@ export default function Header() {
     }
   };
   
-  const navigation = [
-    { name: 'Dashboard', href: '/' },
-    { name: 'Mercados', href: '/markets' },
-    { name: 'Posiciones', href: '/posiciones-abiertas' },
-    { name: 'Portfolio', href: '/portfolio' },
-    { name: 'Estadísticas', href: '/statistics' }
-  ];
+  let navigation: { name: string; href: string }[] = [];
+
+  if (isMaestro && !isAdmin) {
+    navigation = [
+      { name: 'Mercados', href: '/markets' },
+      { name: 'Análisis Técnico', href: '/valores' },
+      { name: 'Trending', href: '/trending' },
+      { name: 'Chat en Vivo', href: '/chat' },
+    ];
+  } else {
+    navigation = [
+      { name: 'Dashboard', href: '/' },
+      { name: 'Mercados', href: '/markets' },
+      { name: 'Posiciones', href: '/posiciones-abiertas' },
+      { name: 'Portfolio', href: '/portfolio' },
+      { name: 'Estadísticas', href: '/statistics' },
+    ];
+  }
   
   // Enlaces específicos para roles
   if (isAdmin) {
@@ -87,8 +98,8 @@ export default function Header() {
     navigation.push({ name: 'Educación', href: '/learning' });
   }
 
-  // Acceso al CRM para admin y maestro
-  if (isAdmin || isMaestro) {
+  // Acceso al CRM sólo para admin
+  if (isAdmin) {
     navigation.push({ name: 'CRM', href: '/crm' });
   }
   

@@ -21,12 +21,14 @@ const Sidebar = () => {
   const pathname = usePathname();
   const { t } = useTranslation();
   const { logout, isAuthenticated, hasRole } = useAuth();
+  const isAdmin = hasRole('admin');
+  const isMaestro = hasRole('maestro');
   
   // Use the context to get position data
   const { positions = [] } = useTradePositions?.() || { positions: [] };
   const openPositionsCount = positions.length;
 
-  const canAccessCrm = hasRole('admin');
+  const canAccessCrm = isAdmin;
 
   return (
     <div className="hidden lg:flex flex-col h-screen w-64 bg-card border-r border-border">
@@ -35,6 +37,7 @@ const Sidebar = () => {
       </div>
       <nav className="flex-1 overflow-y-auto">
         <ul className="px-2 space-y-1">
+          {!isMaestro && (
           <li>
             <Link 
               href="/" 
@@ -47,6 +50,7 @@ const Sidebar = () => {
               {t('nav.home')}
             </Link>
           </li>
+          )}
           <li>
             <Link 
               href="/markets" 
@@ -59,6 +63,7 @@ const Sidebar = () => {
               {t('nav.markets')}
             </Link>
           </li>
+          {(!isMaestro || isMaestro) && (
           <li>
             <Link 
               href="/valores" 
@@ -70,7 +75,7 @@ const Sidebar = () => {
               <TrendingUp size={18} />
               Análisis Técnico
             </Link>
-          </li>
+          </li>)}
           <li>
             <Link 
               href="/trending" 
@@ -83,6 +88,8 @@ const Sidebar = () => {
               Trending
             </Link>
           </li>
+          {!isMaestro && (
+          <>
           <li>
             <Link 
               href="/posiciones-abiertas" 
@@ -144,6 +151,7 @@ const Sidebar = () => {
               Aprendizaje
             </Link>
           </li>
+          </>)}
           <li>
             <Link 
               href="/chat" 
