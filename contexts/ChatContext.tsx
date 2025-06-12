@@ -170,7 +170,16 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
     // Eventos de mentores
     newSocket.on('mentor_assigned', ({ assignment, room }: any) => {
       setUserMentor(assignment.mentor);
-      setRooms(prev => [...prev, room]);
+      // Formatear sala para el frontend
+      const formatted = formatRoom(room);
+      setRooms(prev => [...prev, formatted]);
+    });
+
+    // Cuando el mentor recibe un nuevo mentee
+    newSocket.on('mentee_assigned', ({ assignment, room }: any) => {
+      // El mentor recibe la sala creada con el nuevo usuario
+      const formatted = formatRoom(room);
+      setRooms(prev => [...prev, formatted]);
     });
 
     newSocket.on('error', ({ message }: { message: string }) => {
@@ -293,6 +302,25 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
       socket.emit('assign_mentor', { userId, mentorId });
     }
   }, [socket]);
+
+  // Helper para dar formato uniforme a una sala nueva
+  const formatRoom = (room: any): ChatRoom => {
+    if (room.type === 'private' && user) {
+      const other = room.participants.find((p: any) => p.userId !== user.id)?.user;
+      return {
+        id: room.id,
+        type: 'private',
+        name: `${other?.firstName ?? ''} ${other?.lastName ?? ''}`.trim(),
+        participants: room.participants.map((p: any) => p.user),
+        lastMessage: room.messages?.[0] ?? undefined,
+        unreadCount: 0,
+        createdAt: room.createdAt,
+        updatedAt: room.updatedAt,
+        otherParticipant: other
+      } as ChatRoom;
+    }
+    return room;
+  };
 
   const contextValue: ChatContextType = {
     isConnected,

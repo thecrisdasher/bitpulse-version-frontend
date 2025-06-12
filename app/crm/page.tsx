@@ -2,10 +2,20 @@
 
 import Sidebar from "@/components/Sidebar"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Users, MessageSquare, DollarSign, Activity } from "lucide-react"
+import { Users, MessageSquare, DollarSign, Activity, UserPlus } from "lucide-react"
 import Link from "next/link"
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function CrmDashboardPage() {
+  const { hasRole } = useAuth();
+  if (!hasRole('admin')) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p>No tienes permiso para acceder a esta sección.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen bg-background text-foreground">
       <Sidebar />
@@ -46,6 +56,20 @@ export default function CrmDashboardPage() {
                   <CardContent>
                     <CardDescription>
                       Asignar y monitorear los saldos de PejeCoins para los usuarios de práctica.
+                    </CardDescription>
+                  </CardContent>
+                </Card>
+              </Link>
+
+              <Link href="/crm/mentores">
+                <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
+                  <CardHeader>
+                    <UserPlus className="w-10 h-10 text-yellow-500 mb-2" />
+                    <CardTitle>Asignar Mentor</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <CardDescription>
+                      Asigna mentores a los usuarios y crea chats privados automáticamente.
                     </CardDescription>
                   </CardContent>
                 </Card>

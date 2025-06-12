@@ -33,7 +33,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
-import { useChat } from "@/contexts/ChatContext";
+import { useChat, ChatProvider } from "@/contexts/ChatContext";
 import { toast } from "sonner";
 import Sidebar from "@/components/Sidebar";
 
@@ -58,8 +58,8 @@ interface Assignment {
   mentor: User;
 }
 
-const MentorManagementPage = () => {
-  const { user, token } = useAuth();
+const MentorManagementContent: React.FC = () => {
+  const { user } = useAuth();
   const { assignMentor } = useChat();
   
   const [mentors, setMentors] = useState<User[]>([]);
@@ -78,20 +78,18 @@ const MentorManagementPage = () => {
     }
   }, [user]);
 
-  // Cargar datos
+  // Cargar datos una vez al montar
   useEffect(() => {
     loadData();
-  }, [token]);
+  }, []);
 
   const loadData = async () => {
-    if (!token) return;
-
     try {
       setLoading(true);
 
       // Cargar mentores disponibles
       const mentorsResponse = await fetch('/api/chat/mentors?action=available', {
-        headers: { 'Authorization': `Bearer ${token}` }
+        credentials: 'include'
       });
       
       if (mentorsResponse.ok) {
@@ -101,7 +99,7 @@ const MentorManagementPage = () => {
 
       // Cargar todos los usuarios
       const usersResponse = await fetch('/api/admin/users', {
-        headers: { 'Authorization': `Bearer ${token}` }
+        credentials: 'include'
       });
       
       if (usersResponse.ok) {
@@ -111,7 +109,7 @@ const MentorManagementPage = () => {
 
       // Cargar asignaciones existentes
       const assignmentsResponse = await fetch('/api/chat/mentors?action=assignments', {
-        headers: { 'Authorization': `Bearer ${token}` }
+        credentials: 'include'
       });
       
       if (assignmentsResponse.ok) {
@@ -134,31 +132,16 @@ const MentorManagementPage = () => {
     }
 
     try {
-      const response = await fetch('/api/chat/mentors', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          userId: selectedUser,
-          mentorId: selectedMentor
-        })
-      });
+      // Emitir evento por WebSocket para crear asignación y sala
+      assignMentor(selectedUser, selectedMentor);
 
-      if (response.ok) {
-        toast.success('Mentor asignado exitosamente');
-        setIsAssignDialogOpen(false);
-        setSelectedUser('');
-        setSelectedMentor('');
-        loadData(); // Recargar datos
-        
-        // También notificar vía WebSocket
-        assignMentor(selectedUser, selectedMentor);
-      } else {
-        const errorData = await response.json();
-        toast.error(errorData.error || 'Error al asignar mentor');
-      }
+      toast.success('Mentor asignado, se creó el chat privado');
+      setIsAssignDialogOpen(false);
+      setSelectedUser('');
+      setSelectedMentor('');
+
+      // Esperar un momento y recargar datos para reflejar la nueva asignación
+      setTimeout(loadData, 500);
     } catch (error) {
       console.error('Error assigning mentor:', error);
       toast.error('Error al asignar mentor');
@@ -173,7 +156,7 @@ const MentorManagementPage = () => {
     try {
       const response = await fetch(`/api/chat/mentors?assignmentId=${assignmentId}`, {
         method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
+        credentials: 'include'
       });
 
       if (response.ok) {
@@ -412,5 +395,11 @@ const MentorManagementPage = () => {
     </div>
   );
 };
+
+const MentorManagementPage = () => (
+  <ChatProvider>
+    <MentorManagementContent />
+  </ChatProvider>
+);
 
 export default MentorManagementPage; 

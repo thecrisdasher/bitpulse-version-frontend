@@ -248,11 +248,16 @@ const UsersPage = () => {
 
   // Obtener color de badge según estado
   const getStatusBadgeVariant = (status: string) => {
+    // Variants permitidos: default, secondary, destructive, outline
     switch (status) {
-      case 'active': return 'success';
-      case 'inactive': return 'secondary';
-      case 'pending': return 'warning';
-      default: return 'outline';
+      case 'active':
+        return 'default'; // Verde/primario
+      case 'inactive':
+        return 'secondary';
+      case 'pending':
+        return 'destructive'; // Rojo para pendiente/alerta
+      default:
+        return 'outline';
     }
   };
 

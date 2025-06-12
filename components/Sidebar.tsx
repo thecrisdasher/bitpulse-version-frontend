@@ -26,7 +26,7 @@ const Sidebar = () => {
   const { positions = [] } = useTradePositions?.() || { positions: [] };
   const openPositionsCount = positions.length;
 
-  const canAccessCrm = hasRole('admin') || hasRole('maestro');
+  const canAccessCrm = hasRole('admin');
 
   return (
     <div className="hidden lg:flex flex-col h-screen w-64 bg-card border-r border-border">
@@ -168,7 +168,7 @@ const Sidebar = () => {
                   href="/crm"
                   className={cn(
                     "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
-                    pathname.startsWith("/crm") ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+                    pathname && pathname.startsWith("/crm") ? "bg-primary text-primary-foreground" : "hover:bg-muted"
                   )}
                 >
                   <Shield size={18} />
