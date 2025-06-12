@@ -108,71 +108,20 @@ const UsersPage = () => {
   // Cargar datos de usuarios (simulados por ahora)
   useEffect(() => {
     if (isAuthenticated && hasRole('admin')) {
-      // En una implementación real, esto sería una llamada a la API
-      setTimeout(() => {
-        const mockUsers: UserData[] = [
-          {
-            id: '1',
-            firstName: 'Juan',
-            lastName: 'Pérez',
-            email: 'juan@example.com',
-            role: 'cliente',
-            pejecoins: 1500,
-            status: 'active',
-            lastLogin: '2023-06-15T14:30:00Z',
-            createdAt: '2023-01-10T08:15:00Z',
-            phone: '+57 300 123 4567'
-          },
-          {
-            id: '2',
-            firstName: 'María',
-            lastName: 'González',
-            email: 'maria@example.com',
-            role: 'cliente',
-            pejecoins: 750,
-            status: 'active',
-            lastLogin: '2023-06-18T09:45:00Z',
-            createdAt: '2023-02-05T11:20:00Z',
-            phone: '+57 311 987 6543'
-          },
-          {
-            id: '3',
-            firstName: 'Carlos',
-            lastName: 'Rodríguez',
-            email: 'carlos@example.com',
-            role: 'maestro',
-            pejecoins: 3000,
-            status: 'active',
-            lastLogin: '2023-06-17T16:10:00Z',
-            createdAt: '2023-01-15T10:30:00Z',
-            phone: '+57 315 555 7890'
-          },
-          {
-            id: '4',
-            firstName: 'Ana',
-            lastName: 'Martínez',
-            email: 'ana@example.com',
-            role: 'cliente',
-            pejecoins: 200,
-            status: 'inactive',
-            lastLogin: '2023-05-20T11:25:00Z',
-            createdAt: '2023-03-01T09:00:00Z'
-          },
-          {
-            id: '5',
-            firstName: 'Pedro',
-            lastName: 'Sánchez',
-            email: 'pedro@example.com',
-            role: 'cliente',
-            pejecoins: 0,
-            status: 'pending',
-            createdAt: '2023-06-10T14:45:00Z'
-          }
-        ];
-        
-        setUsers(mockUsers);
-        setIsLoading(false);
-      }, 1000);
+      const fetchUsers = async () => {
+        try {
+          const res = await fetch('/api/admin/users', { credentials: 'include' })
+          if (!res.ok) throw new Error('Error obteniendo usuarios')
+          const json = await res.json()
+          setUsers(json.users as UserData[])
+        } catch (error) {
+          console.error(error)
+          toast.error('Error al cargar usuarios')
+        } finally {
+          setIsLoading(false)
+        }
+      }
+      fetchUsers()
     }
   }, [isAuthenticated, hasRole]);
 
@@ -197,17 +146,19 @@ const UsersPage = () => {
     try {
       setIsAssigning(true);
       
-      // En una implementación real, esto sería una llamada a la API
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Actualizar el usuario en la lista local
-      setUsers(prevUsers => 
-        prevUsers.map(user => 
-          user.id === selectedUser.id 
-            ? { ...user, pejecoins: user.pejecoins + coinAssignment.amount } 
-            : user
-        )
-      );
+      const res = await fetch('/api/admin/pejecoins', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ userId: selectedUser.id, amount: coinAssignment.amount, concept: coinAssignment.concept }),
+      })
+      const json = await res.json()
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || 'Error')
+      }
+
+      // Actualizar el usuario localmente con nuevo balance
+      setUsers(prev => prev.map(u => u.id === selectedUser.id ? { ...u, pejecoins: u.pejecoins + coinAssignment.amount } : u))
       
       toast.success(`Se han asignado ${coinAssignment.amount} pejecoins a ${selectedUser.firstName} ${selectedUser.lastName}`);
       
@@ -271,6 +222,25 @@ const UsersPage = () => {
     }
   };
 
+  // Añadir función exportación
+  const handleExportCSV = async () => {
+    try {
+      const res = await fetch('/api/admin/users/report', { credentials: 'include' })
+      if (!res.ok) throw new Error('Error generando CSV')
+      const csv = await res.text()
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = 'bitpulse_usuarios.csv'
+      link.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error(err)
+      toast.error('No fue posible exportar CSV')
+    }
+  }
+
   if (!isAuthenticated || !hasRole('admin')) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -298,7 +268,7 @@ const UsersPage = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={handleExportCSV}>
             <Download className="mr-2 h-4 w-4" />
             Exportar
           </Button>

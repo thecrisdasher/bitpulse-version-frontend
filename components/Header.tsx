@@ -91,7 +91,7 @@ export default function Header() {
   
   // Enlaces específicos para roles
   if (isAdmin) {
-    navigation.push({ name: 'Admin', href: '/settings?tab=admin' });
+    navigation.push({ name: 'Admin', href: '/admin' });
   }
   
   if (isMaestro) {
