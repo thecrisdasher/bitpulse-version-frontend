@@ -1,4 +1,4 @@
-ignoredBuiltDependencies:
+onlyBuiltDependencies:
   - '@prisma/client'
   - '@prisma/engines'
   - core-js

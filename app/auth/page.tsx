@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { RegisterForm } from '@/components/auth/RegisterForm';
@@ -15,7 +15,17 @@ import { toast } from 'sonner';
  * Maneja redirección automática si el usuario ya está autenticado
  */
 
-export default function AuthPage() {
+/*
+ * Next.js 15 exige que cualquier componente que utilice el hook
+ * `useSearchParams()` se renderice dentro de un límite de Suspense.
+ * Para cumplirlo, extraemos la lógica actual a un componente interno
+ * (`AuthPageInner`) y lo envolvemos desde el componente de exportación
+ * por defecto con <Suspense>.  De esta forma conservamos todo el
+ * comportamiento actual pero evitamos el error de build:
+ *   "useSearchParams() should be wrapped in a suspense boundary".
+ */
+
+function AuthPageInner() {
   const [activeTab, setActiveTab] = useState('login');
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
@@ -306,5 +316,15 @@ export default function AuthPage() {
         </motion.a>
       </motion.div>
     </div>
+  );
+}
+
+// --- Componente wrapper exportado por defecto -----------------------------
+
+export default function AuthPage() {
+  return (
+    <Suspense>
+      <AuthPageInner />
+    </Suspense>
   );
 } 

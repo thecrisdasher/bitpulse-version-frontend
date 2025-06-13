@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,9 +9,17 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 
 export default function TwoFactorChallengePage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Cargando...</div>}>
+      <TwoFactorChallenge />
+    </Suspense>
+  );
+}
+
+function TwoFactorChallenge() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const email = searchParams.get('email') || '';
+  const email = searchParams?.get?.('email') ?? '';
   const [token, setToken] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
