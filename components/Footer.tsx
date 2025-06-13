@@ -24,7 +24,7 @@ export default function Footer({ show }: FooterProps) {
   const currentYear = new Date().getFullYear();
 
   // No mostrar el footer en páginas de autenticación si no se especifica show
-  const shouldShow = show !== undefined ? show : !pathname.startsWith('/auth');
+  const shouldShow = show !== undefined ? show : !(pathname ?? '').startsWith('/auth');
 
   if (!shouldShow) {
     return null;
