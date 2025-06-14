@@ -41,6 +41,14 @@ interface ChartProps {
     type?: 'soporte' | 'resistencia' | 'precio' | 'custom';
   }[];
   showLevels?: boolean;
+  positionMarkers?: {
+    time: number;
+    position: 'aboveBar' | 'belowBar';
+    color: string;
+    shape: 'circle' | 'square' | 'arrowUp' | 'arrowDown';
+    text: string;
+    size: number;
+  }[];
   onReady?: (resetZoom: () => void) => void;
 }
 
@@ -137,6 +145,7 @@ const RealTimeMarketChartClient: React.FC<ChartProps> = ({
   isSimulatedData = false,
   levels = [],
   showLevels = true,
+  positionMarkers = [],
   onReady,
 }) => {
   // Refs for elements and chart instance
@@ -195,6 +204,37 @@ const RealTimeMarketChartClient: React.FC<ChartProps> = ({
       });
     }
   }, [levels, showLevels]);
+
+  // Function to add position markers to chart
+  const addPositionMarkers = useCallback(() => {
+    if (!chartRef.current || !seriesRef.current || !positionMarkers || positionMarkers.length === 0) return;
+    
+    try {
+      // Check if setMarkers method exists on the series
+      if (typeof seriesRef.current.setMarkers === 'function') {
+        const markers = positionMarkers.map(marker => ({
+          time: marker.time as any,
+          position: marker.position,
+          color: marker.color,
+          shape: marker.shape,
+          text: marker.text,
+          size: marker.size,
+        }));
+        
+        seriesRef.current.setMarkers(markers);
+      } else {
+        // Alternative approach: use chart-level markers if series markers don't work
+        console.log('[Chart] Series setMarkers not available, trying alternative method');
+        
+        // For now, we'll skip markers if the method is not available
+        // This prevents the error while maintaining functionality
+        console.warn('[Chart] Position markers not supported in this chart configuration');
+      }
+    } catch (error) {
+      console.warn("Position markers not supported in this chart type:", error);
+      // Don't throw error, just log and continue
+    }
+  }, [positionMarkers]);
 
   // Initialize the chart
   const initializeChart = useCallback(() => {
@@ -495,6 +535,13 @@ const RealTimeMarketChartClient: React.FC<ChartProps> = ({
       addPriceLevels();
     }
   }, [levels, showLevels, addPriceLevels]);
+
+  // Update position markers when they change
+  useEffect(() => {
+    if (seriesRef.current && positionMarkers && positionMarkers.length > 0) {
+      addPositionMarkers();
+    }
+  }, [positionMarkers, addPositionMarkers]);
 
   // Expose a function to reset the zoom
   const resetZoom = useCallback(() => {

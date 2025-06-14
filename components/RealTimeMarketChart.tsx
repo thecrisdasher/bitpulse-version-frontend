@@ -71,6 +71,7 @@ import {
   Calendar,
 } from "@/components/ui/calendar";
 import useBinanceData, { ChartDataPoint as BinancePoint, CandleDataPoint as BinanceCandlePoint } from '@/hooks/useBinanceData';
+// import useEnhancedBinanceData from '@/hooks/useEnhancedBinanceData'; // Temporarily disabled
 
 // Dynamically import the chart client to avoid SSR issues
 const RealTimeMarketChartClient = dynamic(
@@ -583,11 +584,20 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
   // Prepare Binance data when selected
   const cryptoSymbolMatch = currentMarketConfig.name.match(/\((\w+)\/USD\)/);
   const binanceSymbol = cryptoSymbolMatch ? `${cryptoSymbolMatch[1]}USDT` : currentMarketConfig.id.toUpperCase();
+  
+  // Use original hook for stability, enhanced features will be added gradually
   const { data: binanceData, candlestickData: binanceCandles } = useBinanceData(
     binanceSymbol,
     timeRange,
     effectiveDataSource === 'BINANCE' && realTimeEnabled && !isHistoricalMode
   );
+  
+  // Enhanced features - disabled temporarily to fix errors
+  const positionMarkers: any[] = [];
+  const binanceLoading = false;
+  const hasMoreData = false;
+  const loadMoreHistoricalData = async () => {};
+  const resetBinanceData = () => {};
 
   // Determine if we should fallback to simulated
   const shouldFallbackToSimulated = useMemo(() => {
@@ -1552,6 +1562,30 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
               </Button>
             </div>
 
+            {/* Botón para cargar más datos históricos (solo para Binance) */}
+            {effectiveDataSource === 'BINANCE' && hasMoreData && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 gap-1"
+                onClick={loadMoreHistoricalData}
+                disabled={binanceLoading}
+                title="Cargar más datos históricos"
+              >
+                {binanceLoading ? (
+                  <>
+                    <RefreshCw className="h-3 w-3 animate-spin" />
+                    <span className="hidden sm:inline">Cargando...</span>
+                  </>
+                ) : (
+                  <>
+                    <ZoomOut className="h-3 w-3" />
+                    <span className="hidden sm:inline">Más datos</span>
+                  </>
+                )}
+              </Button>
+            )}
+
             {/* Selector de fecha histórica */}
             <Popover open={showCalendar} onOpenChange={setShowCalendar}>
               <PopoverTrigger asChild>
@@ -1736,6 +1770,7 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
                 isSimulatedData={isSimulatedData}
                 levels={levels}
                 showLevels={showLevels}
+                positionMarkers={effectiveDataSource === 'BINANCE' ? positionMarkers : []}
                 onReady={handleChartReady}
               />
             )

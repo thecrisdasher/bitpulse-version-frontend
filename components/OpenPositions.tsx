@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CompatButton as Button } from "@/components/ui/compat-button";
 import { CompatBadge as Badge } from "@/components/ui/compat-badge";
 import { cn } from "@/lib/utils";
-import { TrendingUp, TrendingDown, X, ChevronDown, ChevronUp, Clock, AlertCircle, Shield, Calculator, BarChart3, DollarSign } from "lucide-react";
+import { TrendingUp, TrendingDown, X, ChevronDown, ChevronUp, Clock, AlertCircle, Shield, Calculator, BarChart3, DollarSign, Wifi, WifiOff } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -22,6 +22,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
+import { useRealTimePositions } from "@/hooks/useRealTimePositions";
 
 // Tipos de posición
 export type TradePosition = {
@@ -54,6 +55,9 @@ const OpenPositions: React.FC<OpenPositionsProps> = ({ positions, onClosePositio
   const { toast } = useToast();
   const [expandedPositions, setExpandedPositions] = useState<string[]>([]);
   const [currentTime, setCurrentTime] = useState(new Date());
+  
+  // Initialize real-time position updates
+  const { activeConnections, isConnected } = useRealTimePositions();
   
   // Update current time every second for accurate time remaining calculation
   useEffect(() => {
@@ -238,8 +242,40 @@ const OpenPositions: React.FC<OpenPositionsProps> = ({ positions, onClosePositio
   return (
     <Card className="mb-4">
       <CardHeader className="p-4 pb-0">
-        <CardTitle className="text-lg font-medium flex items-center gap-2">
-          Posiciones abiertas ({positions.length})
+        <CardTitle className="text-lg font-medium flex items-center justify-between">
+          <span className="flex items-center gap-2">
+            Posiciones abiertas ({positions.length})
+          </span>
+          <div className="flex items-center gap-2">
+            {/* Indicador de conexión en tiempo real */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger>
+                  <div className="flex items-center gap-1 text-xs">
+                    {isConnected ? (
+                      <>
+                        <Wifi className="h-3 w-3 text-green-500" />
+                        <span className="text-green-500 font-medium">Tiempo real</span>
+                      </>
+                    ) : (
+                      <>
+                        <WifiOff className="h-3 w-3 text-orange-500" />
+                        <span className="text-orange-500 font-medium">Sin conexión</span>
+                      </>
+                    )}
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>
+                    {isConnected 
+                      ? `${activeConnections} conexión(es) activa(s) para actualización en tiempo real`
+                      : 'Las posiciones no se actualizan en tiempo real'
+                    }
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
         </CardTitle>
       </CardHeader>
       <CardContent className="p-4">
