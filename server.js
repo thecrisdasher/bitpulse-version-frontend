@@ -5,8 +5,8 @@ const { Server } = require('socket.io');
 const { PrismaClient } = require('@prisma/client');
 
 const dev = process.env.NODE_ENV !== 'production';
-const hostname = 'localhost';
-const port = 3004;
+const hostname = process.env.RAILWAY_STATIC_URL ? '0.0.0.0' : 'localhost';
+const port = process.env.PORT || 3004;
 
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();

@@ -1,0 +1,15 @@
+[providers]
+node = "18"
+
+[phases.build]
+cmd = "npm run railway:build"
+
+[phases.start]
+cmd = "npm run railway:start"
+
+[variables]
+NODE_ENV = "production"
+NIXPACKS_NO_CACHE = "1"
+
+[staticAssets]
+"/public" = "./public" 
