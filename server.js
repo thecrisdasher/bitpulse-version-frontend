@@ -5,8 +5,8 @@ const { Server } = require('socket.io');
 const { PrismaClient } = require('@prisma/client');
 
 const dev = process.env.NODE_ENV !== 'production';
-const hostname = 'localhost';
-const port = 3004;
+const hostname = process.env.HOSTNAME || '0.0.0.0';
+const port = parseInt(process.env.PORT, 10) || 3000;
 
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
@@ -58,7 +58,9 @@ app.prepare().then(() => {
 
   const io = new Server(server, {
     cors: {
-      origin: process.env.NODE_ENV === 'production' ? false : "*",
+      origin: process.env.NODE_ENV === 'production' 
+        ? [process.env.FRONTEND_URL, process.env.NEXT_PUBLIC_APP_URL].filter(Boolean)
+        : "*",
       methods: ["GET", "POST"],
       credentials: true
     }

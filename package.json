@@ -5,14 +5,20 @@
   "scripts": {
     "dev": "next dev -p 3004",
     "build": "next build",
-    "start": "next start",
+    "start": "node server.js",
     "lint": "next lint",
     "test": "next test",
     "postinstall": "prisma generate",
     "clean": "powershell -Command \"Remove-Item -Recurse -Force -Path .next -ErrorAction SilentlyContinue; Remove-Item -Recurse -Force -Path node_modules/.cache -ErrorAction SilentlyContinue\"",
     "clean:start": "npm run clean && npm run dev",
     "kill-port": "powershell -Command \"$processes = Get-Process -Id (Get-NetTCPConnection -LocalPort 3004 -ErrorAction SilentlyContinue).OwningProcess -ErrorAction SilentlyContinue; if ($processes) { $processes | ForEach-Object { Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue }; Write-Output 'Procesos terminados' } else { Write-Output 'No hay procesos usando el puerto 3004' }\"",
-    "reset": "npm run kill-port && npm run clean && npm run dev"
+    "reset": "npm run kill-port && npm run clean && npm run dev",
+    "deploy": "powershell -ExecutionPolicy Bypass -File deploy.ps1",
+    "deploy:bash": "bash deploy.sh",
+    "fly:logs": "fly logs",
+    "fly:status": "fly status",
+    "fly:ssh": "fly ssh console",
+    "fly:open": "fly open"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
