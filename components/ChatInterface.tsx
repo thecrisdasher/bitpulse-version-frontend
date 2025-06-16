@@ -30,7 +30,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import LiveChat from "./LiveChat";
 import GroupModal from "./modals/GroupModal";
 import { Switch } from "@/components/ui/switch";
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
+import NewChatModal from "./modals/NewChatModal";
 
 interface ChatInterfaceProps {
   className?: string;
@@ -54,6 +55,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
   const [showMentorAssignment, setShowMentorAssignment] = useState(false);
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [showAllChats, setShowAllChats] = useState(false);
+  const [showNewChatModal, setShowNewChatModal] = useState(false);
 
   const searchParams = useSearchParams();
   const initialRoomId = searchParams.get('roomId');
@@ -83,20 +85,38 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
 
   useEffect(() => {
     if (rooms.length === 0) return;
+    const handleParticipant = async () => {
+      if (participantId) {
+        let r = rooms.find(r=>r.otherParticipant?.id===participantId);
+        if (!r) {
+          // Intentar crear/obtener sala privada (solo admin)
+          try {
+            const res = await fetch(`/api/chat/private?participant=${participantId}`, { credentials: 'include' });
+            if (res.ok) {
+              await loadRooms(showAllChats && user?.role === 'admin');
+              return; // se recargará el efecto cuando rooms cambie
+            }
+          } catch (err) {
+            console.error('Error creando sala privada', err);
+          }
+        }
+        if (r) {
+          setCurrentRoom(r);
+          joinRoom(r.id);
+        }
+      }
+    };
+
     if (initialRoomId) {
       const r = rooms.find(r=>r.id===initialRoomId);
       if (r) {
         setCurrentRoom(r);
         joinRoom(r.id);
       }
-    } else if (participantId) {
-      const r = rooms.find(r=>r.otherParticipant?.id===participantId);
-      if (r) {
-        setCurrentRoom(r);
-        joinRoom(r.id);
-      }
+    } else {
+      handleParticipant();
     }
-  }, [rooms]);
+  }, [rooms, participantId, initialRoomId, loadRooms, showAllChats, user]);
 
   // Filtrar salas según término de búsqueda
   const filteredRooms = rooms.filter(room => {
@@ -155,10 +175,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem>
-                    <MessageSquare className="h-4 w-4 mr-2" />
-                    Nuevo chat
-                  </DropdownMenuItem>
+                  {user?.role === 'admin' && (
+                    <DropdownMenuItem onClick={() => setShowNewChatModal(true)}>
+                      <MessageSquare className="h-4 w-4 mr-2" />
+                      Nuevo chat
+                    </DropdownMenuItem>
+                  )}
                   {user?.role === 'admin' && (
                     <DropdownMenuItem onClick={() => setShowGroupModal(true)}>
                       <Users className="h-4 w-4 mr-2" />
@@ -351,6 +373,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
           onOpenChange={setShowGroupModal}
         />
       )}
+
+      <NewChatModal open={showNewChatModal} onOpenChange={setShowNewChatModal} />
     </div>
   );
 };
