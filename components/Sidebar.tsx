@@ -36,7 +36,7 @@ const Sidebar = () => {
     return (
       <div className="hidden lg:flex flex-col h-screen w-64 bg-card border-r border-border">
         <div className="p-6">
-          <h1 className="text-2xl font-bold text-primary">BitPulse</h1>
+          <h1 className="text-2xl font-bold text-primary whitespace-nowrap">Mello Trader</h1>
         </div>
         <nav className="flex-1 overflow-y-auto">
           <ul className="px-2 space-y-1">
@@ -47,7 +47,7 @@ const Sidebar = () => {
               <Link href="/crm" className={cn("flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors", currentPath.startsWith("/crm") ? "bg-primary text-primary-foreground" : "hover:bg-muted")}> <Shield size={18}/> CRM </Link>
             </li>
             <li>
-              <Link href="/pejecoins" className={cn("flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors", currentPath === "/pejecoins" ? "bg-primary text-primary-foreground" : "hover:bg-muted")}> <Coins size={18}/> PejeCoins </Link>
+              <Link href="/pejecoins" className={cn("flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors", currentPath === "/pejecoins" ? "bg-primary text-primary-foreground" : "hover:bg-muted")}> <Coins size={18}/> Dólares </Link>
             </li>
             <li>
               <Link href="/chat" className={cn("flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors", currentPath === "/chat" ? "bg-primary text-primary-foreground" : "hover:bg-muted")}> <MessageSquare size={18}/> Chat en Vivo </Link>
@@ -74,7 +74,7 @@ const Sidebar = () => {
   return (
     <div className="hidden lg:flex flex-col h-screen w-64 bg-card border-r border-border">
       <div className="p-6">
-        <h1 className="text-2xl font-bold text-primary">{t('app.title')}</h1>
+        <h1 className="text-2xl font-bold text-primary whitespace-nowrap">{t('app.title')}</h1>
       </div>
       <nav className="flex-1 overflow-y-auto">
         <ul className="px-2 space-y-1">
@@ -165,7 +165,7 @@ const Sidebar = () => {
               )}
             >
               <Coins size={18} />
-              {isAdmin ? 'Manejo de PejeCoins' : 'Mis PejeCoins'}
+              {isAdmin ? 'Manejo de Dólares' : 'Mis Dólares'}
             </Link>
           </li>
           <li>

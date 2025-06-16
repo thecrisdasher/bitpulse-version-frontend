@@ -76,7 +76,7 @@ export default function Header() {
     navigation = [
       { name: 'Admin', href: '/admin' },
       { name: 'CRM', href: '/crm' },
-      { name: 'PejeCoins', href: '/pejecoins' },
+      { name: 'Dólares', href: '/pejecoins' },
       { name: 'Chat', href: '/chat' },
     ];
   } else if (isMaestro) {
@@ -94,7 +94,7 @@ export default function Header() {
       { name: 'Posiciones', href: '/posiciones-abiertas' },
       { name: 'Portfolio', href: '/portfolio' },
       { name: 'Estadísticas', href: '/statistics' },
-      { name: 'PejeCoins', href: '/pejecoins' },
+      { name: 'Dólares', href: '/pejecoins' },
       { name: 'Chat', href: '/chat' },
     ];
   }
@@ -109,7 +109,7 @@ export default function Header() {
               <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
                 <span className="text-primary-foreground font-bold">₿</span>
               </div>
-              <span className="text-lg font-bold hidden md:inline-block">BitPulse</span>
+              <span className="text-lg font-bold hidden md:inline-block whitespace-nowrap">Mello Trader</span>
             </Link>
             
             {/* Navegación principal en escritorio */}

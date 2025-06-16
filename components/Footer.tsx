@@ -54,7 +54,7 @@ export default function Footer({ show }: FooterProps) {
                 <span className="text-sm font-bold text-primary-foreground">₿</span>
               </div>
               <div>
-                <h3 className="text-sm font-semibold text-foreground">BitPulse Trading</h3>
+                <h3 className="text-sm font-semibold text-foreground">Mello Trader</h3>
                 <p className="text-xs text-muted-foreground">Sistema de Trading Avanzado</p>
               </div>
             </motion.div>
@@ -105,7 +105,7 @@ export default function Footer({ show }: FooterProps) {
             <div className="flex flex-col md:flex-row items-center justify-between gap-2 text-xs text-muted-foreground">
               
               <div className="flex items-center gap-1">
-                <span>© {currentYear} BitPulse Trading Platform.</span>
+                <span>© {currentYear} Mello Trader Platform.</span>
                 <span className="hidden md:inline">Todos los derechos reservados.</span>
               </div>
 

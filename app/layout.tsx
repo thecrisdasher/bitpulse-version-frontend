@@ -17,7 +17,7 @@ import { Providers } from '@/components/Providers'
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "BitPulse Trading",
+  title: "Mello Trader",
   description: "La plataforma de trading más moderna con autenticación segura",
   generator: 'v0.dev'
 }

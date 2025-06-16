@@ -185,7 +185,7 @@ function AuthPageInner() {
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.4, duration: 0.5 }}
             >
-              BitPulse
+              Mello Trader
             </motion.h1>
             
             <motion.p 

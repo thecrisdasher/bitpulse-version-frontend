@@ -338,49 +338,6 @@ export default function CryptoDashboard() {
     <div className="flex min-h-screen bg-background text-foreground">
       <Sidebar />
       <div className="flex-1 flex flex-col">
-        <header className="border-b border-border">
-          <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-primary lg:hidden">{isClient ? t('app.title') : 'BitPulse'}</h1>
-            <div className="flex items-center space-x-4">
-              <div className="relative">
-                <Input
-                  type="text"
-                  placeholder={isClient ? t('nav.search') : 'Search'}
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 bg-secondary text-secondary-foreground"
-                />
-                <Search
-                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground"
-                  size={18}
-                />
-              </div>
-              <nav className="hidden md:block">
-                <ul className="flex space-x-4">
-                  <li>
-                    <Button variant="ghost">{isClient ? t('markets.crypto') : 'Cryptocurrencies'}</Button>
-                  </li>
-                  <li>
-                    <Button variant="ghost">{isClient ? t('markets.forex') : 'Forex'}</Button>
-                  </li>
-                  <li>
-                    <Button variant="ghost">{isClient ? t('markets.stocks') : 'Stocks'}</Button>
-                  </li>
-                  <li>
-                    <Button variant="ghost">{isClient ? t('nav.portfolio') : 'Portfolio'}</Button>
-                  </li>
-                </ul>
-              </nav>
-              <MarketSentimentHeader />
-              <LanguageSelector />
-              <ThemeToggle />
-              <div className="flex items-center space-x-2">
-                <Switch id="live-updates" checked={liveUpdates} onCheckedChange={setLiveUpdates} />
-                <Label htmlFor="live-updates">{isClient ? t('common.liveUpdates') : 'Live Updates'}</Label>
-              </div>
-            </div>
-          </div>
-        </header>
         <main className="container mx-auto px-4 py-8 flex-1">
           <div className="flex flex-col gap-4 mb-6">
             <div className="w-full">

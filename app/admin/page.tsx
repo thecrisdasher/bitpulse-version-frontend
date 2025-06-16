@@ -199,10 +199,10 @@ const AdminDashboardPage = () => {
             <Card className="cursor-pointer group-hover:shadow-lg transition-shadow">
               <CardHeader className="flex items-center gap-2">
                 <Coins className="h-5 w-5 text-primary" />
-                <CardTitle className="text-sm font-medium">Manejo de PejeCoins</CardTitle>
+                <CardTitle className="text-sm font-medium">Manejo de Dólares</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground text-sm">Asigna y revisa PejeCoins</p>
+                <p className="text-muted-foreground text-sm">Asigna y revisa Dólares</p>
               </CardContent>
             </Card>
           </Link>

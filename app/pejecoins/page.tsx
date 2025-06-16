@@ -83,10 +83,10 @@ export default function PejecoinsPage() {
           <header className="mb-8">
             <h1 className="text-3xl font-bold mb-2 flex items-center gap-2">
               <Coins className="w-8 h-8 text-primary" />
-              {isAdmin ? 'Manejo de PejeCoins' : 'Mis PejeCoins'}
+              {isAdmin ? 'Manejo de Dólares' : 'Mis Dólares'}
             </h1>
             <p className="text-muted-foreground">
-              {isAdmin ? 'Administra los saldos de PejeCoins de los usuarios.' : 'Consulta tu saldo de dinero ficticio y tu historial de transacciones.'}
+              {isAdmin ? 'Administra los saldos de Dólares de los usuarios.' : 'Consulta tu saldo y tu historial de transacciones.'}
             </p>
           </header>
 
@@ -96,7 +96,7 @@ export default function PejecoinsPage() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Coins className="w-5 h-5" />
-                    Asignar PejeCoins a Usuario
+                    Asignar Dólares a Usuario
                   </CardTitle>
                   <CardDescription>Selecciona un cliente y define el monto.</CardDescription>
                 </CardHeader>
@@ -151,7 +151,7 @@ export default function PejecoinsPage() {
                   Historial de Movimientos
                 </CardTitle>
                 <CardDescription>
-                  Aquí puedes ver todas tus transacciones de PejeCoins.
+                  Aquí puedes ver todas tus transacciones de Dólares.
                 </CardDescription>
               </CardHeader>
               <CardContent>

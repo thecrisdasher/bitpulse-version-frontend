@@ -168,7 +168,7 @@ export function AchievementsWidget() {
   const [achievements] = useState([
     { id: 1, name: 'First Win', description: 'Primera operación exitosa', completed: true, icon: '🎯' },
     { id: 2, name: 'Streak Master', description: '10 operaciones consecutivas', completed: true, icon: '🔥' },
-    { id: 3, name: 'Profit Hunter', description: '1000 PejeCoins de ganancia', completed: true, icon: '💰' },
+    { id: 3, name: 'Profit Hunter', description: '1000 Dólares de ganancia', completed: true, icon: '💰' },
     { id: 4, name: 'Risk Manager', description: 'Mantener drawdown < 5%', completed: false, icon: '🛡️' },
     { id: 5, name: 'Market Expert', description: 'Operar en 5 mercados diferentes', completed: false, icon: '🌟' }
   ]);
@@ -380,7 +380,7 @@ export function DailyChallengeWidget() {
     description: 'Realiza 5 operaciones con 80% de precisión',
     progress: 3,
     target: 5,
-    reward: '50 PejeCoins Extra',
+    reward: '50 Dólares Extra',
     timeLeft: '6h 23m'
   });
 
@@ -462,7 +462,7 @@ export function LessonWidget() {
             <div className="flex items-center justify-center gap-2">
               <Gift className="w-4 h-4 text-purple-600" />
               <span className="text-sm font-medium text-purple-700 dark:text-purple-300">
-                Recompensa: 50 PejeCoins
+                Recompensa: 50 Dólares
               </span>
             </div>
           </div>

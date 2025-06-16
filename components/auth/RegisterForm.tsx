@@ -167,12 +167,12 @@ export function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) 
             <div className="w-8 h-8 bg-gradient-to-r from-green-600 to-blue-600 rounded-lg flex items-center justify-center">
               <UserPlus className="w-4 h-4 text-white" />
             </div>
-            <span className="text-xl font-bold">BitPulse</span>
+            <span className="text-xl font-bold">Mello Trader</span>
           </div>
         </div>
         <CardTitle className="text-2xl font-bold text-center">Crear Cuenta</CardTitle>
         <CardDescription className="text-center">
-          Únete a BitPulse y comienza tu experiencia de trading
+          Únete a Mello Trader y comienza tu experiencia de trading
         </CardDescription>
       </CardHeader>
 
@@ -411,7 +411,7 @@ export function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) 
           <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
             <div className="flex items-center">
               <Check className="w-4 h-4 text-green-500 mr-2" />
-              1,000 PejeCoins gratis para práctica
+              1,000 Dólares gratis para práctica
             </div>
             <div className="flex items-center">
               <Check className="w-4 h-4 text-green-500 mr-2" />
