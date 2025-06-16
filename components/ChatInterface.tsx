@@ -234,7 +234,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
                           <div className="flex items-center gap-2">
                             {room.type === 'private' && otherParticipant?.role === 'maestro' && (
                               <Badge variant="secondary" className="text-xs">
-                                Mentor
+                                Manager
                               </Badge>
                             )}
                             {room.unreadCount > 0 && (
@@ -265,7 +265,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1">
-                  <p className="font-medium text-sm">Tu Mentor</p>
+                  <p className="font-medium text-sm">Tu Manager</p>
                   <p className="text-xs text-muted-foreground">
                     {userMentor.firstName} {userMentor.lastName}
                   </p>

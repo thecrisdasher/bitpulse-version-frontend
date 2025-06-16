@@ -275,7 +275,7 @@ const LiveChat: React.FC<LiveChatProps> = ({
                   {otherParticipant && (
                     <>
                       <Badge variant="secondary" className="text-xs">
-                        {otherParticipant.role === 'maestro' ? 'Mentor' : 'Usuario'}
+                        {otherParticipant.role === 'maestro' ? 'Manager' : 'Usuario'}
                       </Badge>
                       <span>{isUserOnline(otherParticipant.id) ? 'En línea' : 'Desconectado'}</span>
                     </>

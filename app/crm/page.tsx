@@ -55,7 +55,7 @@ export default function CrmDashboardPage() {
                   </CardHeader>
                   <CardContent>
                     <CardDescription>
-                      Asignar y monitorear los saldos de PejeCoins para los usuarios de práctica.
+                      Asignar y monitorear los saldos de Dólares para los usuarios de práctica.
                     </CardDescription>
                   </CardContent>
                 </Card>
@@ -65,11 +65,11 @@ export default function CrmDashboardPage() {
                 <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
                   <CardHeader>
                     <UserPlus className="w-10 h-10 text-yellow-500 mb-2" />
-                    <CardTitle>Asignar Mentor</CardTitle>
+                    <CardTitle>Asignar Manager</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <CardDescription>
-                      Asigna mentores a los usuarios y crea chats privados automáticamente.
+                      Asigna managers a los usuarios y crea chats privados automáticamente.
                     </CardDescription>
                   </CardContent>
                 </Card>

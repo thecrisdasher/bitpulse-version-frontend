@@ -135,7 +135,7 @@ const MentorManagementContent: React.FC = () => {
       // Emitir evento por WebSocket para crear asignación y sala
       assignMentor(selectedUser, selectedMentor);
 
-      toast.success('Mentor asignado, se creó el chat privado');
+      toast.success('Manager asignado, se creó el chat privado');
       setIsAssignDialogOpen(false);
       setSelectedUser('');
       setSelectedMentor('');
@@ -144,7 +144,7 @@ const MentorManagementContent: React.FC = () => {
       setTimeout(loadData, 500);
     } catch (error) {
       console.error('Error assigning mentor:', error);
-      toast.error('Error al asignar mentor');
+      toast.error('Error al asignar manager');
     }
   };
 
@@ -192,9 +192,9 @@ const MentorManagementContent: React.FC = () => {
       <div className="flex-1 p-6">
         <div className="container mx-auto max-w-7xl">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold mb-2">Gestión de Mentores</h1>
+            <h1 className="text-3xl font-bold mb-2">Gestión de Managers</h1>
             <p className="text-muted-foreground">
-              Administra las asignaciones entre usuarios y mentores.
+              Administra las asignaciones entre usuarios y managers.
             </p>
           </div>
 
@@ -204,20 +204,20 @@ const MentorManagementContent: React.FC = () => {
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
                   <Users className="h-5 w-5" />
-                  Mentores Disponibles ({mentors.length})
+                  Managers Disponibles ({mentors.length})
                 </CardTitle>
                 <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
                   <DialogTrigger asChild>
                     <Button size="sm">
                       <UserPlus className="h-4 w-4 mr-2" />
-                      Asignar Mentor
+                      Asignar Manager
                     </Button>
                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
-                      <DialogTitle>Asignar Mentor a Usuario</DialogTitle>
+                      <DialogTitle>Asignar Manager a Usuario</DialogTitle>
                       <DialogDescription>
-                        Selecciona un usuario y un mentor para crear una nueva asignación.
+                        Selecciona un usuario y un manager para crear una nueva asignación.
                       </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
@@ -237,10 +237,10 @@ const MentorManagementContent: React.FC = () => {
                         </Select>
                       </div>
                       <div className="grid gap-2">
-                        <Label htmlFor="mentor">Mentor</Label>
+                        <Label htmlFor="mentor">Manager</Label>
                         <Select value={selectedMentor} onValueChange={setSelectedMentor}>
                           <SelectTrigger>
-                            <SelectValue placeholder="Seleccionar mentor" />
+                            <SelectValue placeholder="Seleccionar manager" />
                           </SelectTrigger>
                           <SelectContent>
                             {mentors.map((mentor) => (
@@ -267,10 +267,10 @@ const MentorManagementContent: React.FC = () => {
               <CardContent>
                 <div className="space-y-4">
                   {loading ? (
-                    <div className="text-center py-8">Cargando mentores...</div>
+                    <div className="text-center py-8">Cargando managers...</div>
                   ) : mentors.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">
-                      No hay mentores disponibles
+                      No hay managers disponibles
                     </div>
                   ) : (
                     mentors.map((mentor) => {
@@ -293,7 +293,7 @@ const MentorManagementContent: React.FC = () => {
                               <Badge variant="secondary">
                                 {mentorAssignments.length} usuarios asignados
                               </Badge>
-                              <Badge variant="outline">Mentor</Badge>
+                              <Badge variant="outline">Manager</Badge>
                             </div>
                           </div>
                           <Button variant="outline" size="sm">
@@ -366,7 +366,7 @@ const MentorManagementContent: React.FC = () => {
                               {assignment.mentor.firstName} {assignment.mentor.lastName}
                             </h4>
                             <Badge variant="secondary" className="text-xs">
-                              Mentor
+                              Manager
                             </Badge>
                           </div>
                         </div>
