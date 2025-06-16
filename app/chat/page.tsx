@@ -10,11 +10,11 @@ import { ChatProvider } from "@/contexts/ChatContext";
 function ChatPageInner() {
   return (
     <ChatProvider>
-      <div className="flex min-h-screen bg-background text-foreground">
-        <Sidebar />
+    <div className="flex min-h-screen bg-background text-foreground">
+      <Sidebar />
         <div className="flex-1">
           <Suspense>
-            <ChatInterface className="h-screen" />
+          <ChatInterface className="h-screen" />
           </Suspense>
         </div>
       </div>
