@@ -12,17 +12,22 @@ RUN npm install -g pnpm
 # Copy package files
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
-# Install dependencies
+# Copy prisma schema first (needed for postinstall script)
+COPY prisma ./prisma/
+
+# Install dependencies (this will run postinstall which needs prisma schema)
 RUN pnpm install --frozen-lockfile
 
 # Copy source code
 COPY . .
 
-# Copy prisma schema
-COPY prisma ./prisma/
+# Build-time ARG for reCAPTCHA site key (needed in client bundle)
+ARG NEXT_PUBLIC_RECAPTCHA_SITE_KEY
+ENV NEXT_PUBLIC_RECAPTCHA_SITE_KEY=$NEXT_PUBLIC_RECAPTCHA_SITE_KEY
 
-# Generate Prisma client
-RUN pnpm prisma generate
+# Build-time ARG for socket URL
+ARG NEXT_PUBLIC_SOCKET_URL
+ENV NEXT_PUBLIC_SOCKET_URL=$NEXT_PUBLIC_SOCKET_URL
 
 # Build the application
 RUN pnpm build

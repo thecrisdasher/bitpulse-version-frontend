@@ -258,65 +258,6 @@ export function LoginForm() {
           </Button>
         </motion.div>
       </form>
-
-      <motion.div 
-        className="mt-6 p-4 bg-muted/30 backdrop-blur-sm rounded-lg border border-border"
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay: 0.5, duration: 0.5 }}
-      >
-        <motion.div 
-          className="flex items-center justify-center gap-2 mb-3"
-          animate={{ opacity: [0.7, 1, 0.7] }}
-          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-        >
-          <span className="text-primary">🎯</span>
-          <h3 className="text-sm font-medium text-foreground">Cuentas Demo Disponibles</h3>
-        </motion.div>
-        
-        <div className="space-y-2 text-xs">
-          <motion.div 
-            className="flex items-center justify-between p-2 rounded bg-background/50 hover:bg-background/80 transition-colors"
-            whileHover={{ scale: 1.01 }}
-            transition={{ duration: 0.2 }}
-          >
-            <div className="flex items-center gap-2">
-              <div className="px-2 py-1 bg-primary text-primary-foreground rounded text-xs font-medium">Admin</div>
-              <span className="text-muted-foreground">admin@bitpulse.com</span>
-            </div>
-          </motion.div>
-          
-          <motion.div 
-            className="flex items-center justify-between p-2 rounded bg-background/50 hover:bg-background/80 transition-colors"
-            whileHover={{ scale: 1.01 }}
-            transition={{ duration: 0.2 }}
-          >
-            <div className="flex items-center gap-2">
-              <div className="px-2 py-1 bg-secondary text-secondary-foreground rounded text-xs font-medium">Maestro</div>
-              <span className="text-muted-foreground">maestro@bitpulse.com</span>
-            </div>
-          </motion.div>
-          
-          <motion.div 
-            className="flex items-center justify-between p-2 rounded bg-background/50 hover:bg-background/80 transition-colors"
-            whileHover={{ scale: 1.01 }}
-            transition={{ duration: 0.2 }}
-          >
-            <div className="flex items-center gap-2">
-              <div className="px-2 py-1 border border-border text-foreground rounded text-xs font-medium">Cliente</div>
-              <span className="text-muted-foreground">cliente@bitpulse.com</span>
-            </div>
-          </motion.div>
-          
-          <motion.p 
-            className="text-center text-muted-foreground text-xs mt-3 pt-2 border-t border-border"
-            animate={{ opacity: [0.5, 0.8, 0.5] }}
-            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-          >
-            Contraseñas: Admin123! / Maestro123! / Cliente123!
-          </motion.p>
-        </div>
-      </motion.div>
     </motion.div>
   );
 } 
