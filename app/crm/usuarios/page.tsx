@@ -13,18 +13,109 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useAuth } from "@/contexts/AuthContext";
+import { useEffect, useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
 
-// Mock data for users - will be replaced with API data
-const mockUsers = [
-  { id: '1', name: 'Juan Perez', email: 'juan.perez@email.com', role: 'cliente', pejecoins: 5000, status: 'Activo' },
-  { id: '2', name: 'Maria Lopez', email: 'maria.lopez@email.com', role: 'cliente', pejecoins: 7500, status: 'Activo' },
-  { id: '3', name: 'Carlos Rivas', email: 'carlos.rivas@email.com', role: 'maestro', pejecoins: 10000, status: 'Activo' },
-  { id: '4', name: 'Ana Gomez', email: 'ana.gomez@email.com', role: 'admin', pejecoins: 0, status: 'Inactivo' },
-];
+type UserItem = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  role: string;
+  pejecoins: number;
+  isActive: boolean;
+};
 
 export default function CrmUsersPage() {
   const { hasRole } = useAuth();
   const canManage = hasRole('admin');
+
+  const [users, setUsers] = useState<UserItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [openDialog, setOpenDialog] = useState(false);
+  const [editingUser, setEditingUser] = useState<UserItem | null>(null);
+
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch('/api/admin/users', { credentials: 'include' });
+      const data = await res.json();
+      if (res.ok) {
+        setUsers(data.users);
+      } else {
+        toast.error(data.error || 'Error al cargar usuarios');
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Error de red');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const handleSave = async () => {
+    if (!editingUser) return;
+    try {
+      const res = await fetch(`/api/admin/users/${editingUser.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(editingUser),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success('Usuario actualizado');
+        setOpenDialog(false);
+        fetchUsers();
+      } else {
+        toast.error(data.error || 'Error al actualizar');
+      }
+    } catch (e) {
+      toast.error('Error');
+    }
+  };
+
+  const handleCreate = () => {
+    setEditingUser({
+      id: '',
+      firstName: '',
+      lastName: '',
+      email: '',
+      role: 'cliente',
+      pejecoins: 0,
+      isActive: true,
+    });
+    setOpenDialog(true);
+  };
+
+  const submitCreate = async () => {
+    if (!editingUser) return;
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(editingUser),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success('Usuario creado');
+        setOpenDialog(false);
+        fetchUsers();
+      } else {
+        toast.error(data.error || 'Error');
+      }
+    } catch (e) {
+      toast.error('Error');
+    }
+  };
 
   return (
     <div className="flex min-h-screen bg-background text-foreground">
@@ -44,7 +135,7 @@ export default function CrmUsersPage() {
           <div className="container mx-auto max-w-7xl">
             {canManage && (
               <div className="flex justify-end mb-4">
-                <Button>
+                <Button onClick={handleCreate}>
                   <UserPlus className="w-4 h-4 mr-2" />
                   Crear Usuario
                 </Button>
@@ -70,21 +161,21 @@ export default function CrmUsersPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {mockUsers.map(user => (
+                    {users.map(user => (
                       <TableRow key={user.id}>
-                        <TableCell className="font-medium">{user.name}</TableCell>
+                        <TableCell className="font-medium">{user.firstName} {user.lastName}</TableCell>
                         <TableCell>{user.email}</TableCell>
                         <TableCell>{user.role}</TableCell>
                         <TableCell>{user.pejecoins.toLocaleString()}</TableCell>
                         <TableCell>
                           <span className={`px-2 py-1 rounded-full text-xs ${
-                            user.status === 'Activo' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                            user.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                           }`}>
-                            {user.status}
+                            {user.isActive ? 'Activo' : 'Inactivo'}
                           </span>
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button variant="outline" size="sm">
+                          <Button variant="outline" size="sm" onClick={() => { setEditingUser(user); setOpenDialog(true); }}>
                             Editar
                           </Button>
                         </TableCell>
@@ -97,6 +188,49 @@ export default function CrmUsersPage() {
           </div>
         </main>
       </div>
+      <Dialog open={openDialog} onOpenChange={setOpenDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>{editingUser?.id ? 'Editar Usuario' : 'Crear Usuario'}</DialogTitle>
+          </DialogHeader>
+          {editingUser && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label>Nombre</Label>
+                  <Input value={editingUser.firstName} onChange={(e)=>setEditingUser({...editingUser, firstName:e.target.value})} />
+                </div>
+                <div>
+                  <Label>Apellido</Label>
+                  <Input value={editingUser.lastName} onChange={(e)=>setEditingUser({...editingUser, lastName:e.target.value})} />
+                </div>
+              </div>
+              <div>
+                <Label>Email</Label>
+                <Input type="email" value={editingUser.email} onChange={(e)=>setEditingUser({...editingUser, email:e.target.value})} />
+              </div>
+              <div>
+                <Label>Rol</Label>
+                <Input value={editingUser.role} onChange={(e)=>setEditingUser({...editingUser, role:e.target.value})} />
+              </div>
+              <div>
+                <Label>Dólares</Label>
+                <Input type="number" value={editingUser.pejecoins} onChange={(e)=>setEditingUser({...editingUser, pejecoins:parseInt(e.target.value)})} />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Cancelar</Button>
+            </DialogClose>
+            {editingUser?.id ? (
+              <Button onClick={handleSave}>Guardar</Button>
+            ) : (
+              <Button onClick={submitCreate}>Crear</Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 } 

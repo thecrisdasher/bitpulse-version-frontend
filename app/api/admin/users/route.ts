@@ -55,4 +55,64 @@ export async function GET(request: NextRequest) {
     console.error('Error fetching users:', error);
     return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
   }
+}
+
+// POST /api/admin/users - Crear un nuevo usuario (solo admin)
+export async function POST(request: NextRequest) {
+  try {
+    const session = await createSessionFromRequest(request);
+    if (!session) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    }
+
+    const currentUser = await prisma.user.findUnique({ where: { id: session.sub }, select: { role: true } });
+    if (!currentUser || currentUser.role !== 'admin') {
+      return NextResponse.json({ error: 'Acceso denegado' }, { status: 403 });
+    }
+
+    const body = await request.json();
+    const {
+      firstName,
+      lastName,
+      email,
+      role = 'cliente',
+      password = 'ChangeMe123!',
+      pejecoins = 0,
+      isActive = true,
+    } = body;
+
+    if (!firstName || !lastName || !email) {
+      return NextResponse.json({ error: 'Datos incompletos' }, { status: 400 });
+    }
+
+    // Hash password
+    const hashedPassword = await (await import('@/lib/utils/security')).SecurityUtils.hashPassword(password);
+
+    const newUser = await prisma.user.create({
+      data: {
+        firstName,
+        lastName,
+        email,
+        username: email.split('@')[0],
+        role,
+        password: hashedPassword,
+        pejecoins,
+        isActive,
+      },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        role: true,
+        pejecoins: true,
+        isActive: true,
+      },
+    });
+
+    return NextResponse.json({ user: newUser }, { status: 201 });
+  } catch (error) {
+    console.error('Error creando usuario:', error);
+    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
+  }
 } 

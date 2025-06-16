@@ -403,27 +403,6 @@ export function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) 
           </Button>
         </form>
 
-        {/* Benefits */}
-        <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-green-50 dark:from-blue-950/20 dark:to-green-950/20 rounded-lg">
-          <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Al registrarte obtienes:
-          </p>
-          <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
-            <div className="flex items-center">
-              <Check className="w-4 h-4 text-green-500 mr-2" />
-              1,000 Dólares gratis para práctica
-            </div>
-            <div className="flex items-center">
-              <Check className="w-4 h-4 text-green-500 mr-2" />
-              Acceso completo a análisis de mercado
-            </div>
-            <div className="flex items-center">
-              <Check className="w-4 h-4 text-green-500 mr-2" />
-              Simulador de trading en tiempo real
-            </div>
-          </div>
-        </div>
-
         {/* Link to Login */}
         {onSwitchToLogin && (
           <div className="mt-6 text-center">
