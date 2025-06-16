@@ -36,6 +36,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useChat, ChatProvider } from "@/contexts/ChatContext";
 import { toast } from "sonner";
 import Sidebar from "@/components/Sidebar";
+import { useRouter } from 'next/navigation';
 
 interface User {
   id: string;
@@ -61,6 +62,7 @@ interface Assignment {
 const MentorManagementContent: React.FC = () => {
   const { user } = useAuth();
   const { assignMentor } = useChat();
+  const router = useRouter();
   
   const [mentors, setMentors] = useState<User[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -296,7 +298,7 @@ const MentorManagementContent: React.FC = () => {
                               <Badge variant="outline">Manager</Badge>
                             </div>
                           </div>
-                          <Button variant="outline" size="sm">
+                          <Button variant="outline" size="sm" onClick={() => router.push(`/chat?participant=${mentor.id}`)}>
                             <MessageSquare className="h-4 w-4" />
                           </Button>
                         </div>
@@ -372,7 +374,7 @@ const MentorManagementContent: React.FC = () => {
                         </div>
                         
                         <div className="flex items-center gap-2">
-                          <Button variant="outline" size="sm">
+                          <Button variant="outline" size="sm" onClick={() => router.push(`/chat?participant=${assignment.user.id}`)}>
                             <MessageSquare className="h-4 w-4" />
                           </Button>
                           <Button 

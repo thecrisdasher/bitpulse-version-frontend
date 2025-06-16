@@ -30,6 +30,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import LiveChat from "./LiveChat";
 import GroupModal from "./modals/GroupModal";
 import { Switch } from "@/components/ui/switch";
+import { useSearchParams, useRouter } from 'next/navigation';
 
 interface ChatInterfaceProps {
   className?: string;
@@ -54,9 +55,30 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [showAllChats, setShowAllChats] = useState(false);
 
+  const searchParams = useSearchParams();
+  const initialRoomId = searchParams.get('roomId');
+  const participantId = searchParams.get('participant');
+
   useEffect(() => {
     loadRooms(showAllChats && user?.role === 'admin');
   }, [loadRooms, showAllChats, user]);
+
+  useEffect(() => {
+    if (rooms.length === 0) return;
+    if (initialRoomId) {
+      const r = rooms.find(r=>r.id===initialRoomId);
+      if (r) {
+        setCurrentRoom(r);
+        joinRoom(r.id);
+      }
+    } else if (participantId) {
+      const r = rooms.find(r=>r.otherParticipant?.id===participantId);
+      if (r) {
+        setCurrentRoom(r);
+        joinRoom(r.id);
+      }
+    }
+  }, [rooms]);
 
   // Filtrar salas según término de búsqueda
   const filteredRooms = rooms.filter(room => {
