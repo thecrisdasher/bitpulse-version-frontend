@@ -75,7 +75,7 @@ export default function CrmDashboardPage() {
                 </Card>
               </Link>
 
-              <Link href="/crm/chat">
+              <Link href="/chat?support=1">
                 <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
                   <CardHeader>
                     <MessageSquare className="w-10 h-10 text-blue-500 mb-2" />

@@ -58,10 +58,28 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className }) => {
   const searchParams = useSearchParams();
   const initialRoomId = searchParams.get('roomId');
   const participantId = searchParams.get('participant');
+  const support = searchParams.get('support');
 
   useEffect(() => {
     loadRooms(showAllChats && user?.role === 'admin');
   }, [loadRooms, showAllChats, user]);
+
+  useEffect(() => {
+    const fetchSupport = async () => {
+      if (!support) return;
+      const res = await fetch('/api/chat/support', { credentials: 'include' });
+      const data = await res.json();
+      if (res.ok) {
+        const id = data.roomId;
+        const r = rooms.find(r=>r.id===id);
+        if (r) {
+          setCurrentRoom(r);
+          joinRoom(r.id);
+        }
+      }
+    };
+    fetchSupport();
+  }, [support, rooms]);
 
   useEffect(() => {
     if (rooms.length === 0) return;
