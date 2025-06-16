@@ -3,6 +3,7 @@ import { logger } from '@/lib/logging/logger';
 import type { PejeCoinTransaction, User } from '@/lib/db/schema';
 import { prisma } from '@/lib/db';
 import { Prisma } from '@prisma/client';
+import { NotificationService } from './notificationService';
 
 /**
  * Servicio para gestionar las transacciones de pejecoins entre usuarios
@@ -48,6 +49,15 @@ export class PejeCoinService {
             referenceId: null
           }
         });
+
+        // Crear notificación al usuario destino
+        await NotificationService.create(
+          userId,
+          'Recarga de saldo',
+          `Se acreditaron $${amount.toLocaleString()} a tu cuenta de práctica.`,
+          '/crm/saldos'
+        );
+
         return createdTx;
       });
       

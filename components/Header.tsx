@@ -29,6 +29,8 @@ import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { useTranslation } from '@/app/i18n/client';
 import { toast } from 'sonner';
+import { useNotifications } from '@/contexts/NotificationContext';
+import { useRouter } from 'next/navigation';
 
 export default function Header() {
   // Format PejeCoins as simulated USD
@@ -45,7 +47,9 @@ export default function Header() {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [pejecoins, setPejecoins] = useState(0);
-  const [notifications, setNotifications] = useState(0);
+  const { notes, refresh } = useNotifications();
+  const notifications = notes.length;
+  const router = useRouter();
   
   const isAdmin = hasRole('admin');
   const isMaestro = hasRole('maestro');
@@ -55,8 +59,6 @@ export default function Header() {
     if (isAuthenticated) {
       // Simular pejecoins del usuario
       setPejecoins(user?.pejecoins || Math.floor(Math.random() * 5000) + 500);
-      // Simular notificaciones
-      setNotifications(Math.floor(Math.random() * 5));
     }
   }, [isAuthenticated, user]);
   
@@ -164,14 +166,20 @@ export default function Header() {
                       )}
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-80">
-                    <div className="p-4 text-center text-muted-foreground">
-                      {notifications > 0 ? (
-                        <p>Tienes {notifications} notificaciones nuevas</p>
-                      ) : (
-                        <p>No hay notificaciones nuevas</p>
-                      )}
-                    </div>
+                  <DropdownMenuContent align="end" className="w-80 max-h-96 overflow-y-auto">
+                    {notifications === 0 && (
+                      <div className="p-4 text-center text-muted-foreground text-sm">Sin notificaciones</div>
+                    )}
+                    {notes.map((n) => (
+                      <DropdownMenuItem key={n.id} className="flex flex-col space-y-0.5 cursor-pointer" onClick={async () => {
+                        await fetch(`/api/notifications/${n.id}`, { method: 'PATCH', credentials: 'include' });
+                        refresh();
+                        router.push(n.link);
+                      }}>
+                        <span className="font-medium">{n.title}</span>
+                        <span className="text-xs text-muted-foreground">{n.body}</span>
+                      </DropdownMenuItem>
+                    ))}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </>

@@ -13,6 +13,7 @@ import Footer from "@/components/Footer"
 import Header from "@/components/Header"
 import { GoogleReCaptchaProvider } from 'react-google-recaptcha-v3'
 import { Providers } from '@/components/Providers'
+import { NotificationProvider } from '@/contexts/NotificationContext'
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -39,6 +40,7 @@ export default function RootLayout({
     <html lang={lng}>
       <body className={`${inter.className} min-h-screen flex flex-col`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <NotificationProvider>
           <LanguageProvider initialLocale={lng as 'es' | 'en'}>
             <Providers>
                 <div className="flex-1 flex flex-col">
@@ -48,6 +50,7 @@ export default function RootLayout({
                 <Footer />
             </Providers>
           </LanguageProvider>
+          </NotificationProvider>
         </ThemeProvider>
       </body>
     </html>
