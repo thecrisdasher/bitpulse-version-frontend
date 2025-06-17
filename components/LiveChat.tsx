@@ -244,21 +244,35 @@ const LiveChat: React.FC<LiveChatProps> = ({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="relative">
-                <Avatar className="h-10 w-10">
-                  <AvatarImage src={otherParticipant?.profilePicture || currentRoom?.participants[0]?.profilePicture} />
-                  <AvatarFallback>
-                    {currentRoom?.type === 'general' ? (
-                      <Users className="h-4 w-4" />
-                    ) : (
-                      otherParticipant?.firstName?.charAt(0) || 'U'
+                {currentRoom?.type === 'general' ? (
+                  <div className="flex -space-x-3">
+                    {currentRoom.participants.slice(0, 3).map((p, idx) => (
+                      <Avatar key={p.id} className="h-8 w-8 border-2 border-background">
+                        <AvatarImage src={p.profilePicture} />
+                        <AvatarFallback>{p.firstName?.charAt(0)}</AvatarFallback>
+                      </Avatar>
+                    ))}
+                    {currentRoom.participants.length > 3 && (
+                      <Avatar className="h-8 w-8 border-2 border-background bg-muted">
+                        <AvatarFallback>+{currentRoom.participants.length - 3}</AvatarFallback>
+                      </Avatar>
                     )}
-                  </AvatarFallback>
-                </Avatar>
-                {otherParticipant && (
-                  <div className={cn(
-                    "absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-background",
-                    getStatusColor(getUserStatus(otherParticipant.id))
-                  )} />
+                  </div>
+                ) : (
+                  <>
+                    <Avatar className="h-10 w-10">
+                      <AvatarImage src={otherParticipant?.profilePicture} />
+                      <AvatarFallback>
+                        {otherParticipant?.firstName?.charAt(0) || 'U'}
+                      </AvatarFallback>
+                    </Avatar>
+                    {otherParticipant && (
+                      <div className={cn(
+                        "absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-background",
+                        getStatusColor(getUserStatus(otherParticipant.id))
+                      )} />
+                    )}
+                  </>
                 )}
               </div>
               <div className="flex-1">
