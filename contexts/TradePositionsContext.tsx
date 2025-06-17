@@ -84,22 +84,25 @@ export const TradePositionsProvider: React.FC<TradePositionsProviderProps> = ({ 
             id: pos.id,
             marketId: pos.instrument,
             marketName: pos.instrument,
-            marketColor: '', // backend does not store color
+            marketColor: pos.marketColor || '', // usar color de DB si existe
             direction: pos.direction === 'long' ? 'up' : 'down',
             type: pos.direction === 'long' ? 'buy' : 'sell',
             openPrice: pos.openPrice,
             currentPrice: pos.currentPrice,
             amount: pos.amount,
-            stake: pos.amount,
+            stake: pos.stake || pos.amount,
             openTime: new Date(pos.openTime),
-            duration: { value: 1, unit: 'hour' }, // default until DB supports duration
-            profit: 0,
+            duration: { 
+              value: pos.durationValue || 1, 
+              unit: (pos.durationUnit as 'minute' | 'hour' | 'day') || 'hour' 
+            }, // usar duración real de la DB
+            profit: pos.profit || 0,
             profitPercentage: 0,
-            capitalFraction: 0,
-            lotSize: 0,
-            leverage: pos.leverage,
-            marginRequired: 0,
-            positionValue: 0,
+            capitalFraction: pos.capitalFraction || 0,
+            lotSize: pos.lotSize || 0,
+            leverage: pos.leverage || 0,
+            marginRequired: pos.marginRequired || 0,
+            positionValue: pos.positionValue || 0,
           }));
           setPositions(serverPositions);
         }

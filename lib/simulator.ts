@@ -166,6 +166,59 @@ export function getSimulatedOHLC(symbol: string, intervals: number = 100): any[]
 }
 
 /**
+ * Actualiza los precios base con datos reales de Binance
+ */
+export async function updateBasePricesFromBinance(): Promise<boolean> {
+  try {
+    console.log('[Simulator] Updating base prices from Binance...');
+    
+    const symbols = Object.keys(BASE_PRICES).filter(s => !['USDC', 'USDT', 'BUSD', 'DAI'].includes(s));
+    const fullSymbols = symbols.map(s => `${s}USDT`);
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    
+    const response = await fetch(
+      `https://api.binance.com/api/v3/ticker/24hr?symbols=${encodeURIComponent(JSON.stringify(fullSymbols))}`,
+      { signal: controller.signal }
+    );
+    
+    clearTimeout(timeoutId);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    
+    const data = await response.json();
+    let updatedCount = 0;
+    
+    if (Array.isArray(data)) {
+      data.forEach((item: any) => {
+        const base = String(item.symbol).replace(/USDT$/i, '');
+        const newPrice = parseFloat(item.lastPrice);
+        
+        if (BASE_PRICES[base] && !isNaN(newPrice) && newPrice > 0) {
+          BASE_PRICES[base] = newPrice;
+          // También actualizar el cache para que tome efecto inmediatamente
+          priceCache.set(base, newPrice);
+          lastUpdateTime.set(base, Date.now());
+          updatedCount++;
+        }
+      });
+      
+      console.log(`[Simulator] Updated ${updatedCount} base prices from Binance`);
+      return true;
+    }
+    
+    return false;
+    
+  } catch (error: any) {
+    console.warn(`[Simulator] Failed to update base prices: ${error.message}`);
+    return false;
+  }
+}
+
+/**
  * Resetea el cache de precios (útil para testing)
  */
 export function resetPriceCache(): void {
@@ -176,9 +229,10 @@ export function resetPriceCache(): void {
 /**
  * Obtiene el estado actual del cache (útil para debugging)
  */
-export function getCacheStatus(): { symbols: string[]; cacheSize: number } {
+export function getCacheStatus(): { symbols: string[]; cacheSize: number; basePrices: Record<string, number> } {
   return {
     symbols: Array.from(priceCache.keys()),
-    cacheSize: priceCache.size
+    cacheSize: priceCache.size,
+    basePrices: { ...BASE_PRICES }
   };
 } 

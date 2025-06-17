@@ -14,6 +14,7 @@ import Header from "@/components/Header"
 import { GoogleReCaptchaProvider } from 'react-google-recaptcha-v3'
 import { Providers } from '@/components/Providers'
 import { NotificationProvider } from '@/contexts/NotificationContext'
+import '@/lib/server-initialization' // Inicializar servicios del servidor
 
 const inter = Inter({ subsets: ["latin"] })
 
