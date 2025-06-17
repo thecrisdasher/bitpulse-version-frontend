@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getSimulatedOHLC } from '@/lib/simulator';
 
 export async function GET(request: Request) {
   try {
@@ -36,14 +37,42 @@ export async function GET(request: Request) {
       }
     }
     
-    console.log('[Binance API] Fetching:', url);
-    
-    const res = await fetch(url);
-    if (!res.ok) {
-      throw new Error(`Binance API error: ${res.status}`);
+    try {
+      console.log('[Binance API] Fetching:', url);
+      
+      // Configurar timeout para la petición
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      
+      const res = await fetch(url, { 
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!res.ok) {
+        throw new Error(`Binance API error: ${res.status}`);
+      }
+      
+      const data = await res.json();
+      
+      if (!Array.isArray(data)) {
+        throw new Error('Invalid response format from Binance');
+      }
+      
+      console.log(`[Binance API] Successfully fetched ${data.length} klines for ${symbol}`);
+      return NextResponse.json(data);
+      
+    } catch (binanceError: any) {
+      // Fallback automático a simulación cuando falla Binance
+      console.warn(`[Binance API] Failed, using simulator: ${binanceError.message}`);
+      
+      const simulatedData = getSimulatedOHLC(base, limit);
+      
+      console.log(`[Simulator] Generated ${simulatedData.length} simulated klines for ${symbol}`);
+      return NextResponse.json(simulatedData);
     }
-    const data = await res.json();
-    return NextResponse.json(data);
+    
   } catch (error: any) {
     console.error('Error in /api/binance/klines:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });

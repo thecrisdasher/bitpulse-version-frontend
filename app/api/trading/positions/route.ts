@@ -4,6 +4,7 @@ import { createPosition, validatePosition } from '@/lib/trading/positionService'
 import { ZodError } from 'zod';
 import { TradePositionSchema } from '@/lib/types/trading';
 import { prisma } from '@/lib/db';
+import { checkAndCloseExpiredPositions } from '@/lib/services/positionAutoCloseService';
 
 /**
  * Endpoint para crear una nueva posición de trading.
@@ -96,6 +97,7 @@ function getContractSize(instrumentName: string): number {
 
 /**
  * List all open positions for the authenticated user.
+ * También verifica y cierra automáticamente las posiciones vencidas.
  */
 export async function GET(request: Request) {
   try {
@@ -104,6 +106,18 @@ export async function GET(request: Request) {
     if (!user) {
       return NextResponse.json({ success: false, message: 'No autorizado' }, { status: 401 });
     }
+    
+    // CIERRE AUTOMÁTICO: Verificar y cerrar posiciones vencidas antes de devolver la lista
+    try {
+      const closedPositions = await checkAndCloseExpiredPositions();
+      if (closedPositions.length > 0) {
+        console.log(`[API] Auto-closed ${closedPositions.length} expired positions`);
+      }
+    } catch (autoCloseError) {
+      console.error('[API] Error in auto-close process:', autoCloseError);
+      // No fallar la consulta si hay error en el auto-close
+    }
+    
     // Determine status filter
     const url = new URL(request.url);
     const statusFilter = url.searchParams.get('status');

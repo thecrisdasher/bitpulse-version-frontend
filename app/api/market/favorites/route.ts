@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFavoriteInstruments, toggleInstrumentFavorite } from '@/lib/mockData';
+import { getSimulatedTicker } from '@/lib/simulator';
 
 /**
  * GET /api/market/favorites
@@ -16,9 +17,17 @@ export async function GET() {
       if (baseSymbols.length > 0) {
         const fullSymbols = baseSymbols.map(sym => `${sym}USDT`);
         const url = `https://api.binance.com/api/v3/ticker/24hr?symbols=${encodeURIComponent(JSON.stringify(fullSymbols))}`;
-        const resp = await fetch(url);
+        
+        // Configurar timeout para la petición
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        
+        const resp = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        
         if (!resp.ok) throw new Error(`Binance API error ${resp.status}`);
         const data = await resp.json(); // Array of tickers
+        
         const mapping: Record<string, { price: number; change24h: number }> = {};
         data.forEach((item: any) => {
           const base = String(item.symbol).replace(/USDT$/i, '');
@@ -27,6 +36,7 @@ export async function GET() {
             change24h: parseFloat(item.priceChangePercent),
           };
         });
+        
         const enhancedFavorites = mockFavorites.map(inst => ({
           ...inst,
           price: mapping[inst.symbol]?.price ?? inst.price,
@@ -34,9 +44,11 @@ export async function GET() {
           hasRealTime: mapping[inst.symbol] != null,
           lastUpdated: mapping[inst.symbol] ? new Date() : inst.lastUpdated
         }));
-      return NextResponse.json({
-        favorites: enhancedFavorites,
-        count: enhancedFavorites.length,
+        
+        console.log(`[Favorites API] Successfully fetched ${data.length} Binance tickers`);
+        return NextResponse.json({
+          favorites: enhancedFavorites,
+          count: enhancedFavorites.length,
           timestamp: Date.now(),
           success: true
         });
@@ -49,14 +61,31 @@ export async function GET() {
         success: true
       });
     } catch (error) {
-      console.error('Error al obtener tickers de Binance:', error);
-      // Fallback a datos simulados
+      console.warn('Error al obtener tickers de Binance, usando simulación:', error);
+      
+      // Fallback automático a simulación
+      const baseSymbols = mockFavorites.map(inst => inst.symbol).filter(sym => sym !== 'USDT');
+      const simulatedFavorites = mockFavorites.map(inst => {
+        if (baseSymbols.includes(inst.symbol)) {
+          const ticker = getSimulatedTicker(inst.symbol);
+          return {
+            ...inst,
+            price: ticker.price,
+            change24h: ticker.change24h,
+            hasRealTime: true, // Simulado pero en tiempo real
+            lastUpdated: new Date()
+          };
+        }
+        return inst;
+      });
+      
+      console.log(`[Favorites API] Using simulated data for ${baseSymbols.length} symbols`);
       return NextResponse.json({
-        favorites: mockFavorites,
-        count: mockFavorites.length,
+        favorites: simulatedFavorites,
+        count: simulatedFavorites.length,
         timestamp: Date.now(),
         success: true,
-        message: 'Error en datos reales; usando datos de mock'
+        message: 'Usando datos simulados (Binance no disponible)'
       });
     }
   } catch (error: any) {

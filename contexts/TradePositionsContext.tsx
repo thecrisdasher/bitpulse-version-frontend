@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { useAuth } from './AuthContext';
 
 // Tipo de posición de trading
 export interface TradePosition {
@@ -70,6 +71,7 @@ interface TradePositionsProviderProps {
 
 export const TradePositionsProvider: React.FC<TradePositionsProviderProps> = ({ children }) => {
   const [positions, setPositions] = useState<TradePosition[]>([]);
+  const { updateUser } = useAuth();
 
   // Hydrate positions from backend on mount
   useEffect(() => {
@@ -157,25 +159,63 @@ export const TradePositionsProvider: React.FC<TradePositionsProviderProps> = ({ 
     }
   }, []);
 
-  // Remover posición en servidor y contexto
+  // Cerrar posición (liquidar PnL y devolver capital)
   const removePosition = useCallback(async (id: string): Promise<void> => {
     try {
-      const res = await fetch(`/api/trading/positions/${id}`, { method: 'DELETE' });
+      const target = positions.find(p => p.id === id);
+      if (!target) return;
+
+      const body = {
+        closePrice: target.currentPrice,
+        profit: target.profit ?? 0,
+        amount: target.amount
+      };
+
+      const res = await fetch(`/api/trading/positions/${id}/close`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
       const json = await res.json();
       if (json.success) {
-    setPositions(prev => prev.filter(pos => pos.id !== id));
+        // Actualizar posiciones locales
+        setPositions(prev => prev.filter(pos => pos.id !== id));
+
+        // Intentar actualizar balance en AuthContext; ignorar si no hay token
+        if (json.newBalance !== undefined) {
+          try {
+            updateUser({ ...json.user, pejecoins: json.newBalance } as any);
+          } catch (err) {
+            console.warn('No se pudo actualizar usuario en contexto (probablemente sin token).', err);
+          }
+        }
       } else {
-        console.warn('OpenPositions: no se pudo eliminar posición en el servidor', json.message);
+        console.warn('OpenPositions: no se pudo cerrar posición', json.message);
       }
     } catch (err) {
-      console.error('OpenPositions: error eliminando posición', err);
+      console.error('OpenPositions: error cerrando posición', err);
     }
-  }, []);
+  }, [positions, updateUser]);
 
   // Actualizar precios y calcular PnL
   const updatePositionPrices = useCallback((marketName: string, newPrice: number) => {
     setPositions(prev => prev.map(pos => {
       if (pos.marketName === marketName) {
+        // Calcular expiración
+        const multipliers: Record<string, number> = {
+          minute: 60 * 1000,
+          hour: 60 * 60 * 1000,
+          day: 24 * 60 * 60 * 1000
+        };
+
+        const durationMs = pos.duration ? (multipliers[pos.duration.unit] || 0) * pos.duration.value : 0;
+        const isExpired = durationMs > 0 && Date.now() - new Date(pos.openTime).getTime() >= durationMs;
+
+        if (isExpired) {
+          return pos; // No actualizar precios ni profit tras expiración
+        }
+
         // Calcular profit basado en la dirección
         let priceDifference = newPrice - pos.openPrice;
         if (pos.direction === 'down') {
