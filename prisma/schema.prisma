@@ -71,6 +71,8 @@ model User {
   notifications             Notification[]
   chatParticipants          ChatParticipant[]         @relation("UserChatParticipants")
   messagesSent              Message[]                 @relation("UserMessages")
+  clientComments            ClientComment[]           @relation("ClientComments")
+  authoredComments          ClientComment[]           @relation("AuthorComments")
   @@map("users")
 }
 
@@ -201,4 +203,34 @@ model Notification {
   link      String
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
+}
+
+// ---------------------------
+// 🚀 Módulo de Comentarios de Clientes
+// ---------------------------
+
+model CommentTag {
+  id           String         @id @default(uuid())
+  name         String         @unique
+  color        String         @default("#3B82F6") // Color hexadecimal para la etiqueta
+  description  String?
+  createdAt    DateTime       @default(now())
+  comments     ClientComment[] @relation("CommentTags")
+  
+  @@map("comment_tags")
+}
+
+model ClientComment {
+  id          String      @id @default(uuid())
+  client      User        @relation("ClientComments", fields: [clientId], references: [id])
+  clientId    String
+  author      User        @relation("AuthorComments", fields: [authorId], references: [id])
+  authorId    String      // Maestro o Admin que hace el comentario
+  content     String      // Contenido del comentario
+  tags        CommentTag[] @relation("CommentTags")
+  isPrivate   Boolean     @default(false) // Para comentarios privados solo visibles para admins
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  
+  @@map("client_comments")
 }

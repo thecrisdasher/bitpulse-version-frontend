@@ -75,6 +75,20 @@ export default function CrmDashboardPage() {
                 </Card>
               </Link>
 
+              <Link href="/crm/comentarios">
+                <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
+                  <CardHeader>
+                    <MessageSquare className="w-10 h-10 text-purple-500 mb-2" />
+                    <CardTitle>Comentarios de Clientes</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <CardDescription>
+                      Gestiona comentarios y seguimiento del progreso de los clientes asignados.
+                    </CardDescription>
+                  </CardContent>
+                </Card>
+              </Link>
+
               <Link href="/chat?support=1">
                 <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
                   <CardHeader>

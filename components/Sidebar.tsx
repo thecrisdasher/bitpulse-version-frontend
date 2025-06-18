@@ -52,6 +52,9 @@ const Sidebar = () => {
             <li>
               <Link href="/chat" className={cn("flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors", currentPath === "/chat" ? "bg-primary text-primary-foreground" : "hover:bg-muted")}> <MessageSquare size={18}/> Chat en Vivo </Link>
             </li>
+            <li>
+              <Link href="/crm/comentarios" className={cn("flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors", currentPath === "/crm/comentarios" ? "bg-primary text-primary-foreground" : "hover:bg-muted")}> <MessageSquare size={18}/> Comentarios </Link>
+            </li>
           </ul>
         </nav>
         <div className="p-4 border-t border-border">
@@ -205,6 +208,22 @@ const Sidebar = () => {
               Chat en Vivo
             </Link>
           </li>
+          
+          {/* Comentarios para maestros y admins */}
+          {(isMaestro || isAdmin) && (
+            <li>
+              <Link 
+                href="/crm/comentarios" 
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+                  currentPath === "/crm/comentarios" ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+                )}
+              >
+                <MessageSquare size={18} />
+                Comentarios
+              </Link>
+            </li>
+          )}
 
           {/* CRM Navigation */}
           {canAccessCrm && (
