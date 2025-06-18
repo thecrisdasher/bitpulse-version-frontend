@@ -276,7 +276,8 @@ export type MarketCategory =
   | "forex" 
   | "indices" 
   | "criptomonedas" 
-  | "materias-primas";
+  | "materias-primas"
+  | "acciones";
 
 export interface MarketInstrument {
   id: string;
@@ -390,6 +391,130 @@ export const derivativesInstruments: MarketInstrument[] = [
     isFavorite: false,
     hasRealTime: false,
     color: "hsl(43, 95%, 47%)"
+  },
+  {
+    id: "volatility-100-1s",
+    name: "Índice Volatility 100",
+    symbol: "VOL100",
+    category: "derivados",
+    price: 43210.88,
+    change24h: 5.67,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(280, 85%, 60%)"
+  },
+  {
+    id: "volatility-100",
+    name: "Índice Volatility 100",
+    symbol: "VOL100",
+    category: "derivados",
+    price: 43195.23,
+    change24h: 5.42,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: false,
+    color: "hsl(280, 85%, 60%)"
+  }
+];
+
+// Instrumentos Sintéticos - Boom & Crash
+export const syntheticInstruments: MarketInstrument[] = [
+  {
+    id: "boom-300-1s",
+    name: "Boom 300 Index",
+    symbol: "BOOM300",
+    category: "sinteticos",
+    price: 98765.43,
+    change24h: 2.35,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(120, 85%, 52%)"
+  },
+  {
+    id: "boom-500-1s",
+    name: "Boom 500 Index",
+    symbol: "BOOM500",
+    category: "sinteticos",
+    price: 123456.78,
+    change24h: 1.89,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(140, 85%, 52%)"
+  },
+  {
+    id: "boom-1000-1s",
+    name: "Boom 1000 Index",
+    symbol: "BOOM1000",
+    category: "sinteticos",
+    price: 234567.89,
+    change24h: 3.21,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(160, 85%, 52%)"
+  },
+  {
+    id: "crash-300-1s",
+    name: "Crash 300 Index",
+    symbol: "CRASH300",
+    category: "sinteticos",
+    price: 67890.12,
+    change24h: -1.45,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(0, 85%, 52%)"
+  },
+  {
+    id: "crash-500-1s",
+    name: "Crash 500 Index",
+    symbol: "CRASH500",
+    category: "sinteticos",
+    price: 87654.32,
+    change24h: -2.14,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(15, 85%, 52%)"
+  },
+  {
+    id: "crash-1000-1s",
+    name: "Crash 1000 Index",
+    symbol: "CRASH1000",
+    category: "sinteticos",
+    price: 109876.54,
+    change24h: -1.78,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(30, 85%, 52%)"
+  },
+  {
+    id: "step-index-200",
+    name: "Step Index 200",
+    symbol: "STEP200",
+    category: "sinteticos",
+    price: 4567.89,
+    change24h: 0.45,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(250, 85%, 55%)"
+  },
+  {
+    id: "step-index-500",
+    name: "Step Index 500",
+    symbol: "STEP500",
+    category: "sinteticos",
+    price: 8901.23,
+    change24h: 0.67,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(270, 85%, 55%)"
   }
 ];
 
@@ -430,6 +555,78 @@ export const basketsInstruments: MarketInstrument[] = [
     isFavorite: false,
     hasRealTime: false,
     color: "hsl(41, 98%, 49%)"
+  },
+  {
+    id: "healthcare-basket",
+    name: "Healthcare Basket",
+    symbol: "HLTH",
+    category: "baskets",
+    price: 1567.89,
+    change24h: 0.65,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: false,
+    color: "hsl(120, 85%, 45%)"
+  },
+  {
+    id: "gaming-basket",
+    name: "Gaming & Entertainment",
+    symbol: "GAME",
+    category: "baskets",
+    price: 945.32,
+    change24h: 2.1,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: false,
+    color: "hsl(285, 90%, 61%)"
+  },
+  {
+    id: "automotive-basket",
+    name: "Automotive Basket",
+    symbol: "AUTO",
+    category: "baskets",
+    price: 1123.45,
+    change24h: -0.85,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: false,
+    color: "hsl(195, 85%, 55%)"
+  },
+  {
+    id: "real-estate-basket",
+    name: "Real Estate Basket",
+    symbol: "REIT",
+    category: "baskets",
+    price: 756.78,
+    change24h: 0.42,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: false,
+    color: "hsl(25, 85%, 55%)"
+  },
+  {
+    id: "ai-basket",
+    name: "AI & Machine Learning",
+    symbol: "AIML",
+    category: "baskets",
+    price: 1789.23,
+    change24h: 3.2,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: false,
+    color: "hsl(260, 90%, 65%)"
+  },
+  {
+    id: "crypto-basket",
+    name: "Crypto Index Basket",
+    symbol: "CRYP",
+    category: "baskets",
+    price: 2134.56,
+    change24h: 1.85,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: false,
+    color: "hsl(45, 95%, 50%)"
   }
 ];
 
@@ -482,6 +679,78 @@ export const forexInstruments: MarketInstrument[] = [
     isFavorite: false,
     hasRealTime: true,
     color: "hsl(43, 95%, 47%)"
+  },
+  {
+    id: "usdcad",
+    name: "USD/CAD",
+    symbol: "USD/CAD",
+    category: "forex",
+    price: 1.3789,
+    change24h: 0.15,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(120, 85%, 55%)"
+  },
+  {
+    id: "usdchf",
+    name: "USD/CHF",
+    symbol: "USD/CHF",
+    category: "forex",
+    price: 0.8976,
+    change24h: -0.08,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(0, 85%, 55%)"
+  },
+  {
+    id: "eurjpy",
+    name: "EUR/JPY",
+    symbol: "EUR/JPY",
+    category: "forex",
+    price: 162.45,
+    change24h: 0.23,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(280, 85%, 55%)"
+  },
+  {
+    id: "gbpjpy",
+    name: "GBP/JPY",
+    symbol: "GBP/JPY",
+    category: "forex",
+    price: 190.34,
+    change24h: 0.56,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(320, 85%, 55%)"
+  },
+  {
+    id: "nzdusd",
+    name: "NZD/USD",
+    symbol: "NZD/USD",
+    category: "forex",
+    price: 0.5987,
+    change24h: -0.19,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(180, 85%, 55%)"
+  },
+  {
+    id: "eurgbp",
+    name: "EUR/GBP",
+    symbol: "EUR/GBP",
+    category: "forex",
+    price: 0.8523,
+    change24h: -0.14,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(240, 85%, 55%)"
   }
 ];
 
@@ -489,7 +758,7 @@ export const forexInstruments: MarketInstrument[] = [
 export const stockIndicesInstruments: MarketInstrument[] = [
   {
     id: "us500",
-    name: "US 500",
+    name: "US 500 (S&P 500)",
     symbol: "US500",
     category: "indices",
     price: 5123.45,
@@ -501,7 +770,7 @@ export const stockIndicesInstruments: MarketInstrument[] = [
   },
   {
     id: "nas100",
-    name: "US Tech 100",
+    name: "US Tech 100 (NASDAQ)",
     symbol: "NAS100",
     category: "indices",
     price: 17876.32,
@@ -513,7 +782,7 @@ export const stockIndicesInstruments: MarketInstrument[] = [
   },
   {
     id: "dji",
-    name: "Wall Street 30",
+    name: "Wall Street 30 (Dow Jones)",
     symbol: "US30",
     category: "indices",
     price: 38765.21,
@@ -525,7 +794,7 @@ export const stockIndicesInstruments: MarketInstrument[] = [
   },
   {
     id: "ftse100",
-    name: "UK 100",
+    name: "UK 100 (FTSE)",
     symbol: "UK100",
     category: "indices",
     price: 7654.32,
@@ -534,6 +803,78 @@ export const stockIndicesInstruments: MarketInstrument[] = [
     isFavorite: false,
     hasRealTime: true,
     color: "hsl(43, 95%, 47%)"
+  },
+  {
+    id: "dax40",
+    name: "Germany 40 (DAX)",
+    symbol: "GER40",
+    category: "indices",
+    price: 16234.87,
+    change24h: 0.89,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(210, 85%, 55%)"
+  },
+  {
+    id: "nikkei225",
+    name: "Japan 225 (Nikkei)",
+    symbol: "JPN225",
+    category: "indices",
+    price: 32987.45,
+    change24h: -0.34,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(0, 85%, 60%)"
+  },
+  {
+    id: "asx200",
+    name: "Australia 200 (ASX)",
+    symbol: "AUS200",
+    category: "indices",
+    price: 7456.23,
+    change24h: 0.67,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(120, 85%, 55%)"
+  },
+  {
+    id: "cac40",
+    name: "France 40 (CAC)",
+    symbol: "FRA40",
+    category: "indices",
+    price: 7289.56,
+    change24h: 0.23,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(240, 85%, 55%)"
+  },
+  {
+    id: "ibex35",
+    name: "Spain 35 (IBEX)",
+    symbol: "ESP35",
+    category: "indices",
+    price: 9876.43,
+    change24h: -0.45,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(280, 85%, 55%)"
+  },
+  {
+    id: "russell2000",
+    name: "US Small Cap 2000",
+    symbol: "US2000",
+    category: "indices",
+    price: 2134.56,
+    change24h: 1.12,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(180, 85%, 55%)"
   }
 ];
 
@@ -565,7 +906,7 @@ export const commoditiesInstruments: MarketInstrument[] = [
   },
   {
     id: "oil",
-    name: "Crude Oil",
+    name: "Crude Oil WTI",
     symbol: "OIL",
     category: "materias-primas",
     price: 73.42,
@@ -586,6 +927,102 @@ export const commoditiesInstruments: MarketInstrument[] = [
     isFavorite: false,
     hasRealTime: true,
     color: "hsl(207, 90%, 61%)"
+  },
+  {
+    id: "brent-oil",
+    name: "Brent Crude Oil",
+    symbol: "UKOIL",
+    category: "materias-primas",
+    price: 76.89,
+    change24h: -0.87,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(25, 90%, 55%)"
+  },
+  {
+    id: "copper",
+    name: "Copper",
+    symbol: "COPPER",
+    category: "materias-primas",
+    price: 4.23,
+    change24h: 1.45,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(30, 85%, 50%)"
+  },
+  {
+    id: "platinum",
+    name: "Platinum",
+    symbol: "XPT/USD",
+    category: "materias-primas",
+    price: 987.45,
+    change24h: 0.78,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(190, 60%, 70%)"
+  },
+  {
+    id: "palladium",
+    name: "Palladium",
+    symbol: "XPD/USD",
+    category: "materias-primas",
+    price: 1234.56,
+    change24h: -1.34,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(200, 70%, 60%)"
+  },
+  {
+    id: "corn",
+    name: "Corn",
+    symbol: "CORN",
+    category: "materias-primas",
+    price: 442.75,
+    change24h: 0.89,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(55, 85%, 55%)"
+  },
+  {
+    id: "wheat",
+    name: "Wheat",
+    symbol: "WHEAT",
+    category: "materias-primas",
+    price: 608.34,
+    change24h: -0.56,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(45, 80%, 50%)"
+  },
+  {
+    id: "sugar",
+    name: "Sugar",
+    symbol: "SUGAR",
+    category: "materias-primas",
+    price: 23.45,
+    change24h: 1.23,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(320, 85%, 65%)"
+  },
+  {
+    id: "coffee",
+    name: "Coffee",
+    symbol: "COFFEE",
+    category: "materias-primas",
+    price: 178.90,
+    change24h: 2.1,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(25, 85%, 40%)"
   }
 ];
 
@@ -596,7 +1033,7 @@ export const cryptoInstruments: MarketInstrument[] = [
     name: "Bitcoin",
     symbol: "BTC/USD",
     category: "criptomonedas",
-    price: 29324.52,
+    price: 67234.52,
     change24h: 1.2,
     change7d: 0,
     isFavorite: true,
@@ -608,7 +1045,7 @@ export const cryptoInstruments: MarketInstrument[] = [
     name: "Ethereum",
     symbol: "ETH/USD",
     category: "criptomonedas",
-    price: 1876.34,
+    price: 3456.78,
     change24h: -0.8,
     change7d: 0,
     isFavorite: true,
@@ -620,23 +1057,281 @@ export const cryptoInstruments: MarketInstrument[] = [
     name: "Solana",
     symbol: "SOL/USD",
     category: "criptomonedas",
-    price: 19.87,
-    change24h: -0.5,
+    price: 98.76,
+    change24h: 2.35,
     change7d: 0,
     isFavorite: false,
     hasRealTime: true,
-    color: "hsl(338, 90%, 56%)"
+    color: "hsl(285, 85%, 60%)"
+  },
+  {
+    id: "adausd",
+    name: "Cardano",
+    symbol: "ADA/USD",
+    category: "criptomonedas",
+    price: 0.485,
+    change24h: 1.54,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(215, 85%, 60%)"
+  },
+  {
+    id: "dotusdt",
+    name: "Polkadot",
+    symbol: "DOT/USD",
+    category: "criptomonedas",
+    price: 6.78,
+    change24h: -1.2,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(340, 85%, 60%)"
+  },
+  {
+    id: "linkusd",
+    name: "Chainlink",
+    symbol: "LINK/USD",
+    category: "criptomonedas",
+    price: 14.56,
+    change24h: 0.89,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(220, 85%, 60%)"
+  },
+  {
+    id: "xrpusd",
+    name: "Ripple",
+    symbol: "XRP/USD",
+    category: "criptomonedas",
+    price: 0.623,
+    change24h: 0.45,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(195, 85%, 60%)"
+  },
+  {
+    id: "ltcusd",
+    name: "Litecoin",
+    symbol: "LTC/USD",
+    category: "criptomonedas",
+    price: 73.45,
+    change24h: -0.67,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(190, 85%, 60%)"
+  },
+  {
+    id: "bchusd",
+    name: "Bitcoin Cash",
+    symbol: "BCH/USD",
+    category: "criptomonedas",
+    price: 234.56,
+    change24h: 1.23,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(120, 85%, 50%)"
+  },
+  {
+    id: "avaxusd",
+    name: "Avalanche",
+    symbol: "AVAX/USD",
+    category: "criptomonedas",
+    price: 37.89,
+    change24h: 2.1,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(0, 85%, 60%)"
+  },
+  {
+    id: "maticusd",
+    name: "Polygon",
+    symbol: "MATIC/USD",
+    category: "criptomonedas",
+    price: 0.89,
+    change24h: 1.67,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(270, 85%, 60%)"
+  },
+  {
+    id: "dogeusd",
+    name: "Dogecoin",
+    symbol: "DOGE/USD",
+    category: "criptomonedas",
+    price: 0.0834,
+    change24h: 3.45,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(45, 85%, 60%)"
+  }
+];
+
+// Acciones individuales
+export const stocksInstruments: MarketInstrument[] = [
+  {
+    id: "aapl",
+    name: "Apple Inc.",
+    symbol: "AAPL",
+    category: "acciones",
+    price: 192.53,
+    change24h: 1.45,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(210, 85%, 55%)"
+  },
+  {
+    id: "msft",
+    name: "Microsoft Corp.",
+    symbol: "MSFT",
+    category: "acciones",
+    price: 378.94,
+    change24h: 0.89,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(240, 85%, 55%)"
+  },
+  {
+    id: "googl",
+    name: "Alphabet Inc.",
+    symbol: "GOOGL",
+    category: "acciones",
+    price: 143.67,
+    change24h: 2.1,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(120, 85%, 55%)"
+  },
+  {
+    id: "amzn",
+    name: "Amazon.com Inc.",
+    symbol: "AMZN",
+    category: "acciones",
+    price: 145.23,
+    change24h: 1.67,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(45, 85%, 50%)"
+  },
+  {
+    id: "tsla",
+    name: "Tesla Inc.",
+    symbol: "TSLA",
+    category: "acciones",
+    price: 248.42,
+    change24h: 3.45,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(0, 85%, 60%)"
+  },
+  {
+    id: "nvda",
+    name: "NVIDIA Corp.",
+    symbol: "NVDA",
+    category: "acciones",
+    price: 487.56,
+    change24h: 2.89,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(120, 85%, 45%)"
+  },
+  {
+    id: "meta",
+    name: "Meta Platforms Inc.",
+    symbol: "META",
+    category: "acciones",
+    price: 342.89,
+    change24h: 1.23,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(220, 85%, 60%)"
+  },
+  {
+    id: "nflx",
+    name: "Netflix Inc.",
+    symbol: "NFLX",
+    category: "acciones",
+    price: 456.78,
+    change24h: 0.95,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(0, 85%, 50%)"
+  },
+  {
+    id: "dis",
+    name: "Walt Disney Co.",
+    symbol: "DIS",
+    category: "acciones",
+    price: 89.67,
+    change24h: -0.45,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(240, 85%, 65%)"
+  },
+  {
+    id: "jpm",
+    name: "JPMorgan Chase & Co.",
+    symbol: "JPM",
+    category: "acciones",
+    price: 167.45,
+    change24h: 0.67,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(200, 85%, 55%)"
+  },
+  {
+    id: "ko",
+    name: "Coca-Cola Co.",
+    symbol: "KO",
+    category: "acciones",
+    price: 58.34,
+    change24h: 0.23,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(0, 85%, 55%)"
+  },
+  {
+    id: "bac",
+    name: "Bank of America Corp.",
+    symbol: "BAC",
+    category: "acciones",
+    price: 32.45,
+    change24h: 0.78,
+    change7d: 0,
+    isFavorite: false,
+    hasRealTime: true,
+    color: "hsl(240, 85%, 50%)"
   }
 ];
 
 // All instruments combined
 export const allMarketInstruments: MarketInstrument[] = [
   ...derivativesInstruments,
+  ...syntheticInstruments,
   ...basketsInstruments,
   ...forexInstruments,
   ...stockIndicesInstruments,
   ...commoditiesInstruments,
-  ...cryptoInstruments
+  ...cryptoInstruments,
+  ...stocksInstruments
 ];
 
 // Get instruments by category

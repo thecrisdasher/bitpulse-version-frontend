@@ -51,6 +51,11 @@ const categoryDetails = {
     id: "materias-primas",
     label: "Materias Primas",
     icon: "gem"
+  },
+  "acciones": {
+    id: "acciones",
+    label: "Acciones",
+    icon: "trending-up"
   }
 };
 

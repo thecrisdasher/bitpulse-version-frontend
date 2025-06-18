@@ -45,6 +45,7 @@ import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
 import axios from "axios";
 import useBinanceTickers from '@/hooks/useBinanceTickers';
+import { useMarketNavigationData } from '@/hooks/useRealTimeMarketData';
 import { toast } from "sonner";
 
 // Importar RealTimeMarketChart con SSR desactivado
@@ -91,7 +92,8 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   "candlestick": <CandlestickChart className="w-5 h-5" />,
   "area-chart": <AreaChart className="w-5 h-5" />,
   "globe": <Globe className="w-5 h-5" />,
-  "fuel": <Fuel className="w-5 h-5" />
+  "fuel": <Fuel className="w-5 h-5" />,
+  "trending-up": <TrendingUp className="w-5 h-5" />
 };
 
 // Mapa de íconos para instrumentos específicos
@@ -171,19 +173,36 @@ const MarketsNavigation = ({ onInstrumentSelect }: MarketsNavigationProps = {}) 
     .map(inst => inst.symbol.split('/')[0]);
   const binanceTickers = useBinanceTickers(cryptoSymbols);
 
-  // Derive display list with real Binance data for cryptos
+
+  
+  // Obtener datos de mercado en tiempo real para todos los instrumentos
+  const realTimeMarketData = useMarketNavigationData(
+    instruments.map(inst => ({ symbol: inst.symbol, category: inst.category })),
+    true // enabled
+  );
+
+  // Derive display list with real Binance data for cryptos and simulated data for others
   const displayInstruments = instruments.map(inst => {
     if (inst.category === 'criptomonedas') {
-      // Use base symbol for ticker lookup
+      // Use base symbol for ticker lookup from Binance (real data)
       const base = inst.symbol.split('/')[0];
       const ticker = binanceTickers[base];
       return {
         ...inst,
         price: ticker?.price ?? inst.price,
-        change24h: ticker?.change24h ?? inst.change24h
+        change24h: ticker?.change24h ?? inst.change24h,
+        hasRealTime: !!ticker
+      };
+    } else {
+      // Use simulated real-time data for other categories
+      const marketData = realTimeMarketData[inst.symbol];
+      return {
+        ...inst,
+        price: marketData?.price ?? inst.price,
+        change24h: marketData?.change24h ?? inst.change24h,
+        hasRealTime: !!marketData
       };
     }
-    return inst;
   });
   
   useEffect(() => {

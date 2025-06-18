@@ -142,13 +142,58 @@ const SIMULATION_PARAMS = {
       'ENRG': 12000 * 4200, 
       'TECH': 18000 * 4200,
       'BANK': 9000 * 4200,
+      'HLTH': 1567.89 * 4200,
+      'GAME': 945.32 * 4200,
+      'AUTO': 1123.45 * 4200,
+      'REIT': 756.78 * 4200,
+      'AIML': 1789.23 * 4200,
+      'CRYP': 2134.56 * 4200,
       'default': 10000 * 4200
     },
     names: {
       'FAANG': 'Basket FAANG Tech',
       'ENRG': 'Basket Energía',
       'TECH': 'Basket Tecnología',
-      'BANK': 'Basket Bancos'
+      'BANK': 'Basket Bancos',
+      'HLTH': 'Healthcare Basket',
+      'GAME': 'Gaming & Entertainment',
+      'AUTO': 'Automotive Basket',
+      'REIT': 'Real Estate Basket',
+      'AIML': 'AI & Machine Learning',
+      'CRYP': 'Crypto Index Basket'
+    }
+  },
+  acciones: {
+    baseVolatility: 0.035, // 3.5% volatilidad (mayor que baskets)
+    trendStrength: 0.45,   // Tendencia moderada
+    baseValues: {
+      'AAPL': 192.53 * 4200,
+      'MSFT': 378.94 * 4200,
+      'GOOGL': 143.67 * 4200,
+      'AMZN': 145.23 * 4200,
+      'TSLA': 248.42 * 4200,
+      'NVDA': 487.56 * 4200,
+      'META': 342.89 * 4200,
+      'NFLX': 456.78 * 4200,
+      'DIS': 89.67 * 4200,
+      'JPM': 167.45 * 4200,
+      'KO': 58.34 * 4200,
+      'BAC': 32.45 * 4200,
+      'default': 150 * 4200
+    },
+    names: {
+      'AAPL': 'Apple Inc.',
+      'MSFT': 'Microsoft Corp.',
+      'GOOGL': 'Alphabet Inc.',
+      'AMZN': 'Amazon.com Inc.',
+      'TSLA': 'Tesla Inc.',
+      'NVDA': 'NVIDIA Corp.',
+      'META': 'Meta Platforms Inc.',
+      'NFLX': 'Netflix Inc.',
+      'DIS': 'Walt Disney Co.',
+      'JPM': 'JPMorgan Chase & Co.',
+      'KO': 'Coca-Cola Co.',
+      'BAC': 'Bank of America Corp.'
     }
   }
 };
@@ -254,13 +299,17 @@ export const updateSimulatedMarketData = (prevData: MarketData): MarketData => {
   } else if (prevData.name.includes('Índice') || prevData.name.includes('Index')) {
     category = 'indices';
   } else if (prevData.name.includes('Volatility') || prevData.name.includes('Boom') || 
-             prevData.name.includes('Crash')) {
+             prevData.name.includes('Crash') || prevData.name.includes('Step')) {
     category = 'sinteticos';
   } else if (prevData.name.includes('Basket')) {
     category = 'baskets';
   } else if (prevData.name.includes('Oro') || prevData.name.includes('Gold') || 
-             prevData.name.includes('Oil')) {
+             prevData.name.includes('Oil') || prevData.name.includes('Silver') ||
+             prevData.name.includes('Copper') || prevData.name.includes('Platinum')) {
     category = 'materias-primas';
+  } else if (prevData.name.includes('Inc.') || prevData.name.includes('Corp.') ||
+             prevData.name.includes('Co.') || prevData.symbol.match(/^[A-Z]{1,5}$/)) {
+    category = 'acciones';
   }
 
   // Obtener parámetros de simulación

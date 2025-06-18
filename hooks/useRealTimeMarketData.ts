@@ -1,13 +1,28 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { MarketData, subscribeToRealTimeUpdates, getMarketData, getBatchMarketData } from '@/lib/api/marketDataService';
+import { getSimulatedTicker, forceUpdatePrice } from '@/lib/simulator';
 
 export interface UseRealTimeMarketDataOptions {
   refreshInterval?: number; // Update interval in ms for fallback polling
   initialFetch?: boolean; // Whether to fetch data initially
 }
 
+export interface RealTimeMarketData {
+  price: number;
+  change24h: number;
+  volume: number;
+  lastUpdated: number;
+}
+
+export interface UseRealTimeMarketDataProps {
+  symbols: string[];
+  category: string;
+  refreshInterval?: number;
+  enabled?: boolean;
+}
+
 /**
- * Custom hook for subscribing to real-time market data
+ * Custom hook for subscribing to real-time market data (single instrument)
  * 
  * @param symbol Symbol of the instrument (e.g. 'BTC/USD')
  * @param category Category of the instrument (e.g. 'criptomonedas', 'forex')
@@ -236,34 +251,221 @@ export function useBatchRealTimeMarketData(
     
     // Cleanup function
     return () => {
-      cleanupFunctions.forEach(cleanup => cleanup());
+      cleanupFunctions.forEach(cleanup => cleanup?.());
       if (intervalId) clearInterval(intervalId);
     };
-  }, [JSON.stringify(instruments), refreshInterval, initialFetch, failedAttempts]);
+  }, [instruments, refreshInterval, initialFetch, failedAttempts]);
   
-  return { 
-    data, 
-    isLoading, 
-    // Si tenemos datos pero también errores, no mostrar el error al usuario
-    error: Object.keys(data).length > 0 ? null : error,
-    // Nueva propiedad que indica si estamos usando datos de respaldo o datos en tiempo real  
-    hasRealtimeData: Object.values(data).some(item => item?.isRealTime === true)
-  };
+  return { data, isLoading, error, failedAttempts };
 }
 
-// Clean up all WebSocket connections when app unmounts
+// Cleanup helper
 export function useCleanupWebSockets() {
   useEffect(() => {
-    // No cleanup needed on mount
     return () => {
-      // Import the websocketService directly to access the closeAll method
-      if (typeof window !== 'undefined') {
-        import('@/lib/api/websocketService').then(({ websocketService }) => {
-          websocketService.closeAll();
-        }).catch(err => {
-          console.error('Failed to cleanup WebSockets:', err);
-        });
-      }
+      // Cleanup logic for WebSocket connections if needed
     };
   }, []);
+}
+
+/**
+ * Hook personalizado para datos de mercado en tiempo real con simulación
+ * Funciona con todas las categorías de mercado, no solo crypto
+ */
+export function useSimulatedMarketData({
+  symbols,
+  category,
+  refreshInterval = 3000,
+  enabled = true
+}: UseRealTimeMarketDataProps): Record<string, RealTimeMarketData> {
+  const [marketData, setMarketData] = useState<Record<string, RealTimeMarketData>>({});
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!enabled || symbols.length === 0) {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      return;
+    }
+
+    const updateMarketData = () => {
+      if (!mountedRef.current) return;
+
+      const newData: Record<string, RealTimeMarketData> = {};
+      
+      symbols.forEach(symbol => {
+        try {
+          // Obtener el símbolo base (sin /USD, /USDT, etc.)
+          const baseSymbol = symbol.split('/')[0].toUpperCase();
+          
+          // Forzar actualización para obtener nuevo precio
+          const price = forceUpdatePrice(baseSymbol);
+          const ticker = getSimulatedTicker(baseSymbol);
+          
+          newData[symbol] = {
+            price: price,
+            change24h: ticker.change24h,
+            volume: ticker.volume,
+            lastUpdated: Date.now()
+          };
+        } catch (error) {
+          console.error(`Error updating market data for ${symbol}:`, error);
+        }
+      });
+
+      if (mountedRef.current) {
+        setMarketData(newData);
+      }
+    };
+
+    // Actualización inicial
+    updateMarketData();
+
+    // Configurar interval para actualizaciones periódicas
+    intervalRef.current = setInterval(updateMarketData, refreshInterval);
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [symbols.join(','), category, refreshInterval, enabled]);
+
+  return marketData;
+}
+
+/**
+ * Hook simplificado para un solo instrumento simulado
+ */
+export function useSimulatedInstrument(
+  symbol: string, 
+  category: string,
+  refreshInterval?: number
+): RealTimeMarketData | null {
+  const data = useSimulatedMarketData({
+    symbols: [symbol],
+    category,
+    refreshInterval,
+    enabled: !!symbol
+  });
+
+  return data[symbol] || null;
+}
+
+/**
+ * Hook para múltiples categorías con diferentes intervalos de actualización
+ */
+export function useMultiCategoryMarketData(
+  categories: Array<{
+    symbols: string[];
+    category: string;
+    refreshInterval?: number;
+  }>
+): Record<string, RealTimeMarketData> {
+  const [combinedData, setCombinedData] = useState<Record<string, RealTimeMarketData>>({});
+
+  // Configurar hooks para cada categoría
+  const cryptoData = useSimulatedMarketData({
+    symbols: categories.find(c => c.category === 'criptomonedas')?.symbols || [],
+    category: 'criptomonedas',
+    refreshInterval: 2000 // 2 segundos para crypto
+  });
+
+  const forexData = useSimulatedMarketData({
+    symbols: categories.find(c => c.category === 'forex')?.symbols || [],
+    category: 'forex',
+    refreshInterval: 3000 // 3 segundos para forex
+  });
+
+  const stocksData = useSimulatedMarketData({
+    symbols: categories.find(c => c.category === 'acciones')?.symbols || [],
+    category: 'acciones',
+    refreshInterval: 4000 // 4 segundos para acciones
+  });
+
+  const indicesData = useSimulatedMarketData({
+    symbols: categories.find(c => c.category === 'indices')?.symbols || [],
+    category: 'indices',
+    refreshInterval: 5000 // 5 segundos para índices
+  });
+
+  const commoditiesData = useSimulatedMarketData({
+    symbols: categories.find(c => c.category === 'materias-primas')?.symbols || [],
+    category: 'materias-primas',
+    refreshInterval: 6000 // 6 segundos para commodities
+  });
+
+  const basketsData = useSimulatedMarketData({
+    symbols: categories.find(c => c.category === 'baskets')?.symbols || [],
+    category: 'baskets',
+    refreshInterval: 5000 // 5 segundos para baskets
+  });
+
+  const syntheticData = useSimulatedMarketData({
+    symbols: categories.find(c => c.category === 'sinteticos')?.symbols || [],
+    category: 'sinteticos',
+    refreshInterval: 1000 // 1 segundo para sintéticos (más volátiles)
+  });
+
+  const derivativesData = useSimulatedMarketData({
+    symbols: categories.find(c => c.category === 'derivados')?.symbols || [],
+    category: 'derivados',
+    refreshInterval: 1500 // 1.5 segundos para derivados
+  });
+
+  // Combinar todos los datos
+  useEffect(() => {
+    setCombinedData({
+      ...cryptoData,
+      ...forexData,
+      ...stocksData,
+      ...indicesData,
+      ...commoditiesData,
+      ...basketsData,
+      ...syntheticData,
+      ...derivativesData
+    });
+  }, [
+    cryptoData, forexData, stocksData, indicesData, 
+    commoditiesData, basketsData, syntheticData, derivativesData
+  ]);
+
+  return combinedData;
+}
+
+/**
+ * Hook optimizado para la navegación de mercados
+ * Maneja automáticamente las diferentes categorías
+ */
+export function useMarketNavigationData(
+  instruments: Array<{ symbol: string; category: string }>,
+  enabled: boolean = true
+): Record<string, RealTimeMarketData> {
+  // Agrupar instrumentos por categoría
+  const categorizedInstruments = instruments.reduce((acc, instrument) => {
+    if (!acc[instrument.category]) {
+      acc[instrument.category] = [];
+    }
+    acc[instrument.category].push(instrument.symbol);
+    return acc;
+  }, {} as Record<string, string[]>);
+
+  // Convertir a formato esperado por useMultiCategoryMarketData
+  const categories = Object.entries(categorizedInstruments).map(([category, symbols]) => ({
+    symbols,
+    category
+  }));
+
+  return useMultiCategoryMarketData(enabled ? categories : []);
 }
