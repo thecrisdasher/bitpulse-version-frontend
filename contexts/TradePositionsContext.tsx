@@ -120,39 +120,15 @@ export const TradePositionsProvider: React.FC<TradePositionsProviderProps> = ({ 
   // Agregar nueva posición mediante API y actualizar contexto
   const addPosition = useCallback(async (tradeParams: any): Promise<string> => {
     try {
-      // Verificar que tenemos los datos necesarios
-      if (!tradeParams.marketName) {
-        console.error('Error: marketName is required for trading');
-        return '';
-      }
-
-      // El precio real se obtiene en el backend, no enviamos marketPrice desde el frontend
-      const tradingData = {
-        instrumentName: tradeParams.marketName,
-        instrumentId: tradeParams.marketId || tradeParams.marketName,
-        direction: tradeParams.direction,
-        amount: tradeParams.amount,
-        stake: tradeParams.stake,
-        duration: tradeParams.duration,
-        capitalFraction: tradeParams.capitalFraction || 0.10,
-        lotSize: tradeParams.lotSize || 1.0,
-        leverage: tradeParams.leverage || 100,
-        marketColor: tradeParams.marketColor || ''
-      };
-
-      // Iniciar creación en backend (el backend obtendrá el precio real)
+      // Iniciar creación en backend
       const res = await fetch('/api/trading/positions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(tradingData)
+        body: JSON.stringify(tradeParams)
       });
       const json = await res.json();
       if (!json.success) {
         console.error('Error creating position:', json.message);
-        // Si el error es por datos no reales, mostrar advertencia específica
-        if (json.message?.includes('tiempo real')) {
-          console.warn('⚠️ WARNING: Could not obtain real-time price for trading');
-        }
         return '';
       }
       const created = json.data;

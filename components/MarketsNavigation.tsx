@@ -45,7 +45,6 @@ import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
 import axios from "axios";
 import useBinanceTickers from '@/hooks/useBinanceTickers';
-import { useMarketNavigationData } from '@/hooks/useRealTimeMarketData';
 import { toast } from "sonner";
 
 // Importar RealTimeMarketChart con SSR desactivado
@@ -167,59 +166,25 @@ const MarketsNavigation = ({ onInstrumentSelect }: MarketsNavigationProps = {}) 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // ✅ DATOS REALES: Use Binance tickers EXCLUSIVAMENTE para criptomonedas
+  // Use Binance tickers for crypto instruments to override prices
   const cryptoSymbols = instruments
     .filter(inst => inst.category === 'criptomonedas')
     .map(inst => inst.symbol.split('/')[0]);
-  const binanceTickers = useBinanceTickers(cryptoSymbols, 3000); // Actualización cada 3 segundos
+  const binanceTickers = useBinanceTickers(cryptoSymbols);
 
-
-  
-  // Obtener datos de mercado en tiempo real para todos los instrumentos
-  const realTimeMarketData = useMarketNavigationData(
-    instruments.map(inst => ({ symbol: inst.symbol, category: inst.category })),
-    true // enabled
-  );
-
-  // ✅ DATOS SEPARADOS: Binance para criptos, simulación para otros
+  // Derive display list with real Binance data for cryptos
   const displayInstruments = instruments.map(inst => {
     if (inst.category === 'criptomonedas') {
-      // ✅ PRIORIDAD ABSOLUTA: Solo datos de Binance para criptomonedas
+      // Use base symbol for ticker lookup
       const base = inst.symbol.split('/')[0];
       const ticker = binanceTickers[base];
-      
-      // Si no hay datos de Binance, NO mostrar el instrumento o usar fallback mínimo
-      if (!ticker) {
-        return {
-          ...inst,
-          price: inst.price, // Precio base temporal
-          change24h: 0,
-          hasRealTime: false,
-          warning: '⚠️ Esperando datos reales de Binance...'
-        };
-      }
-      
       return {
         ...inst,
-        price: ticker.price, // ✅ SIEMPRE datos reales de Binance
-        change24h: ticker.change24h, // ✅ SIEMPRE datos reales de Binance
-        volume: ticker.volume,
-        hasRealTime: true,
-        isRealData: true, // 🔥 FLAG IMPORTANTE para trading
-        dataSource: 'binance'
-      };
-    } else {
-      // ⚡ Para otros mercados: usar simulación claramente marcada
-      const marketData = realTimeMarketData[inst.symbol];
-      return {
-        ...inst,
-        price: marketData?.price ?? inst.price,
-        change24h: marketData?.change24h ?? inst.change24h,
-        hasRealTime: !!marketData,
-        isRealData: false, // 🔥 FLAG IMPORTANTE: no es real
-        dataSource: 'simulated'
+        price: ticker?.price ?? inst.price,
+        change24h: ticker?.change24h ?? inst.change24h
       };
     }
+    return inst;
   });
   
   useEffect(() => {

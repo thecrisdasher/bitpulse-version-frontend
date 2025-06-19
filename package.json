@@ -18,11 +18,7 @@
     "fly:logs": "fly logs",
     "fly:status": "fly status",
     "fly:ssh": "fly ssh console",
-    "fly:open": "fly open",
-    "test:binance": "node scripts/test-binance-integration.js",
-    "test:markets": "node scripts/test-market-movement.js",
-    "test:priority": "node scripts/test-real-time-priority.js",
-    "test:markets:all": "npm run test:binance && npm run test:markets"
+    "fly:open": "fly open"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

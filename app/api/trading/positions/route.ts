@@ -6,125 +6,6 @@ import { TradePositionSchema } from '@/lib/types/trading';
 import { prisma } from '@/lib/db';
 import { checkAndCloseExpiredPositions } from '@/lib/services/positionAutoCloseService';
 
-// Mapeo de instrumentos a símbolos de Binance
-const CRYPTO_MAPPING: Record<string, string> = {
-  'Bitcoin (BTC/USD)': 'BTCUSDT',
-  'Bitcoin': 'BTCUSDT',
-  'BTC': 'BTCUSDT',
-  'Ethereum (ETH/USD)': 'ETHUSDT',
-  'Ethereum': 'ETHUSDT', 
-  'ETH': 'ETHUSDT',
-  'Solana (SOL/USD)': 'SOLUSDT',
-  'Solana': 'SOLUSDT',
-  'SOL': 'SOLUSDT',
-  'Cardano (ADA/USD)': 'ADAUSDT',
-  'Cardano': 'ADAUSDT',
-  'ADA': 'ADAUSDT',
-  'Polkadot (DOT/USD)': 'DOTUSDT',
-  'Polkadot': 'DOTUSDT',
-  'DOT': 'DOTUSDT',
-  'Chainlink (LINK/USD)': 'LINKUSDT',
-  'Chainlink': 'LINKUSDT',
-  'LINK': 'LINKUSDT',
-  'Ripple (XRP/USD)': 'XRPUSDT',
-  'Ripple': 'XRPUSDT',
-  'XRP': 'XRPUSDT',
-  'Litecoin (LTC/USD)': 'LTCUSDT',
-  'Litecoin': 'LTCUSDT',
-  'LTC': 'LTCUSDT',
-  'Bitcoin Cash (BCH/USD)': 'BCHUSDT',
-  'Bitcoin Cash': 'BCHUSDT',
-  'BCH': 'BCHUSDT',
-  'Avalanche (AVAX/USD)': 'AVAXUSDT',
-  'Avalanche': 'AVAXUSDT',
-  'AVAX': 'AVAXUSDT',
-  'Polygon (MATIC/USD)': 'MATICUSDT',
-  'Polygon': 'MATICUSDT',
-  'MATIC': 'MATICUSDT',
-  'Dogecoin (DOGE/USD)': 'DOGEUSDT',
-  'Dogecoin': 'DOGEUSDT',
-  'DOGE': 'DOGEUSDT'
-};
-
-/**
- * Obtiene precio en tiempo real prioritizando datos de Binance para criptomonedas
- */
-async function getRealTimePrice(instrumentName: string): Promise<{
-  success: boolean;
-  data?: { price: number; source: string; isRealData: boolean };
-  error?: string;
-}> {
-  try {
-    // PRIORIDAD 1: Intentar obtener precio real de Binance para criptomonedas
-    const binanceSymbol = CRYPTO_MAPPING[instrumentName];
-    if (binanceSymbol) {
-      try {
-        const response = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${binanceSymbol}`, {
-          next: { revalidate: 1 }
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          const price = parseFloat(data.price);
-          
-          if (!isNaN(price) && price > 0) {
-            return {
-              success: true,
-              data: {
-                price,
-                source: 'binance',
-                isRealData: true
-              }
-            };
-          }
-        }
-      } catch (binanceError) {
-        console.error(`Error fetching Binance price for ${instrumentName}:`, binanceError);
-      }
-    }
-
-    // PRIORIDAD 2: Datos simulados como fallback
-    try {
-      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-      const response = await fetch(`${baseUrl}/api/market/route`);
-      
-      if (response.ok) {
-        const data = await response.json();
-        const instrument = data.find((item: any) => 
-          item.name === instrumentName || 
-          item.name.includes(instrumentName) ||
-          instrumentName.includes(item.name)
-        );
-        
-        if (instrument && instrument.price) {
-          return {
-            success: true,
-            data: {
-              price: instrument.price,
-              source: 'simulated',
-              isRealData: false
-            }
-          };
-        }
-      }
-    } catch (simulatedError) {
-      console.error(`Error fetching simulated price for ${instrumentName}:`, simulatedError);
-    }
-
-    return {
-      success: false,
-      error: `No price data available for ${instrumentName}`
-    };
-
-  } catch (error) {
-    console.error(`Error in getRealTimePrice for ${instrumentName}:`, error);
-    return {
-      success: false,
-      error: 'Internal error fetching price'
-    };
-  }
-}
-
 /**
  * Endpoint para crear una nueva posición de trading.
  * Realiza validación de datos, autenticación y lógica de negocio.
@@ -143,26 +24,12 @@ export async function POST(request: Request) {
     // 2. Obtener y parsear el cuerpo de la solicitud
     const body = await request.json();
 
-    // 2.5. OBTENER PRECIO REAL EN TIEMPO REAL para la operación
-    const realTimePrice = await getRealTimePrice(body.instrumentName);
-    if (!realTimePrice.success) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          message: `No se pudo obtener precio en tiempo real para ${body.instrumentName}: ${realTimePrice.error}`,
-          isRealData: false
-        },
-        { status: 400 }
-      );
-    }
-
     // 3. Validar los datos de entrada con Zod
     let positionData = TradePositionSchema.parse({
       ...body,
       userId: user.id, // Añadir el ID del usuario a los datos
       status: 'open', // Establecer estado inicial
       openTimestamp: new Date().toISOString(), // Establecer timestamp de apertura
-      openPrice: realTimePrice.data!.price, // ✅ USAR PRECIO REAL (garantizado por la validación anterior)
     });
 
     // Calcular valor de la posición y margen requerido en el backend
