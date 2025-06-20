@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient, UserRole } from '@prisma/client';
+import { UserRole } from '@prisma/client';
 import { createSessionFromRequest } from '@/lib/auth/session';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/db';
 
 // GET /api/admin/users - Listar usuarios (solo admin)
 export async function GET(request: NextRequest) {

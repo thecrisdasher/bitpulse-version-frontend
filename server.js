@@ -2,7 +2,6 @@ const { createServer } = require('http');
 const { parse } = require('url');
 const next = require('next');
 const { Server } = require('socket.io');
-const { PrismaClient } = require('@prisma/client');
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = process.env.HOSTNAME || '0.0.0.0';
@@ -11,7 +10,8 @@ const port = parseInt(process.env.PORT, 10) || 3000;
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
 
-const prisma = new PrismaClient();
+// Importar Prisma singleton en lugar de crear nueva instancia
+const { prisma } = require('./lib/db.js');
 
 // Middleware de autenticación para Socket.IO
 const authenticateSocket = async (socket, next) => {

@@ -104,8 +104,8 @@ model PejeCoinTransaction {
 }
 
 model TradePosition {
-  id              String            @id @default(uuid())
-  user            User              @relation(fields: [userId], references: [id])
+  id              String                @id @default(uuid())
+  user            User                  @relation(fields: [userId], references: [id])
   userId          String
   instrument      String
   direction       PositionDirection
@@ -113,22 +113,23 @@ model TradePosition {
   currentPrice    Float
   amount          Float
   leverage        Float
-  openTime        DateTime          @default(now())
+  openTime        DateTime              @default(now())
   closeTime       DateTime?
   profit          Float?
-  status          PositionStatus    @default(open)
+  status          PositionStatus        @default(open)
   stopLoss        Float?
   takeProfit      Float?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
   marketColor     String?
-  stake           Float             @default(0)
+  stake           Float                 @default(0)
   durationValue   Int
   durationUnit    String
   capitalFraction Float?
   lotSize         Float?
   marginRequired  Float?
   positionValue   Float?
+  modifications   PositionModification[]
 }
 
 model UserActivity {
@@ -233,4 +234,23 @@ model ClientComment {
   updatedAt   DateTime    @updatedAt
   
   @@map("client_comments")
+}
+
+// ---------------------------
+// 🚀 Módulo de Modificaciones de Posiciones
+// ---------------------------
+
+model PositionModification {
+  id              String        @id @default(uuid())
+  position        TradePosition @relation(fields: [positionId], references: [id])
+  positionId      String
+  modifiedBy      String        // ID del usuario que hizo la modificación
+  modifiedByName  String        // Nombre completo del usuario para registro histórico
+  field           String        // Campo modificado: 'currentPrice', 'stopLoss', 'takeProfit'
+  oldValue        Json          // Valor anterior
+  newValue        Json          // Valor nuevo
+  reason          String        // Razón de la modificación
+  timestamp       DateTime      @default(now())
+  
+  @@map("position_modifications")
 }

@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
 import { createSessionFromRequest } from '@/lib/auth/session'
-
-const prisma = new PrismaClient()
-
+import { prisma } from '@/lib/db';
 export async function GET(request: NextRequest) {
   try {
     const session = await createSessionFromRequest(request)

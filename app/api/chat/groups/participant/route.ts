@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { } from '@prisma/client';
+import { prisma } from '@/lib/db';
 import { createSessionFromRequest } from '@/lib/auth/session';
-
-const prisma = new PrismaClient();
-
 export async function DELETE(request: NextRequest) {
   try {
     const session = await createSessionFromRequest(request);

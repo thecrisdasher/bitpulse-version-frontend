@@ -228,6 +228,17 @@ const AdminDashboardPage = () => {
               </CardContent>
             </Card>
           </Link>
+          <Link href="/admin/operaciones" className="group">
+            <Card className="cursor-pointer group-hover:shadow-lg transition-shadow">
+              <CardHeader className="flex items-center gap-2">
+                <LayoutDashboard className="h-5 w-5 text-primary" />
+                <CardTitle className="text-sm font-medium">Operaciones</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground text-sm">Gestiona operaciones de clientes</p>
+              </CardContent>
+            </Card>
+          </Link>
         </div>
       </div>
 

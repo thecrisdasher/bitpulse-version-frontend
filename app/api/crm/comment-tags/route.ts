@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { } from '@prisma/client';
+import { prisma } from '@/lib/db';
 import { createSessionFromRequest } from '@/lib/auth/session';
-
-const prisma = new PrismaClient();
-
 // Middleware para verificar autenticación
 async function verifyAuth(request: NextRequest) {
   try {
