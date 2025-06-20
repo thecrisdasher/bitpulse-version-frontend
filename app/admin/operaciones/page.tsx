@@ -73,13 +73,6 @@ interface TradePosition {
   status: 'open' | 'closed' | 'liquidated'
   stopLoss?: number
   takeProfit?: number
-  stake?: number
-  durationValue?: number
-  durationUnit?: string
-  capitalFraction?: number
-  lotSize?: number
-  marginRequired?: number
-  positionValue?: number
 }
 
 interface PositionModification {
@@ -126,12 +119,6 @@ export default function OperacionesAdminPage() {
     currentPrice: '',
     stopLoss: '',
     takeProfit: '',
-    amount: '',
-    leverage: '',
-    status: '',
-    stake: '',
-    durationValue: '',
-    durationUnit: '',
     reason: ''
   })
 
@@ -201,12 +188,6 @@ export default function OperacionesAdminPage() {
       currentPrice: position.currentPrice.toString(),
       stopLoss: position.stopLoss?.toString() || '',
       takeProfit: position.takeProfit?.toString() || '',
-      amount: position.amount.toString(),
-      leverage: position.leverage.toString(),
-      status: position.status,
-      stake: position.stake?.toString() || '0',
-      durationValue: position.durationValue?.toString() || '1',
-      durationUnit: position.durationUnit || 'hour',
       reason: ''
     })
     setIsEditDialogOpen(true)
@@ -247,55 +228,6 @@ export default function OperacionesAdminPage() {
           field: 'takeProfit',
           oldValue: selectedPosition.takeProfit,
           newValue: parseFloat(editForm.takeProfit)
-        })
-      }
-
-      // Nuevos campos de modificación
-      if (parseFloat(editForm.amount) !== selectedPosition.amount) {
-        modifications.push({
-          field: 'amount',
-          oldValue: selectedPosition.amount,
-          newValue: parseFloat(editForm.amount)
-        })
-      }
-
-      if (parseFloat(editForm.leverage) !== selectedPosition.leverage) {
-        modifications.push({
-          field: 'leverage',
-          oldValue: selectedPosition.leverage,
-          newValue: parseFloat(editForm.leverage)
-        })
-      }
-
-      if (editForm.status !== selectedPosition.status) {
-        modifications.push({
-          field: 'status',
-          oldValue: selectedPosition.status,
-          newValue: editForm.status
-        })
-      }
-
-      if (editForm.stake && parseFloat(editForm.stake) !== (selectedPosition.stake || 0)) {
-        modifications.push({
-          field: 'stake',
-          oldValue: selectedPosition.stake || 0,
-          newValue: parseFloat(editForm.stake)
-        })
-      }
-
-      if (editForm.durationValue && parseInt(editForm.durationValue) !== (selectedPosition.durationValue || 1)) {
-        modifications.push({
-          field: 'durationValue',
-          oldValue: selectedPosition.durationValue || 1,
-          newValue: parseInt(editForm.durationValue)
-        })
-      }
-
-      if (editForm.durationUnit !== (selectedPosition.durationUnit || 'hour')) {
-        modifications.push({
-          field: 'durationUnit',
-          oldValue: selectedPosition.durationUnit || 'hour',
-          newValue: editForm.durationUnit
         })
       }
 
@@ -744,86 +676,6 @@ export default function OperacionesAdminPage() {
                   />
                 </div>
               </div>
-
-              {/* Nuevos campos de modificación */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="amount">Monto de la Posición *</Label>
-                  <Input
-                    id="amount"
-                    type="number"
-                    step="0.01"
-                    value={editForm.amount}
-                    onChange={(e) => setEditForm({...editForm, amount: e.target.value})}
-                    placeholder="Monto en moneda base"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="leverage">Apalancamiento *</Label>
-                  <Input
-                    id="leverage"
-                    type="number"
-                    step="0.1"
-                    min="1"
-                    max="1000"
-                    value={editForm.leverage}
-                    onChange={(e) => setEditForm({...editForm, leverage: e.target.value})}
-                    placeholder="Nivel de apalancamiento"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <Label htmlFor="status">Estado de la Posición</Label>
-                  <Select value={editForm.status} onValueChange={(value) => setEditForm({...editForm, status: value})}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar estado" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="open">Abierta</SelectItem>
-                      <SelectItem value="closed">Cerrada</SelectItem>
-                      <SelectItem value="liquidated">Liquidada</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="durationValue">Duración</Label>
-                  <Input
-                    id="durationValue"
-                    type="number"
-                    min="1"
-                    value={editForm.durationValue}
-                    onChange={(e) => setEditForm({...editForm, durationValue: e.target.value})}
-                    placeholder="Valor"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="durationUnit">Unidad</Label>
-                  <Select value={editForm.durationUnit} onValueChange={(value) => setEditForm({...editForm, durationUnit: value})}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Unidad" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="minute">Minutos</SelectItem>
-                      <SelectItem value="hour">Horas</SelectItem>
-                      <SelectItem value="day">Días</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="stake">Stake/Apuesta</Label>
-                <Input
-                  id="stake"
-                  type="number"
-                  step="0.01"
-                  value={editForm.stake}
-                  onChange={(e) => setEditForm({...editForm, stake: e.target.value})}
-                  placeholder="Cantidad apostada"
-                />
-              </div>
               
               <div>
                 <Label htmlFor="reason">Razón de la modificación *</Label>
@@ -892,13 +744,7 @@ export default function OperacionesAdminPage() {
                       <TableCell className="font-medium">
                         {mod.field === 'currentPrice' ? 'Precio Actual' :
                          mod.field === 'stopLoss' ? 'Stop Loss' :
-                         mod.field === 'takeProfit' ? 'Take Profit' :
-                         mod.field === 'amount' ? 'Monto' :
-                         mod.field === 'leverage' ? 'Apalancamiento' :
-                         mod.field === 'status' ? 'Estado' :
-                         mod.field === 'stake' ? 'Stake/Apuesta' :
-                         mod.field === 'durationValue' ? 'Duración (Valor)' :
-                         mod.field === 'durationUnit' ? 'Duración (Unidad)' : mod.field}
+                         mod.field === 'takeProfit' ? 'Take Profit' : mod.field}
                       </TableCell>
                       <TableCell>
                         {typeof mod.oldValue === 'number' ? 

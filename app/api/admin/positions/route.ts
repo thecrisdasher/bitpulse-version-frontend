@@ -71,7 +71,8 @@ export async function GET(request: NextRequest) {
             id: true,
             firstName: true,
             lastName: true,
-            email: true
+            email: true,
+            role: true
           }
         }
       },
@@ -98,7 +99,8 @@ export async function GET(request: NextRequest) {
       takeProfit: position.takeProfit,
       stake: position.stake,
       durationValue: position.durationValue,
-      durationUnit: position.durationUnit
+      durationUnit: position.durationUnit,
+      marketColor: position.marketColor
     }));
 
     return NextResponse.json({

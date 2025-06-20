@@ -37,6 +37,14 @@ import {
   Zap,
   Clock
 } from 'lucide-react'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
 
 // Reutilizando tipos de la lógica existente de trading
 interface TradePosition {
@@ -58,10 +66,7 @@ interface TradePosition {
   stake?: number
   durationValue?: number
   durationUnit?: string
-  capitalFraction?: number
-  lotSize?: number
-  marginRequired?: number
-  positionValue?: number
+  marketColor?: string
 }
 
 interface PositionModification {
@@ -113,17 +118,17 @@ export const PositionManagement: React.FC<PositionManagementProps> = ({
     enableWebSocket: true
   })
   
-  // Estados para el formulario de modificación
+  // Estados para el formulario de modificación - AMPLIADO
   const [editForm, setEditForm] = useState({
     currentPrice: '',
     stopLoss: '',
     takeProfit: '',
     amount: '',
     leverage: '',
-    status: '',
     stake: '',
     durationValue: '',
     durationUnit: '',
+    marketColor: '',
     reason: ''
   })
 
@@ -148,10 +153,10 @@ export const PositionManagement: React.FC<PositionManagementProps> = ({
       takeProfit: position.takeProfit?.toString() || '',
       amount: position.amount.toString(),
       leverage: position.leverage.toString(),
-      status: position.status,
-      stake: position.stake?.toString() || '0',
-      durationValue: position.durationValue?.toString() || '1',
-      durationUnit: position.durationUnit || 'hour',
+      stake: position.stake?.toString() || '',
+      durationValue: position.durationValue?.toString() || '',
+      durationUnit: position.durationUnit || '',
+      marketColor: position.marketColor || '',
       reason: ''
     })
     setIsEditDialogOpen(true)
@@ -172,7 +177,7 @@ export const PositionManagement: React.FC<PositionManagementProps> = ({
     try {
       const modifications = []
       
-      // Verificar qué campos han cambiado (reutilizando lógica existente)
+      // Verificar qué campos han cambiado - AMPLIADO
       if (parseFloat(editForm.currentPrice) !== selectedPosition.currentPrice) {
         modifications.push({
           field: 'currentPrice',
@@ -194,6 +199,55 @@ export const PositionManagement: React.FC<PositionManagementProps> = ({
           field: 'takeProfit',
           oldValue: selectedPosition.takeProfit,
           newValue: parseFloat(editForm.takeProfit)
+        })
+      }
+
+      // NUEVOS CAMPOS DE MODIFICACIÓN
+      if (parseFloat(editForm.amount) !== selectedPosition.amount) {
+        modifications.push({
+          field: 'amount',
+          oldValue: selectedPosition.amount,
+          newValue: parseFloat(editForm.amount)
+        })
+      }
+
+      if (parseFloat(editForm.leverage) !== selectedPosition.leverage) {
+        modifications.push({
+          field: 'leverage',
+          oldValue: selectedPosition.leverage,
+          newValue: parseFloat(editForm.leverage)
+        })
+      }
+
+      if (editForm.stake && parseFloat(editForm.stake) !== selectedPosition.stake) {
+        modifications.push({
+          field: 'stake',
+          oldValue: selectedPosition.stake,
+          newValue: parseFloat(editForm.stake)
+        })
+      }
+
+      if (editForm.durationValue && parseInt(editForm.durationValue) !== selectedPosition.durationValue) {
+        modifications.push({
+          field: 'durationValue',
+          oldValue: selectedPosition.durationValue,
+          newValue: parseInt(editForm.durationValue)
+        })
+      }
+
+      if (editForm.durationUnit && editForm.durationUnit !== selectedPosition.durationUnit) {
+        modifications.push({
+          field: 'durationUnit',
+          oldValue: selectedPosition.durationUnit,
+          newValue: editForm.durationUnit
+        })
+      }
+
+      if (editForm.marketColor && editForm.marketColor !== selectedPosition.marketColor) {
+        modifications.push({
+          field: 'marketColor',
+          oldValue: selectedPosition.marketColor,
+          newValue: editForm.marketColor
         })
       }
 
@@ -499,13 +553,142 @@ export const PositionManagement: React.FC<PositionManagementProps> = ({
                 </div>
               </div>
               
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="amount">Monto</Label>
+                  <Input
+                    id="amount"
+                    type="number"
+                    step="0.01"
+                    value={editForm.amount}
+                    onChange={(e) => setEditForm({...editForm, amount: e.target.value})}
+                    placeholder="Nuevo monto"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="leverage">Apalancamiento</Label>
+                  <Input
+                    id="leverage"
+                    type="number"
+                    step="0.01"
+                    value={editForm.leverage}
+                    onChange={(e) => setEditForm({...editForm, leverage: e.target.value})}
+                    placeholder="Nuevo apalancamiento"
+                  />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="stake">Stake</Label>
+                  <Input
+                    id="stake"
+                    type="number"
+                    step="0.01"
+                    value={editForm.stake}
+                    onChange={(e) => setEditForm({...editForm, stake: e.target.value})}
+                    placeholder="Nuevo stake"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="durationValue">Duración (Valor)</Label>
+                  <Input
+                    id="durationValue"
+                    type="number"
+                    step="1"
+                    value={editForm.durationValue}
+                    onChange={(e) => setEditForm({...editForm, durationValue: e.target.value})}
+                    placeholder="Nuevo valor de duración"
+                  />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="durationUnit">Duración (Unidad)</Label>
+                  <Select 
+                    value={editForm.durationUnit} 
+                    onValueChange={(value) => setEditForm({...editForm, durationUnit: value})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar unidad" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="minute">Minutos</SelectItem>
+                      <SelectItem value="hour">Horas</SelectItem>
+                      <SelectItem value="day">Días</SelectItem>
+                      <SelectItem value="week">Semanas</SelectItem>
+                      <SelectItem value="month">Meses</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="marketColor">Color de Mercado</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="marketColor"
+                      value={editForm.marketColor}
+                      onChange={(e) => setEditForm({...editForm, marketColor: e.target.value})}
+                      placeholder="Ej: #3B82F6"
+                      className="flex-1"
+                    />
+                    <div 
+                      className="w-12 h-10 rounded border border-input"
+                      style={{ backgroundColor: editForm.marketColor || '#3B82F6' }}
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              <div>
+                <Label className="text-sm font-medium">Resumen de cambios</Label>
+                <div className="bg-muted rounded-lg p-3 space-y-2 text-sm">
+                  {selectedPosition && (
+                    <>
+                      {parseFloat(editForm.currentPrice) !== selectedPosition.currentPrice && (
+                        <div className="flex justify-between">
+                          <span>Precio actual:</span>
+                          <span>{formatCurrency(selectedPosition.currentPrice)} → {formatCurrency(parseFloat(editForm.currentPrice) || 0)}</span>
+                        </div>
+                      )}
+                      {parseFloat(editForm.amount) !== selectedPosition.amount && (
+                        <div className="flex justify-between">
+                          <span>Cantidad:</span>
+                          <span>{formatCurrency(selectedPosition.amount)} → {formatCurrency(parseFloat(editForm.amount) || 0)}</span>
+                        </div>
+                      )}
+                      {parseFloat(editForm.leverage) !== selectedPosition.leverage && (
+                        <div className="flex justify-between">
+                          <span>Apalancamiento:</span>
+                          <span>{selectedPosition.leverage}x → {parseFloat(editForm.leverage) || 0}x</span>
+                        </div>
+                      )}
+                      {editForm.stopLoss && parseFloat(editForm.stopLoss) !== selectedPosition.stopLoss && (
+                        <div className="flex justify-between">
+                          <span>Stop Loss:</span>
+                          <span>{selectedPosition.stopLoss ? formatCurrency(selectedPosition.stopLoss) : 'N/A'} → {formatCurrency(parseFloat(editForm.stopLoss))}</span>
+                        </div>
+                      )}
+                      {editForm.takeProfit && parseFloat(editForm.takeProfit) !== selectedPosition.takeProfit && (
+                        <div className="flex justify-between">
+                          <span>Take Profit:</span>
+                          <span>{selectedPosition.takeProfit ? formatCurrency(selectedPosition.takeProfit) : 'N/A'} → {formatCurrency(parseFloat(editForm.takeProfit))}</span>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+              
               <div>
                 <Label htmlFor="reason">Razón de la modificación *</Label>
-                <Input
+                <Textarea
                   id="reason"
                   value={editForm.reason}
                   onChange={(e) => setEditForm({...editForm, reason: e.target.value})}
-                  placeholder="Explica por qué realizas esta modificación"
+                  placeholder="Explica detalladamente por qué realizas esta modificación"
+                  rows={3}
+                  className="resize-none"
                 />
               </div>
               
@@ -572,7 +755,13 @@ export const PositionManagement: React.FC<PositionManagementProps> = ({
                       <TableCell className="font-medium">
                         {mod.field === 'currentPrice' ? 'Precio Actual' :
                          mod.field === 'stopLoss' ? 'Stop Loss' :
-                         mod.field === 'takeProfit' ? 'Take Profit' : mod.field}
+                         mod.field === 'takeProfit' ? 'Take Profit' :
+                         mod.field === 'amount' ? 'Cantidad' :
+                         mod.field === 'leverage' ? 'Apalancamiento' :
+                         mod.field === 'stake' ? 'Stake' :
+                         mod.field === 'durationValue' ? 'Duración (Valor)' :
+                         mod.field === 'durationUnit' ? 'Duración (Unidad)' :
+                         mod.field === 'marketColor' ? 'Color de Mercado' : mod.field}
                       </TableCell>
                       <TableCell>
                         {typeof mod.oldValue === 'number' ? 

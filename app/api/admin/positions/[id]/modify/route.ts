@@ -20,51 +20,53 @@ export async function POST(
       );
     }
 
-    // Verificar autenticación y autorización
-    const { user } = await getAuth(request);
-    if (!user) {
+    // Verificar autenticación
+    const session = await getAuth(request);
+    if (!session?.user) {
       return NextResponse.json(
         { success: false, message: 'No autorizado' },
         { status: 401 }
       );
     }
 
-    // Verificar que el usuario sea admin o maestro
-    if (user.role !== 'admin' && user.role !== 'maestro') {
+    // Verificar rol de administrador o maestro
+    if (!['admin', 'maestro'].includes(session.user.role)) {
       return NextResponse.json(
-        { success: false, message: 'Acceso denegado. Se requiere rol de administrador o maestro.' },
+        { success: false, message: 'Permisos insuficientes' },
         { status: 403 }
       );
     }
 
-    // Obtener datos del cuerpo de la solicitud
-    const body = await request.json();
-    const { modifications, reason } = body;
+    const { modifications, reason } = await request.json();
 
     if (!modifications || !Array.isArray(modifications) || modifications.length === 0) {
       return NextResponse.json(
-        { success: false, message: 'Se requieren modificaciones válidas' },
+        { success: false, message: 'No se proporcionaron modificaciones' },
         { status: 400 }
       );
     }
 
-    if (!reason || reason.trim().length === 0) {
+    if (!reason || typeof reason !== 'string' || reason.trim().length === 0) {
       return NextResponse.json(
-        { success: false, message: 'Se requiere una razón para la modificación' },
+        { success: false, message: 'Debe proporcionar una razón para la modificación' },
         { status: 400 }
       );
     }
 
-    // Obtener la posición actual
+    // Verificar que la posición existe y el usuario tiene acceso
     const position = await prisma.tradePosition.findFirst({
-      where: { id },
+      where: {
+        id: id,
+        status: 'open'
+      },
       include: {
         user: {
           select: {
             id: true,
             firstName: true,
             lastName: true,
-            email: true
+            email: true,
+            role: true
           }
         }
       }
@@ -72,21 +74,22 @@ export async function POST(
 
     if (!position) {
       return NextResponse.json(
-        { success: false, message: 'Posición no encontrada' },
+        { success: false, message: 'Posición no encontrada o no está abierta' },
         { status: 404 }
       );
     }
 
-    // Si es maestro, verificar que la posición pertenezca a un estudiante asignado
-    if (user.role === 'maestro') {
-      const assignment = await prisma.mentorAssignment.findFirst({
+    // Verificar permisos según el rol
+    if (session.user.role === 'maestro') {
+      // Los maestros solo pueden modificar posiciones de sus estudiantes asignados
+      const mentorAssignment = await prisma.mentorAssignment.findFirst({
         where: {
-          mentorId: user.id,
+          mentorId: session.user.id,
           userId: position.userId
         }
       });
 
-      if (!assignment) {
+      if (!mentorAssignment) {
         return NextResponse.json(
           { success: false, message: 'No tienes permisos para modificar esta posición' },
           { status: 403 }
@@ -94,177 +97,190 @@ export async function POST(
       }
     }
 
-    // Verificar que la posición esté abierta
-    if (position.status !== 'open') {
-      return NextResponse.json(
-        { success: false, message: 'Solo se pueden modificar posiciones abiertas' },
-        { status: 400 }
-      );
+    // Campos permitidos para modificación - AMPLIADO
+    const allowedFields = [
+      'currentPrice', 
+      'stopLoss', 
+      'takeProfit', 
+      'amount', 
+      'leverage', 
+      'stake', 
+      'durationValue', 
+      'durationUnit', 
+      'marketColor'
+    ];
+
+    // Validar que todos los campos a modificar sean permitidos
+    for (const mod of modifications) {
+      if (!allowedFields.includes(mod.field)) {
+        return NextResponse.json(
+          { success: false, message: `Campo no permitido para modificación: ${mod.field}` },
+          { status: 400 }
+        );
+      }
     }
 
-    // Procesar modificaciones en una transacción
-    const result = await prisma.$transaction(async (tx) => {
-      const updateData: any = {};
-      const modificationRecords = [];
+    // Preparar datos de actualización
+    const updateData: any = {};
+    const modificationRecords: Array<{
+      positionId: string;
+      modifiedBy: string;
+      modifiedByName: string;
+      field: string;
+      oldValue: any;
+      newValue: any;
+      reason: string;
+    }> = [];
 
-      // Procesar cada modificación
-      for (const mod of modifications) {
-        const { field, oldValue, newValue } = mod;
+    for (const mod of modifications) {
+      const { field, oldValue, newValue } = mod;
 
-        // Validar campos permitidos
-        const allowedFields = [
-          'currentPrice', 'stopLoss', 'takeProfit', 'amount', 
-          'leverage', 'status', 'stake', 'durationValue', 'durationUnit'
-        ];
-        if (!allowedFields.includes(field)) {
-          throw new Error(`Campo '${field}' no permitido para modificación`);
-        }
-
-        // Validar que el valor anterior coincida con el actual
-        const currentValue = (position as any)[field];
-        if (currentValue !== oldValue) {
-          throw new Error(`El valor anterior de '${field}' no coincide con el valor actual`);
-        }
-
-        // Validar el nuevo valor según el tipo de campo
-        if (['currentPrice', 'stopLoss', 'takeProfit', 'amount', 'leverage', 'stake'].includes(field)) {
-          if (typeof newValue !== 'number' || newValue <= 0) {
-            throw new Error(`Valor inválido para '${field}': ${newValue}`);
-          }
-        } else if (field === 'durationValue') {
-          if (typeof newValue !== 'number' || newValue <= 0 || !Number.isInteger(newValue)) {
-            throw new Error(`Valor de duración inválido: ${newValue}. Debe ser un número entero positivo`);
-          }
-        } else if (field === 'durationUnit') {
-          if (!['minute', 'hour', 'day'].includes(newValue)) {
-            throw new Error(`Unidad de duración inválida: ${newValue}. Debe ser 'minute', 'hour' o 'day'`);
-          }
-        } else if (field === 'status') {
-          if (!['open', 'closed', 'liquidated'].includes(newValue)) {
-            throw new Error(`Estado inválido: ${newValue}. Debe ser 'open', 'closed' o 'liquidated'`);
-          }
-        }
-
-        // Validaciones específicas por campo
-        if (field === 'stopLoss' && position.direction === 'long' && newValue >= position.openPrice) {
-          throw new Error('El stop loss para posiciones largas debe ser menor al precio de apertura');
-        }
-        
-        if (field === 'stopLoss' && position.direction === 'short' && newValue <= position.openPrice) {
-          throw new Error('El stop loss para posiciones cortas debe ser mayor al precio de apertura');
-        }
-        
-        if (field === 'takeProfit' && position.direction === 'long' && newValue <= position.openPrice) {
-          throw new Error('El take profit para posiciones largas debe ser mayor al precio de apertura');
-        }
-        
-        if (field === 'takeProfit' && position.direction === 'short' && newValue >= position.openPrice) {
-          throw new Error('El take profit para posiciones cortas debe ser menor al precio de apertura');
-        }
-
-        // Validaciones adicionales para nuevos campos
-        if (field === 'leverage' && (newValue < 1 || newValue > 1000)) {
-          throw new Error('El apalancamiento debe estar entre 1 y 1000');
-        }
-
-        if (field === 'amount' && newValue < 1) {
-          throw new Error('El monto debe ser mayor a 1');
-        }
-
-        // Si se modifica el estado a 'closed' o 'liquidated', verificar que la posición esté abierta
-        if (field === 'status' && ['closed', 'liquidated'].includes(newValue) && position.status !== 'open') {
-          throw new Error('Solo se pueden cerrar o liquidar posiciones que estén abiertas');
-        }
-
-        // Agregar al objeto de actualización
-        updateData[field] = newValue;
-
-        // Crear registro de modificación
-        modificationRecords.push({
-          positionId: position.id,
-          modifiedBy: user.id,
-          modifiedByName: `${user.firstName} ${user.lastName}`,
-          field,
-          oldValue,
-          newValue,
-          reason: reason.trim(),
-          timestamp: new Date()
-        });
+      // Validaciones específicas por campo - AMPLIADAS
+      if (field === 'currentPrice' && (typeof newValue !== 'number' || newValue <= 0)) {
+        return NextResponse.json(
+          { success: false, message: 'El precio actual debe ser un número positivo' },
+          { status: 400 }
+        );
       }
 
-      // Recalcular profit si se modificó el precio actual o el monto
-      if (updateData.currentPrice || updateData.amount) {
-        const newCurrentPrice = updateData.currentPrice || position.currentPrice;
-        const newAmount = updateData.amount || position.amount;
-        const priceChange = newCurrentPrice - position.openPrice;
-        const directionMultiplier = position.direction === 'long' ? 1 : -1;
-        const profitLoss = (priceChange * directionMultiplier * newAmount) / position.openPrice;
-        updateData.profit = profitLoss;
+      if (field === 'amount' && (typeof newValue !== 'number' || newValue <= 0)) {
+        return NextResponse.json(
+          { success: false, message: 'La cantidad debe ser un número positivo' },
+          { status: 400 }
+        );
       }
 
-      // Si se cambia el estado a 'closed' o 'liquidated', establecer la fecha de cierre
-      if (updateData.status && ['closed', 'liquidated'].includes(updateData.status)) {
-        updateData.closeTime = new Date();
+      if (field === 'leverage' && (typeof newValue !== 'number' || newValue <= 0)) {
+        return NextResponse.json(
+          { success: false, message: 'El apalancamiento debe ser un número positivo' },
+          { status: 400 }
+        );
       }
 
+      if (field === 'stake' && newValue !== null && (typeof newValue !== 'number' || newValue <= 0)) {
+        return NextResponse.json(
+          { success: false, message: 'El stake debe ser un número positivo' },
+          { status: 400 }
+        );
+      }
+
+      if (field === 'durationValue' && (typeof newValue !== 'number' || newValue <= 0)) {
+        return NextResponse.json(
+          { success: false, message: 'La duración debe ser un número positivo' },
+          { status: 400 }
+        );
+      }
+
+      if (field === 'durationUnit' && typeof newValue !== 'string') {
+        return NextResponse.json(
+          { success: false, message: 'La unidad de duración debe ser texto' },
+          { status: 400 }
+        );
+      }
+
+      if (field === 'marketColor' && typeof newValue !== 'string') {
+        return NextResponse.json(
+          { success: false, message: 'El color de mercado debe ser texto' },
+          { status: 400 }
+        );
+      }
+
+      // Validaciones de trading para stop loss y take profit (mantener lógica existente)
+      if (field === 'stopLoss' && newValue !== null) {
+        if (typeof newValue !== 'number' || newValue <= 0) {
+          return NextResponse.json(
+            { success: false, message: 'El stop loss debe ser un número positivo' },
+            { status: 400 }
+          );
+        }
+
+        // Validar que el stop loss sea lógico según la dirección
+        if (position.direction === 'long' && newValue >= position.currentPrice) {
+          return NextResponse.json(
+            { success: false, message: 'Para posiciones long, el stop loss debe ser menor al precio actual' },
+            { status: 400 }
+          );
+        }
+
+        if (position.direction === 'short' && newValue <= position.currentPrice) {
+          return NextResponse.json(
+            { success: false, message: 'Para posiciones short, el stop loss debe ser mayor al precio actual' },
+            { status: 400 }
+          );
+        }
+      }
+
+      if (field === 'takeProfit' && newValue !== null) {
+        if (typeof newValue !== 'number' || newValue <= 0) {
+          return NextResponse.json(
+            { success: false, message: 'El take profit debe ser un número positivo' },
+            { status: 400 }
+          );
+        }
+
+        // Validar que el take profit sea lógico según la dirección
+        if (position.direction === 'long' && newValue <= position.currentPrice) {
+          return NextResponse.json(
+            { success: false, message: 'Para posiciones long, el take profit debe ser mayor al precio actual' },
+            { status: 400 }
+          );
+        }
+
+        if (position.direction === 'short' && newValue >= position.currentPrice) {
+          return NextResponse.json(
+            { success: false, message: 'Para posiciones short, el take profit debe ser menor al precio actual' },
+            { status: 400 }
+          );
+        }
+      }
+
+      // Agregar al objeto de actualización
+      updateData[field] = newValue;
+
+      // Preparar registro de modificación
+      modificationRecords.push({
+        positionId: position.id,
+        modifiedBy: session.user.id,
+        modifiedByName: `${session.user.firstName} ${session.user.lastName}`,
+        field,
+        oldValue,
+        newValue,
+        reason: reason.trim()
+      });
+    }
+
+    // Recalcular profit si se modificó el precio actual
+    if (updateData.currentPrice) {
+      const priceDiff = updateData.currentPrice - position.openPrice;
+      const newProfit = position.direction === 'long' 
+        ? priceDiff * position.amount * position.leverage
+        : -priceDiff * position.amount * position.leverage;
+      
+      updateData.profit = newProfit;
+    }
+
+    // Usar transacción para asegurar consistencia
+    await prisma.$transaction(async (tx) => {
       // Actualizar la posición
-      const updatedPosition = await tx.tradePosition.update({
-        where: { id },
-        data: {
-          ...updateData,
-          updatedAt: new Date()
-        }
+      await tx.tradePosition.update({
+        where: { id: position.id },
+        data: updateData
       });
 
       // Crear registros de modificación
-      for (const modRecord of modificationRecords) {
-        await tx.positionModification.create({
-          data: modRecord
-        });
-      }
-
-      // Registrar actividad del usuario
-      await tx.userActivity.create({
-        data: {
-          userId: user.id,
-          action: 'position_modified',
-          details: {
-            positionId: position.id,
-            targetUserId: position.userId,
-            targetUserEmail: position.user.email,
-            modifications: modifications,
-            reason: reason.trim()
-          } as any,
-          timestamp: new Date()
-        }
+      await tx.positionModification.createMany({
+        data: modificationRecords
       });
-
-      return updatedPosition;
     });
 
     return NextResponse.json({
       success: true,
-      message: 'Posición modificada exitosamente',
-      data: {
-        id: result.id,
-        modifications: modifications.length,
-        updatedAt: result.updatedAt
-      }
+      message: 'Posición modificada correctamente',
+      modificationsCount: modifications.length
     });
 
   } catch (error) {
-    console.error('[API_ADMIN_MODIFY_POSITION_ERROR]', error);
-    
-    // Manejar errores específicos de la aplicación
-    if (error instanceof Error && error.message.includes('no coincide') || 
-        error instanceof Error && error.message.includes('inválido') ||
-        error instanceof Error && error.message.includes('debe ser')) {
-      return NextResponse.json(
-        { success: false, message: error.message },
-        { status: 400 }
-      );
-    }
-
+    console.error('Error modifying position:', error);
     return NextResponse.json(
       { success: false, message: 'Error interno del servidor' },
       { status: 500 }

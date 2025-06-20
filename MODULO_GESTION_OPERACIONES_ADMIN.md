@@ -1,4 +1,138 @@
-# Módulo de Gestión de Operaciones para Administradores y Maestros
+# 📊 Módulo de Gestión de Operaciones para Administradores y Maestros
+
+## 📋 Descripción
+
+Módulo completo para que administradores y maestros puedan modificar ciertos valores de las operaciones abiertas de clientes, reutilizando toda la lógica existente del sistema de trading y manteniendo un historial completo de auditoría.
+
+## ✨ Funcionalidades Principales
+
+### 🔧 Campos Modificables (AMPLIADO)
+
+El módulo permite modificar los siguientes valores de las posiciones de trading:
+
+#### Precios y Trading:
+- **Precio Actual** (`currentPrice`) - Con recálculo automático de P&L
+- **Stop Loss** (`stopLoss`) - Con validaciones según dirección de posición  
+- **Take Profit** (`takeProfit`) - Con validaciones según dirección de posición
+
+#### Gestión de Posición:
+- **Cantidad/Monto** (`amount`) - Monto total de la posición
+- **Apalancamiento** (`leverage`) - Factor de apalancamiento aplicado
+- **Stake** (`stake`) - Valor del stake/apuesta
+
+#### Configuración Temporal:
+- **Duración (Valor)** (`durationValue`) - Valor numérico de duración
+- **Duración (Unidad)** (`durationUnit`) - Unidad de tiempo (minutos, horas, días, semanas, meses)
+
+#### Personalización UI:
+- **Color de Mercado** (`marketColor`) - Color hexadecimal para la interfaz de usuario
+
+### 🛡️ Validaciones de Seguridad
+
+#### Validaciones Financieras:
+- Precios, cantidades, apalancamiento y stake deben ser números positivos
+- Stop Loss y Take Profit se validan según la dirección de la posición:
+  - **Long**: Stop Loss < Precio Actual, Take Profit > Precio Actual
+  - **Short**: Stop Loss > Precio Actual, Take Profit < Precio Actual
+
+#### Validaciones de Datos:
+- Duración debe ser un número entero positivo
+- Unidad de duración debe ser texto válido
+- Color de mercado debe ser texto (formato hexadecimal recomendado)
+
+#### Validaciones de Roles:
+- **Administradores**: Acceso total a todas las posiciones
+- **Maestros**: Solo posiciones de estudiantes asignados vía `MentorAssignment`
+
+### 🎨 Mejoras en la Interfaz de Usuario
+
+#### Formulario de Edición Mejorado:
+- **Selector desplegable** para unidades de duración
+- **Vista previa de color** para el campo de color de mercado
+- **Resumen de cambios** que muestra antes/después de cada modificación
+- **Campo de razón ampliado** con textarea para explicaciones detalladas
+
+#### Indicadores Visuales:
+- Iconos para distinguir instrumentos con soporte de tiempo real
+- Estados de conexión en tiempo real con indicadores visuales
+- Validación en tiempo real de los campos del formulario
+
+### 📊 Historial de Auditoría Completo
+
+Cada modificación se registra con:
+- Campo modificado con nombres traducidos al español
+- Valores anteriores y nuevos
+- Usuario que realizó el cambio
+- Razón detallada de la modificación
+- Timestamp exacto del cambio
+
+### ⚡ Tiempo Real
+
+- **Conexiones WebSocket** a Binance para criptomonedas
+- **Actualización automática** de precios cada 2 segundos
+- **Indicadores de estado** de conexión en vivo
+- **Estadísticas de conexión** con porcentaje de soporte
+
+## 🔧 Implementación Técnica
+
+### Archivos Modificados/Creados:
+
+#### Componentes Frontend:
+- `components/admin/PositionManagement.tsx` - Componente principal con nuevos campos
+- `hooks/useAdminRealTimePositions.ts` - Hook actualizado con nuevos campos
+- `app/admin/operaciones/page.tsx` - Página integrada
+
+#### APIs Backend:
+- `app/api/admin/positions/route.ts` - Obtener posiciones con nuevos campos
+- `app/api/admin/positions/[id]/modify/route.ts` - Modificar posiciones con validaciones ampliadas
+- `app/api/admin/positions/modifications/route.ts` - Historial de modificaciones
+
+#### Base de Datos:
+- Schema actualizado con campos adicionales en interfaces TypeScript
+- Validaciones de tipos mejoradas en las APIs
+
+### Seguridad y Permisos:
+
+- ✅ Verificación de tokens de sesión
+- ✅ Validación de roles específicos (admin/maestro)  
+- ✅ Restricciones basadas en asignaciones mentor-estudiante
+- ✅ Validaciones de negocio para mantener integridad de trading
+- ✅ Transacciones de base de datos para consistencia
+- ✅ Registro de auditoría completo
+
+## 🚀 Uso del Módulo
+
+### Para Administradores:
+1. Acceder a `/admin/operaciones`
+2. Ver todas las posiciones del sistema en tiempo real
+3. Modificar cualquier campo permitido de cualquier posición
+4. Revisar historial completo de modificaciones
+
+### Para Maestros:
+1. Acceder a `/admin/operaciones` 
+2. Ver solo posiciones de estudiantes asignados en tiempo real
+3. Modificar campos permitidos de posiciones de sus estudiantes
+4. Revisar historial de modificaciones de sus estudiantes
+
+### Proceso de Modificación:
+1. **Seleccionar posición** a modificar
+2. **Editar campos** deseados en el formulario mejorado
+3. **Revisar resumen** de cambios antes/después
+4. **Proporcionar razón** detallada obligatoria
+5. **Confirmar cambios** - se aplican en transacción atómica
+6. **Verificar en historial** - cambios registrados para auditoría
+
+## 📈 Beneficios
+
+- **Control Total**: Administradores pueden gestionar todas las operaciones
+- **Delegación Controlada**: Maestros pueden gestionar sus estudiantes
+- **Auditoría Completa**: Trazabilidad total de todos los cambios
+- **Tiempo Real**: Datos actualizados automáticamente
+- **Seguridad**: Validaciones múltiples y transacciones atómicas
+- **Flexibilidad**: Múltiples campos modificables sin conflictos
+- **Usabilidad**: Interfaz intuitiva con resumen de cambios y validaciones
+
+Este módulo proporciona una solución completa y segura para la gestión administrativa de operaciones de trading, manteniendo la integridad del sistema mientras ofrece flexibilidad operativa.
 
 ## 🎯 Descripción General
 
@@ -470,35 +604,6 @@ _debug: {
 - Porcentaje de instrumentos soportados
 - Latencia de actualizaciones de precios
 - Tasa de reconexiones
-
-## 🎛️ Campos Modificables
-
-### 💰 **Valores Económicos**
-- **Precio Actual**: Actualizar precio de mercado en tiempo real
-- **Stop Loss**: Configurar precio de pérdida máxima
-- **Take Profit**: Establecer precio de ganancia objetivo
-- **Monto**: Modificar tamaño de la posición
-- **Stake/Apuesta**: Ajustar cantidad apostada
-
-### ⚙️ **Configuración de Trading**
-- **Apalancamiento**: Cambiar nivel (1-1000x)
-- **Estado**: Abrir/Cerrar/Liquidar posición
-- **Duración**: Modificar tiempo de vida
-  - Valor: Número entero positivo
-  - Unidad: Minutos/Horas/Días
-
-### 🔒 **Validaciones Aplicadas**
-- **Stop Loss**: Respeta dirección de la posición
-- **Take Profit**: Validación según long/short
-- **Apalancamiento**: Entre 1x y 1000x
-- **Monto**: Mínimo 1 unidad monetaria
-- **Estado**: Solo permite transiciones válidas
-- **Duración**: Valores enteros y unidades válidas
-
-### 🔄 **Recálculos Automáticos**
-- **Profit/Loss**: Se actualiza al cambiar precio o monto
-- **Fecha de Cierre**: Se establece al cerrar/liquidar
-- **Validaciones**: Aplicadas según dirección de trading
 
 ## Próximas Mejoras
 

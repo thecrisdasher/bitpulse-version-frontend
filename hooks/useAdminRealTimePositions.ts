@@ -17,6 +17,10 @@ interface TradePosition {
   status: 'open' | 'closed' | 'liquidated'
   stopLoss?: number
   takeProfit?: number
+  stake?: number
+  durationValue?: number
+  durationUnit?: string
+  marketColor?: string
 }
 
 interface PriceUpdateParams {
