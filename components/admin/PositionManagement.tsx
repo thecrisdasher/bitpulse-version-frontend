@@ -132,6 +132,9 @@ export const PositionManagement: React.FC<PositionManagementProps> = ({
     reason: ''
   })
 
+  // Nuevo estado para errores de validación
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
+
   // Reutilizando lógica de formateo del sistema existente
   const formatCurrency = useCallback((amount: number) => {
     return new Intl.NumberFormat('es-CO', {
@@ -162,11 +165,91 @@ export const PositionManagement: React.FC<PositionManagementProps> = ({
     setIsEditDialogOpen(true)
   }
 
+  // Función de validación en tiempo real
+  const validateField = (field: string, value: string, position: TradePosition) => {
+    const errors: Record<string, string> = {}
+    
+    switch (field) {
+      case 'currentPrice':
+        if (value && (isNaN(parseFloat(value)) || parseFloat(value) <= 0)) {
+          errors[field] = 'El precio debe ser un número positivo'
+        }
+        break
+      case 'amount':
+        if (value && (isNaN(parseFloat(value)) || parseFloat(value) <= 0)) {
+          errors[field] = 'La cantidad debe ser un número positivo'
+        }
+        break
+      case 'leverage':
+        if (value && (isNaN(parseFloat(value)) || parseFloat(value) < 1 || parseFloat(value) > 1000)) {
+          errors[field] = 'El apalancamiento debe estar entre 1 y 1000'
+        }
+        break
+      case 'stake':
+        if (value && (isNaN(parseFloat(value)) || parseFloat(value) <= 0)) {
+          errors[field] = 'El stake debe ser un número positivo'
+        }
+        break
+      case 'durationValue':
+        if (value && (isNaN(parseInt(value)) || parseInt(value) <= 0)) {
+          errors[field] = 'La duración debe ser un número entero positivo'
+        }
+        break
+      case 'stopLoss':
+        if (value && !isNaN(parseFloat(value))) {
+          const currentPrice = parseFloat(editForm.currentPrice) || position.currentPrice
+          if (position.direction === 'long' && parseFloat(value) >= currentPrice) {
+            errors[field] = 'Para posiciones long, el stop loss debe ser menor al precio actual'
+          } else if (position.direction === 'short' && parseFloat(value) <= currentPrice) {
+            errors[field] = 'Para posiciones short, el stop loss debe ser mayor al precio actual'
+          }
+        }
+        break
+      case 'takeProfit':
+        if (value && !isNaN(parseFloat(value))) {
+          const currentPrice = parseFloat(editForm.currentPrice) || position.currentPrice
+          if (position.direction === 'long' && parseFloat(value) <= currentPrice) {
+            errors[field] = 'Para posiciones long, el take profit debe ser mayor al precio actual'
+          } else if (position.direction === 'short' && parseFloat(value) >= currentPrice) {
+            errors[field] = 'Para posiciones short, el take profit debe ser menor al precio actual'
+          }
+        }
+        break
+    }
+    
+    return errors
+  }
+
+  // Actualizar el handle de cambio de formulario
+  const handleFormChange = (field: string, value: string) => {
+    setEditForm(prev => ({ ...prev, [field]: value }))
+    
+    if (selectedPosition) {
+      const fieldErrors = validateField(field, value, selectedPosition)
+      setValidationErrors(prev => ({
+        ...prev,
+        ...fieldErrors,
+        [field]: fieldErrors[field] || ''
+      }))
+    }
+  }
+
   const handleSaveModifications = async () => {
     if (!selectedPosition || !editForm.reason.trim()) {
       toast({
         title: "Error",
         description: "Debes proporcionar una razón para la modificación",
+        variant: "destructive"
+      })
+      return
+    }
+
+    // Verificar si hay errores de validación
+    const hasErrors = Object.values(validationErrors).some(error => error !== '')
+    if (hasErrors) {
+      toast({
+        title: "Error de validación",
+        description: "Por favor corrige los errores en el formulario antes de continuar",
         variant: "destructive"
       })
       return
@@ -477,16 +560,46 @@ export const PositionManagement: React.FC<PositionManagementProps> = ({
 
       {/* Dialog para editar posición */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[1000px] max-h-[95vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Modificar Posición</DialogTitle>
+            <DialogTitle>🔧 Modificar Posición - 9 Campos Disponibles</DialogTitle>
             <DialogDescription>
-              Modifica los valores de la posición de {selectedPosition?.userName}
+              Modifica los valores de la posición de {selectedPosition?.userName} - Módulo Ampliado con Monto, Apalancamiento, Stake, Duración y Color
             </DialogDescription>
           </DialogHeader>
           
           {selectedPosition && (
             <div className="grid gap-4 py-4">
+              {/* === FORMULARIO AMPLIADO CON 9 CAMPOS EDITABLES === */}
+              
+              {/* Información de campos disponibles */}
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+                <h4 className="font-medium text-green-900 mb-2">✅ Campos Modificables Disponibles (9 Total)</h4>
+                <div className="grid grid-cols-3 gap-2 text-xs text-green-800">
+                  <div>• Precio Actual</div>
+                  <div>• Stop Loss</div>
+                  <div>• Take Profit</div>
+                  <div>• Monto</div>
+                  <div>• Apalancamiento</div>
+                  <div>• Stake</div>
+                  <div>• Duración (Valor)</div>
+                  <div>• Duración (Unidad)</div>
+                  <div>• Color de Mercado</div>
+                </div>
+              </div>
+
+              {/* Información de la posición */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <h4 className="font-medium text-blue-900 mb-2">📊 Información de la Posición</h4>
+                <div className="grid grid-cols-2 gap-2 text-sm text-blue-800">
+                  <div>Usuario: <span className="font-medium">{selectedPosition.userName}</span></div>
+                  <div>P&L Actual: <span className={`font-medium ${(selectedPosition.profit || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {selectedPosition.profit ? formatCurrency(selectedPosition.profit) : 'N/A'}
+                  </span></div>
+                  <div>Apertura: <span className="font-medium">{formatDateTime(selectedPosition.openTime)}</span></div>
+                  <div>Estado: <span className="font-medium capitalize">{selectedPosition.status}</span></div>
+                </div>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="instrument">Instrumento</Label>
@@ -521,10 +634,15 @@ export const PositionManagement: React.FC<PositionManagementProps> = ({
                     id="currentPrice"
                     type="number"
                     step="0.01"
+                    min="0"
                     value={editForm.currentPrice}
-                    onChange={(e) => setEditForm({...editForm, currentPrice: e.target.value})}
+                    onChange={(e) => handleFormChange('currentPrice', e.target.value)}
                     placeholder="Nuevo precio actual"
+                    className={validationErrors.currentPrice ? 'border-red-500' : ''}
                   />
+                  {validationErrors.currentPrice && (
+                    <p className="text-red-500 text-xs mt-1">{validationErrors.currentPrice}</p>
+                  )}
                 </div>
               </div>
               
@@ -536,9 +654,13 @@ export const PositionManagement: React.FC<PositionManagementProps> = ({
                     type="number"
                     step="0.01"
                     value={editForm.stopLoss}
-                    onChange={(e) => setEditForm({...editForm, stopLoss: e.target.value})}
+                    onChange={(e) => handleFormChange('stopLoss', e.target.value)}
                     placeholder="Precio de stop loss"
+                    className={validationErrors.stopLoss ? 'border-red-500' : ''}
                   />
+                  {validationErrors.stopLoss && (
+                    <p className="text-red-500 text-xs mt-1">{validationErrors.stopLoss}</p>
+                  )}
                 </div>
                 <div>
                   <Label htmlFor="takeProfit">Take Profit</Label>
@@ -547,9 +669,13 @@ export const PositionManagement: React.FC<PositionManagementProps> = ({
                     type="number"
                     step="0.01"
                     value={editForm.takeProfit}
-                    onChange={(e) => setEditForm({...editForm, takeProfit: e.target.value})}
+                    onChange={(e) => handleFormChange('takeProfit', e.target.value)}
                     placeholder="Precio de take profit"
+                    className={validationErrors.takeProfit ? 'border-red-500' : ''}
                   />
+                  {validationErrors.takeProfit && (
+                    <p className="text-red-500 text-xs mt-1">{validationErrors.takeProfit}</p>
+                  )}
                 </div>
               </div>
               
@@ -560,10 +686,15 @@ export const PositionManagement: React.FC<PositionManagementProps> = ({
                     id="amount"
                     type="number"
                     step="0.01"
+                    min="0"
                     value={editForm.amount}
-                    onChange={(e) => setEditForm({...editForm, amount: e.target.value})}
-                    placeholder="Nuevo monto"
+                    onChange={(e) => handleFormChange('amount', e.target.value)}
+                    placeholder={`Actual: ${formatCurrency(selectedPosition.amount)}`}
+                    className={validationErrors.amount ? 'border-red-500' : ''}
                   />
+                  {validationErrors.amount && (
+                    <p className="text-red-500 text-xs mt-1">{validationErrors.amount}</p>
+                  )}
                 </div>
                 <div>
                   <Label htmlFor="leverage">Apalancamiento</Label>
@@ -571,10 +702,16 @@ export const PositionManagement: React.FC<PositionManagementProps> = ({
                     id="leverage"
                     type="number"
                     step="0.01"
+                    min="1"
+                    max="1000"
                     value={editForm.leverage}
-                    onChange={(e) => setEditForm({...editForm, leverage: e.target.value})}
-                    placeholder="Nuevo apalancamiento"
+                    onChange={(e) => handleFormChange('leverage', e.target.value)}
+                    placeholder={`Actual: ${selectedPosition.leverage}x`}
+                    className={validationErrors.leverage ? 'border-red-500' : ''}
                   />
+                  {validationErrors.leverage && (
+                    <p className="text-red-500 text-xs mt-1">{validationErrors.leverage}</p>
+                  )}
                 </div>
               </div>
               
@@ -585,10 +722,15 @@ export const PositionManagement: React.FC<PositionManagementProps> = ({
                     id="stake"
                     type="number"
                     step="0.01"
+                    min="0"
                     value={editForm.stake}
-                    onChange={(e) => setEditForm({...editForm, stake: e.target.value})}
-                    placeholder="Nuevo stake"
+                    onChange={(e) => handleFormChange('stake', e.target.value)}
+                    placeholder={`Actual: ${selectedPosition.stake ? formatCurrency(selectedPosition.stake) : 'No definido'}`}
+                    className={validationErrors.stake ? 'border-red-500' : ''}
                   />
+                  {validationErrors.stake && (
+                    <p className="text-red-500 text-xs mt-1">{validationErrors.stake}</p>
+                  )}
                 </div>
                 <div>
                   <Label htmlFor="durationValue">Duración (Valor)</Label>
@@ -596,10 +738,15 @@ export const PositionManagement: React.FC<PositionManagementProps> = ({
                     id="durationValue"
                     type="number"
                     step="1"
+                    min="1"
                     value={editForm.durationValue}
-                    onChange={(e) => setEditForm({...editForm, durationValue: e.target.value})}
-                    placeholder="Nuevo valor de duración"
+                    onChange={(e) => handleFormChange('durationValue', e.target.value)}
+                    placeholder={`Actual: ${selectedPosition.durationValue || 'No definido'}`}
+                    className={validationErrors.durationValue ? 'border-red-500' : ''}
                   />
+                  {validationErrors.durationValue && (
+                    <p className="text-red-500 text-xs mt-1">{validationErrors.durationValue}</p>
+                  )}
                 </div>
               </div>
               
@@ -608,7 +755,7 @@ export const PositionManagement: React.FC<PositionManagementProps> = ({
                   <Label htmlFor="durationUnit">Duración (Unidad)</Label>
                   <Select 
                     value={editForm.durationUnit} 
-                    onValueChange={(value) => setEditForm({...editForm, durationUnit: value})}
+                    onValueChange={(value) => handleFormChange('durationUnit', value)}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Seleccionar unidad" />
@@ -628,7 +775,7 @@ export const PositionManagement: React.FC<PositionManagementProps> = ({
                     <Input
                       id="marketColor"
                       value={editForm.marketColor}
-                      onChange={(e) => setEditForm({...editForm, marketColor: e.target.value})}
+                      onChange={(e) => handleFormChange('marketColor', e.target.value)}
                       placeholder="Ej: #3B82F6"
                       className="flex-1"
                     />
@@ -675,7 +822,49 @@ export const PositionManagement: React.FC<PositionManagementProps> = ({
                           <span>{selectedPosition.takeProfit ? formatCurrency(selectedPosition.takeProfit) : 'N/A'} → {formatCurrency(parseFloat(editForm.takeProfit))}</span>
                         </div>
                       )}
+                      {editForm.stake && parseFloat(editForm.stake) !== selectedPosition.stake && (
+                        <div className="flex justify-between">
+                          <span>Stake:</span>
+                          <span>{selectedPosition.stake ? formatCurrency(selectedPosition.stake) : 'N/A'} → {formatCurrency(parseFloat(editForm.stake))}</span>
+                        </div>
+                      )}
+                      {editForm.durationValue && parseInt(editForm.durationValue) !== selectedPosition.durationValue && (
+                        <div className="flex justify-between">
+                          <span>Duración:</span>
+                          <span>{selectedPosition.durationValue || 'N/A'} → {editForm.durationValue}</span>
+                        </div>
+                      )}
+                      {editForm.durationUnit && editForm.durationUnit !== selectedPosition.durationUnit && (
+                        <div className="flex justify-between">
+                          <span>Unidad de Duración:</span>
+                          <span>{selectedPosition.durationUnit || 'N/A'} → {editForm.durationUnit}</span>
+                        </div>
+                      )}
+                      {editForm.marketColor && editForm.marketColor !== selectedPosition.marketColor && (
+                        <div className="flex justify-between">
+                          <span>Color de Mercado:</span>
+                          <div className="flex items-center gap-2">
+                            <div className="w-4 h-4 rounded border" style={{ backgroundColor: selectedPosition.marketColor || '#cccccc' }} />
+                            <span>→</span>
+                            <div className="w-4 h-4 rounded border" style={{ backgroundColor: editForm.marketColor || '#3B82F6' }} />
+                            <span className="text-xs">{editForm.marketColor}</span>
+                          </div>
+                        </div>
+                      )}
                     </>
+                  )}
+                  {!((parseFloat(editForm.currentPrice) !== selectedPosition.currentPrice && editForm.currentPrice) ||
+                     (parseFloat(editForm.amount) !== selectedPosition.amount && editForm.amount) ||
+                     (parseFloat(editForm.leverage) !== selectedPosition.leverage && editForm.leverage) ||
+                     (editForm.stopLoss && parseFloat(editForm.stopLoss) !== selectedPosition.stopLoss) ||
+                     (editForm.takeProfit && parseFloat(editForm.takeProfit) !== selectedPosition.takeProfit) ||
+                     (editForm.stake && parseFloat(editForm.stake) !== selectedPosition.stake) ||
+                     (editForm.durationValue && parseInt(editForm.durationValue) !== selectedPosition.durationValue) ||
+                     (editForm.durationUnit && editForm.durationUnit !== selectedPosition.durationUnit) ||
+                     (editForm.marketColor && editForm.marketColor !== selectedPosition.marketColor)) && (
+                    <div className="text-center text-muted-foreground py-2">
+                      💡 Modifica los campos que desees cambiar y aparecerán aquí
+                    </div>
                   )}
                 </div>
               </div>
@@ -685,7 +874,7 @@ export const PositionManagement: React.FC<PositionManagementProps> = ({
                 <Textarea
                   id="reason"
                   value={editForm.reason}
-                  onChange={(e) => setEditForm({...editForm, reason: e.target.value})}
+                  onChange={(e) => handleFormChange('reason', e.target.value)}
                   placeholder="Explica detalladamente por qué realizas esta modificación"
                   rows={3}
                   className="resize-none"
