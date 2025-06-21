@@ -209,6 +209,22 @@ const Sidebar = () => {
             </Link>
           </li>
           
+          {/* Operaciones para maestros */}
+          {isMaestro && (
+            <li>
+              <Link 
+                href="/maestro/operaciones" 
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+                  currentPath === "/maestro/operaciones" ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+                )}
+              >
+                <BarChart2 size={18} />
+                Operaciones
+              </Link>
+            </li>
+          )}
+
           {/* Comentarios para maestros y admins */}
           {(isMaestro || isAdmin) && (
             <li>
