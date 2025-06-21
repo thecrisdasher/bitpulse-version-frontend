@@ -102,6 +102,7 @@ export async function POST(
       'currentPrice', 
       'stopLoss', 
       'takeProfit', 
+      'openPrice',
       'amount', 
       'leverage', 
       'stake', 
@@ -139,6 +140,13 @@ export async function POST(
       if (field === 'currentPrice' && (typeof newValue !== 'number' || newValue <= 0)) {
         return NextResponse.json(
           { success: false, message: 'El precio actual debe ser un número positivo' },
+          { status: 400 }
+        );
+      }
+
+      if (field === 'openPrice' && (typeof newValue !== 'number' || newValue <= 0)) {
+        return NextResponse.json(
+          { success: false, message: 'El precio de apertura debe ser un número positivo' },
           { status: 400 }
         );
       }

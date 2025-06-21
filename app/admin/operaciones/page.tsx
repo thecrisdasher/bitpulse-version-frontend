@@ -124,6 +124,7 @@ export default function OperacionesAdminPage() {
     currentPrice: '',
     stopLoss: '',
     takeProfit: '',
+    openPrice: '',
     amount: '',
     leverage: '',
     stake: '',
@@ -198,6 +199,7 @@ export default function OperacionesAdminPage() {
       currentPrice: position.currentPrice.toString(),
       stopLoss: position.stopLoss?.toString() || '',
       takeProfit: position.takeProfit?.toString() || '',
+      openPrice: position.openPrice.toString(),
       amount: position.amount.toString(),
       leverage: position.leverage.toString(),
       stake: position.stake?.toString() || '',
@@ -690,11 +692,14 @@ export default function OperacionesAdminPage() {
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="openPrice">Precio de Apertura</Label>
-                  <Input 
-                    id="openPrice" 
-                    value={formatCurrency(selectedPosition.openPrice)} 
-                    disabled 
+                  <Label htmlFor="openPrice">Precio de Apertura *</Label>
+                  <Input
+                    id="openPrice"
+                    type="number"
+                    step="0.01"
+                    value={editForm.openPrice}
+                    onChange={(e) => setEditForm({...editForm, openPrice: e.target.value})}
+                    placeholder={`Actual: ${formatCurrency(selectedPosition.openPrice)}`}
                   />
                 </div>
                 <div>
@@ -879,6 +884,7 @@ export default function OperacionesAdminPage() {
                         {mod.field === 'currentPrice' ? 'Precio Actual' :
                          mod.field === 'stopLoss' ? 'Stop Loss' :
                          mod.field === 'takeProfit' ? 'Take Profit' :
+                         mod.field === 'openPrice' ? 'Precio de Apertura' :
                          mod.field === 'amount' ? 'Cantidad' :
                          mod.field === 'leverage' ? 'Apalancamiento' :
                          mod.field === 'stake' ? 'Stake' :

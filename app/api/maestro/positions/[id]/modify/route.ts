@@ -91,6 +91,7 @@ export async function POST(
       'currentPrice',
       'stopLoss', 
       'takeProfit',
+      'openPrice',
       'amount',
       'leverage',
       'stake',
@@ -116,7 +117,7 @@ export async function POST(
       
       // Validaciones específicas por campo
       if (field === 'currentPrice' || field === 'stopLoss' || field === 'takeProfit' || 
-          field === 'amount' || field === 'leverage' || field === 'stake') {
+          field === 'openPrice' || field === 'amount' || field === 'leverage' || field === 'stake') {
         if (typeof newValue !== 'number' || newValue <= 0) {
           return NextResponse.json(
             { success: false, message: `Valor inválido para ${field}` },
