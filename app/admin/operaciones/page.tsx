@@ -223,6 +223,12 @@ export default function OperacionesAdminPage() {
     try {
       const modifications = []
       
+      console.log('=== DEBUG MODIFICACIONES ===')
+      console.log('editForm.openPrice:', editForm.openPrice)
+      console.log('selectedPosition.openPrice:', selectedPosition.openPrice)
+      console.log('parseFloat(editForm.openPrice):', parseFloat(editForm.openPrice))
+      console.log('Son diferentes?:', editForm.openPrice && parseFloat(editForm.openPrice) !== selectedPosition.openPrice)
+      
       // Verificar qué campos han cambiado - AMPLIADO
       if (parseFloat(editForm.currentPrice) !== selectedPosition.currentPrice) {
         modifications.push({
@@ -245,6 +251,14 @@ export default function OperacionesAdminPage() {
           field: 'takeProfit',
           oldValue: selectedPosition.takeProfit,
           newValue: parseFloat(editForm.takeProfit)
+        })
+      }
+
+      if (editForm.openPrice && parseFloat(editForm.openPrice) !== selectedPosition.openPrice) {
+        modifications.push({
+          field: 'openPrice',
+          oldValue: selectedPosition.openPrice,
+          newValue: parseFloat(editForm.openPrice)
         })
       }
 
@@ -291,6 +305,8 @@ export default function OperacionesAdminPage() {
 
 
 
+      console.log('Modificaciones detectadas:', modifications)
+      
       if (modifications.length === 0) {
         toast({
           title: "Información",

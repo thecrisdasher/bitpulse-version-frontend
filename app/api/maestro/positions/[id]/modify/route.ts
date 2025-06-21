@@ -150,6 +150,21 @@ export async function POST(
       updateData[field] = newValue
     }
 
+    // Recalcular profit si se modificó el precio actual o el precio de apertura
+    if (updateData.currentPrice || updateData.openPrice) {
+      const currentPrice = updateData.currentPrice || position.currentPrice;
+      const openPrice = updateData.openPrice || position.openPrice;
+      const amount = updateData.amount || position.amount;
+      const leverage = updateData.leverage || position.leverage;
+      
+      const priceDiff = currentPrice - openPrice;
+      const newProfit = position.direction === 'long' 
+        ? priceDiff * amount * leverage
+        : -priceDiff * amount * leverage;
+      
+      updateData.profit = newProfit;
+    }
+
     // Usar transacción para actualizar la posición y registrar las modificaciones
     const result = await prisma.$transaction(async (tx) => {
       // Actualizar la posición

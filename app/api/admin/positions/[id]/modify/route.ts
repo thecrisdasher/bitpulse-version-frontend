@@ -257,12 +257,17 @@ export async function POST(
       });
     }
 
-    // Recalcular profit si se modificó el precio actual
-    if (updateData.currentPrice) {
-      const priceDiff = updateData.currentPrice - position.openPrice;
+    // Recalcular profit si se modificó el precio actual o el precio de apertura
+    if (updateData.currentPrice || updateData.openPrice) {
+      const currentPrice = updateData.currentPrice || position.currentPrice;
+      const openPrice = updateData.openPrice || position.openPrice;
+      const amount = updateData.amount || position.amount;
+      const leverage = updateData.leverage || position.leverage;
+      
+      const priceDiff = currentPrice - openPrice;
       const newProfit = position.direction === 'long' 
-        ? priceDiff * position.amount * position.leverage
-        : -priceDiff * position.amount * position.leverage;
+        ? priceDiff * amount * leverage
+        : -priceDiff * amount * leverage;
       
       updateData.profit = newProfit;
     }
