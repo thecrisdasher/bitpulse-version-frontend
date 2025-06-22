@@ -258,8 +258,82 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     }
 
     // Eliminar usuario definitivamente de la base de datos
-    await prisma.user.delete({
-      where: { id: userId }
+    // Primero eliminar todas las referencias relacionadas
+    await prisma.$transaction(async (tx) => {
+      // Eliminar participaciones en chats
+      await tx.chatParticipant.deleteMany({
+        where: { userId }
+      });
+
+      // Eliminar mensajes del usuario
+      await tx.message.deleteMany({
+        where: { senderId: userId }
+      });
+
+      // Eliminar posiciones de trading del usuario
+      await tx.tradePosition.deleteMany({
+        where: { userId }
+      });
+
+      // Eliminar transacciones de PejeCoins (como receptor)
+      await tx.pejeCoinTransaction.deleteMany({
+        where: { toUserId: userId }
+      });
+
+      // Eliminar transacciones de PejeCoins (como emisor)
+      await tx.pejeCoinTransaction.deleteMany({
+        where: { fromUserId: userId }
+      });
+
+      // Eliminar retiros
+      await tx.withdrawal.deleteMany({
+        where: { userId }
+      });
+
+      // Eliminar notificaciones
+      await tx.notification.deleteMany({
+        where: { userId }
+      });
+
+      // Eliminar comentarios como cliente
+      await tx.clientComment.deleteMany({
+        where: { clientId: userId }
+      });
+
+      // Eliminar comentarios como autor
+      await tx.clientComment.deleteMany({
+        where: { authorId: userId }
+      });
+
+      // Eliminar asignaciones de mentor (como usuario)
+      await tx.mentorAssignment.deleteMany({
+        where: { userId }
+      });
+
+      // Eliminar asignaciones de mentor (como mentor)
+      await tx.mentorAssignment.deleteMany({
+        where: { mentorId: userId }
+      });
+
+      // Eliminar actividades del usuario
+      await tx.userActivity.deleteMany({
+        where: { userId }
+      });
+
+      // Eliminar tokens de refresh
+      await tx.refreshToken.deleteMany({
+        where: { userId }
+      });
+
+      // Eliminar sesiones
+      await tx.session.deleteMany({
+        where: { userId }
+      });
+
+      // Finalmente eliminar el usuario
+      await tx.user.delete({
+        where: { id: userId }
+      });
     });
 
     return NextResponse.json({ 
