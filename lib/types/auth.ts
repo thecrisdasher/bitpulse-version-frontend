@@ -78,6 +78,7 @@ export interface JWTPayload {
   email: string;
   role: UserRole;
   permissions: Permission[];
+  mustChangePassword?: boolean; // Indica si debe cambiar contraseña en primer login
   iat: number;
   exp: number;
   jti: string; // JWT ID para invalidación
@@ -156,6 +157,7 @@ export const JWTPayloadSchema = z.object({
   email: z.string().email(),
   role: z.enum(['cliente', 'admin', 'maestro']),
   permissions: z.array(z.string()),
+  mustChangePassword: z.boolean().optional(),
   iat: z.number(),
   exp: z.number(),
   jti: z.string(),

@@ -2,7 +2,7 @@
 
 import Sidebar from "@/components/Sidebar"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Users, UserPlus, Search, Filter, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react"
+import { Users, UserPlus, Search, Filter, ArrowUpDown, ArrowUp, ArrowDown, Eye, EyeOff, Copy, RefreshCw } from "lucide-react"
 import { CompatButton as Button } from "@/components/ui/compat-button"
 import {
   Table,
@@ -48,6 +48,40 @@ export default function CrmUsersPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+
+  // Estados para manejo de contraseñas
+  const [passwordOption, setPasswordOption] = useState<'auto' | 'custom' | 'email'>('auto');
+  const [customPassword, setCustomPassword] = useState('');
+  const [generatedPassword, setGeneratedPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+
+  // Función para generar contraseña segura
+  const generateSecurePassword = () => {
+    const length = 12;
+    const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%&*";
+    let password = "";
+    
+    // Asegurar al menos un carácter de cada tipo
+    password += "ABCDEFGHIJKLMNOPQRSTUVWXYZ"[Math.floor(Math.random() * 26)]; // Mayúscula
+    password += "abcdefghijklmnopqrstuvwxyz"[Math.floor(Math.random() * 26)]; // Minúscula
+    password += "0123456789"[Math.floor(Math.random() * 10)]; // Número
+    password += "!@#$%&*"[Math.floor(Math.random() * 7)]; // Especial
+    
+    // Completar el resto
+    for (let i = password.length; i < length; i++) {
+      password += charset[Math.floor(Math.random() * charset.length)];
+    }
+    
+    // Mezclar los caracteres
+    return password.split('').sort(() => Math.random() - 0.5).join('');
+  };
+
+  // Generar contraseña cuando se selecciona la opción automática
+  useEffect(() => {
+    if (passwordOption === 'auto') {
+      setGeneratedPassword(generateSecurePassword());
+    }
+  }, [passwordOption, openDialog]);
 
   const fetchUsers = async () => {
     try {
@@ -166,21 +200,71 @@ export default function CrmUsersPage() {
       pejecoins: 0,
       isActive: true,
     });
+    setPasswordOption('auto');
+    setCustomPassword('');
+    setGeneratedPassword(generateSecurePassword());
+    setShowPassword(false);
     setOpenDialog(true);
   };
 
   const submitCreate = async () => {
     if (!editingUser) return;
+    
+    let passwordToUse = '';
+    let emailSubject = '';
+    let emailBody = '';
+    
+    // Determinar qué contraseña usar
+    switch (passwordOption) {
+      case 'auto':
+        passwordToUse = generatedPassword;
+        emailSubject = 'Bienvenido a BitPulse - Credenciales de Acceso';
+        emailBody = `Hola ${editingUser.firstName},\n\nTu cuenta ha sido creada exitosamente.\n\nCredenciales de acceso:\nEmail: ${editingUser.email}\nContraseña temporal: ${generatedPassword}\n\nPor favor, cambia tu contraseña en el primer inicio de sesión.\n\nSaludos,\nEquipo BitPulse`;
+        break;
+      case 'custom':
+        passwordToUse = customPassword;
+        emailSubject = 'Bienvenido a BitPulse - Credenciales de Acceso';
+        emailBody = `Hola ${editingUser.firstName},\n\nTu cuenta ha sido creada exitosamente.\n\nCredenciales de acceso:\nEmail: ${editingUser.email}\nContraseña: ${customPassword}\n\nSaludos,\nEquipo BitPulse`;
+        break;
+      case 'email':
+        passwordToUse = generateSecurePassword();
+        emailSubject = 'Activación de Cuenta BitPulse';
+        emailBody = `Hola ${editingUser.firstName},\n\nTu cuenta ha sido creada. Recibirás un email separado con las instrucciones para establecer tu contraseña.\n\nSaludos,\nEquipo BitPulse`;
+        break;
+    }
+
+    if (passwordOption === 'custom' && !customPassword) {
+      toast.error('Por favor ingresa una contraseña personalizada');
+      return;
+    }
+
     try {
       const res = await fetch('/api/admin/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify(editingUser),
+        body: JSON.stringify({
+          ...editingUser,
+          password: passwordToUse,
+          passwordOption,
+          emailSubject,
+          emailBody
+        }),
       });
       const data = await res.json();
       if (res.ok) {
-        toast.success('Usuario creado');
+        // Mostrar información de contraseña según la opción
+        if (passwordOption === 'auto') {
+          toast.success(
+            `Usuario creado exitosamente. Contraseña temporal: ${generatedPassword}`,
+            { duration: 10000 }
+          );
+        } else if (passwordOption === 'custom') {
+          toast.success('Usuario creado exitosamente con contraseña personalizada');
+        } else {
+          toast.success('Usuario creado. Se enviarán instrucciones por email');
+        }
+        
         setOpenDialog(false);
         fetchUsers();
       } else {
@@ -189,6 +273,11 @@ export default function CrmUsersPage() {
     } catch (e) {
       toast.error('Error');
     }
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success('Contraseña copiada al portapapeles');
   };
 
   const formatCurrency = (amount: number): string => {
@@ -348,9 +437,9 @@ export default function CrmUsersPage() {
                   <TableBody>
                     {filteredAndSortedUsers.length > 0 ? (
                       filteredAndSortedUsers.map(user => (
-                        <TableRow key={user.id}>
-                          <TableCell className="font-medium">{user.firstName} {user.lastName}</TableCell>
-                          <TableCell>{user.email}</TableCell>
+                      <TableRow key={user.id}>
+                        <TableCell className="font-medium">{user.firstName} {user.lastName}</TableCell>
+                        <TableCell>{user.email}</TableCell>
                           <TableCell>
                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                               user.role === 'admin' ? 'bg-purple-100 text-purple-800' :
@@ -364,19 +453,19 @@ export default function CrmUsersPage() {
                           <TableCell className="font-medium text-green-600">
                             {formatCurrency(user.pejecoins)}
                           </TableCell>
-                          <TableCell>
-                            <span className={`px-2 py-1 rounded-full text-xs ${
-                              user.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                            }`}>
-                              {user.isActive ? 'Activo' : 'Inactivo'}
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Button variant="outline" size="sm" onClick={() => { setEditingUser(user); setOpenDialog(true); }}>
-                              Editar
-                            </Button>
-                          </TableCell>
-                        </TableRow>
+                        <TableCell>
+                          <span className={`px-2 py-1 rounded-full text-xs ${
+                            user.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                          }`}>
+                            {user.isActive ? 'Activo' : 'Inactivo'}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="outline" size="sm" onClick={() => { setEditingUser(user); setOpenDialog(true); }}>
+                            Editar
+                          </Button>
+                        </TableCell>
+                      </TableRow>
                       ))
                     ) : (
                       <TableRow>
@@ -395,12 +484,12 @@ export default function CrmUsersPage() {
         </main>
       </div>
       <Dialog open={openDialog} onOpenChange={setOpenDialog}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>{editingUser?.id ? 'Editar Usuario' : 'Crear Usuario'}</DialogTitle>
           </DialogHeader>
           {editingUser && (
-            <div className="space-y-4">
+            <div className="space-y-4 overflow-y-auto flex-1 pr-2">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Nombre</Label>
@@ -453,36 +542,163 @@ export default function CrmUsersPage() {
                   placeholder="0"
                   min="0"
                 />
-                <p className="text-sm text-muted-foreground mt-1">
-                  Capital de práctica para operaciones (formato: {formatCurrency(editingUser.pejecoins)})
-                </p>
-              </div>
-              <div>
-                <Label>Estado</Label>
-                <Select 
-                  value={editingUser.isActive ? 'active' : 'inactive'} 
-                  onValueChange={(value) => setEditingUser({...editingUser, isActive: value === 'active'})}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar estado" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active">Activo</SelectItem>
-                    <SelectItem value="inactive">Inactivo</SelectItem>
-                  </SelectContent>
-                </Select>
+                                 <p className="text-sm text-muted-foreground mt-1">
+                   Capital de práctica para operaciones (formato: {formatCurrency(editingUser.pejecoins)})
+                 </p>
+               </div>
+               
+               {/* Configuración de Contraseña (solo para nuevos usuarios) */}
+               {!editingUser.id && (
+                 <div className="space-y-4 p-4 border rounded-lg bg-muted/50">
+                   <Label className="text-base font-semibold">Configuración de Contraseña</Label>
+                   
+                   <div>
+                     <Label>Método de Contraseña</Label>
+                     <Select value={passwordOption} onValueChange={(value: 'auto' | 'custom' | 'email') => setPasswordOption(value)}>
+                       <SelectTrigger>
+                         <SelectValue />
+                       </SelectTrigger>
+                       <SelectContent>
+                         <SelectItem value="auto">🎲 Generar automáticamente</SelectItem>
+                         <SelectItem value="custom">✏️ Establecer manualmente</SelectItem>
+                         <SelectItem value="email">📧 Enviar por email (próximamente)</SelectItem>
+                       </SelectContent>
+                     </Select>
+                   </div>
+
+                   {passwordOption === 'auto' && (
+                     <div>
+                       <Label>Contraseña Generada</Label>
+                       <div className="flex items-center gap-2">
+                         <div className="relative flex-1">
+                           <Input
+                             type={showPassword ? "text" : "password"}
+                             value={generatedPassword}
+                             readOnly
+                             className="pr-20"
+                           />
+                           <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex gap-1">
+                             <Button
+                               type="button"
+                               variant="ghost"
+                               size="sm"
+                               className="h-6 w-6 p-0"
+                               onClick={() => setShowPassword(!showPassword)}
+                             >
+                               {showPassword ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                             </Button>
+                             <Button
+                               type="button"
+                               variant="ghost"
+                               size="sm"
+                               className="h-6 w-6 p-0"
+                               onClick={() => copyToClipboard(generatedPassword)}
+                             >
+                               <Copy className="w-3 h-3" />
+                             </Button>
+                           </div>
+                         </div>
+                         <Button
+                           type="button"
+                           variant="outline"
+                           size="sm"
+                           onClick={() => setGeneratedPassword(generateSecurePassword())}
+                         >
+                           <RefreshCw className="w-4 h-4" />
+                         </Button>
+                       </div>
+                       <p className="text-sm text-muted-foreground mt-1">
+                         La contraseña se mostrará al usuario y se enviará por email
+                       </p>
+                     </div>
+                   )}
+
+                   {passwordOption === 'custom' && (
+                     <div>
+                       <Label>Contraseña Personalizada</Label>
+                       <div className="relative">
+                         <Input
+                           type={showPassword ? "text" : "password"}
+                           value={customPassword}
+                           onChange={(e) => setCustomPassword(e.target.value)}
+                           placeholder="Ingresa una contraseña segura"
+                           className="pr-10"
+                         />
+                         <Button
+                           type="button"
+                           variant="ghost"
+                           size="sm"
+                           className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
+                           onClick={() => setShowPassword(!showPassword)}
+                         >
+                           {showPassword ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                         </Button>
+                       </div>
+                       <p className="text-sm text-muted-foreground mt-1">
+                         Mínimo 8 caracteres, incluir mayúsculas, minúsculas, números y símbolos
+                       </p>
+                     </div>
+                   )}
+
+                   {passwordOption === 'email' && (
+                     <div className="p-3 bg-blue-50 rounded-lg">
+                       <p className="text-sm text-blue-800">
+                         📧 El usuario recibirá un email con un enlace para establecer su propia contraseña de forma segura.
+                       </p>
+                     </div>
+                   )}
+                 </div>
+               )}
+               
+               <div>
+                 <Label>Estado</Label>
+                 <Select 
+                   value={editingUser.isActive ? 'active' : 'inactive'} 
+                   onValueChange={(value) => setEditingUser({...editingUser, isActive: value === 'active'})}
+                 >
+                   <SelectTrigger>
+                     <SelectValue placeholder="Seleccionar estado" />
+                   </SelectTrigger>
+                   <SelectContent>
+                     <SelectItem value="active">Activo</SelectItem>
+                     <SelectItem value="inactive">Inactivo</SelectItem>
+                   </SelectContent>
+                 </Select>
               </div>
             </div>
           )}
-          <DialogFooter>
+          <DialogFooter className="flex-col gap-3 flex-shrink-0 pt-4 border-t">
+            {!editingUser?.id && passwordOption === 'auto' && (
+              <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                <div className="flex items-start gap-2">
+                  <div className="bg-yellow-100 p-1 rounded">
+                    <Eye className="w-4 h-4 text-yellow-600" />
+                  </div>
+                  <div className="text-sm">
+                    <p className="font-semibold text-yellow-800">Importante:</p>
+                    <p className="text-yellow-700">
+                      Guarda la contraseña generada. Se mostrará una vez y luego será enviada al usuario por email.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            <div className="flex justify-end gap-2">
             <DialogClose asChild>
               <Button variant="outline">Cancelar</Button>
             </DialogClose>
             {editingUser?.id ? (
-              <Button onClick={handleSave}>Guardar Cambios</Button>
-            ) : (
-              <Button onClick={submitCreate}>Crear Usuario</Button>
-            )}
+                <Button onClick={handleSave}>Guardar Cambios</Button>
+              ) : (
+                <Button 
+                  onClick={submitCreate}
+                  disabled={passwordOption === 'custom' && !customPassword}
+                >
+                  {passwordOption === 'email' ? 'Crear y Enviar Email' : 'Crear Usuario'}
+                </Button>
+              )}
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

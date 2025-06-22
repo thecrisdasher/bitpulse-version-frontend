@@ -403,8 +403,8 @@ const ClientCommentsManager: React.FC<ClientCommentsManagerProps> = ({
                       <SelectContent>
                         {filteredClients.length > 0 ? (
                           filteredClients.map(client => (
-                            <SelectItem key={client.id} value={client.id}>
-                              {client.firstName} {client.lastName} - {client.email}
+                          <SelectItem key={client.id} value={client.id}>
+                            {client.firstName} {client.lastName} - {client.email}
                             </SelectItem>
                           ))
                         ) : clientSearchTerm ? (
@@ -545,24 +545,24 @@ const ClientCommentsManager: React.FC<ClientCommentsManagerProps> = ({
                     </button>
                   )}
                 </div>
-                <Select value={selectedClient} onValueChange={setSelectedClient}>
+                          <Select value={selectedClient} onValueChange={setSelectedClient}>
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Todos los clientes" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos los clientes</SelectItem>
+                <SelectValue placeholder="Todos los clientes" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los clientes</SelectItem>
                     {(clientSearchTerm ? filteredClients : clients).map(client => (
-                      <SelectItem key={client.id} value={client.id}>
-                        {client.firstName} {client.lastName}
-                      </SelectItem>
-                    ))}
+                  <SelectItem key={client.id} value={client.id}>
+                    {client.firstName} {client.lastName}
+                  </SelectItem>
+                ))}
                     {clientSearchTerm && filteredClients.length === 0 && (
                       <SelectItem value="" disabled>
                         No se encontraron clientes
                       </SelectItem>
                     )}
-                  </SelectContent>
-                </Select>
+              </SelectContent>
+            </Select>
                 {clientSearchTerm && filteredClients.length > 0 && (
                   <p className="text-xs text-muted-foreground">
                     {filteredClients.length} resultado{filteredClients.length !== 1 ? 's' : ''}

@@ -31,6 +31,14 @@ function AuthPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  // Manejar mensajes de URL
+  useEffect(() => {
+    const message = searchParams.get('message');
+    if (message === 'password_changed_successfully') {
+      toast.success('Contraseña cambiada exitosamente. Ahora puedes iniciar sesión con tu nueva contraseña.');
+    }
+  }, [searchParams]);
+
   // Manejar redirección automática si ya está autenticado
   useEffect(() => {
     if (isAuthenticated && !isLoading) {

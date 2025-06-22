@@ -32,8 +32,8 @@ export class JWTService {
   /**
    * Genera un access token JWT
    */
-  static async generateAccessToken(user: User): Promise<string> {
-    const permissions = ROLE_PERMISSIONS[user.role] || [];
+  static async generateAccessToken(user: User | any): Promise<string> {
+    const permissions = ROLE_PERMISSIONS[user.role as UserRole] || [];
     const jti = SecurityUtils.generateUniqueId();
 
     const payload: CustomJWTPayload = {
@@ -41,6 +41,7 @@ export class JWTService {
       email: user.email,
       role: user.role,
       permissions,
+      mustChangePassword: user.mustChangePassword || false,
       iat: Math.floor(Date.now() / 1000),
       exp: Math.floor(Date.now() / 1000) + this.parseExpirationTime(AUTH_CONFIG.JWT_EXPIRES_IN),
       jti

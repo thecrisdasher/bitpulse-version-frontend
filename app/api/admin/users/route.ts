@@ -162,6 +162,14 @@ export async function POST(request: NextRequest) {
         password: hashedPassword,
         pejecoins,
         isActive,
+        // Configuración específica para usuarios creados por admin
+        emailConfirmed: true, // Ya están confirmados
+        adminApprovalRequired: false, // No requieren aprobación adicional
+        adminApproved: true, // Ya están aprobados por el admin que los creó
+        adminApprovedBy: session.sub, // Quién los aprobó
+        adminApprovalNotes: 'Usuario creado directamente por administrador',
+        // Marcar que debe cambiar contraseña en primer login
+        mustChangePassword: true, // Usuario debe cambiar contraseña en primer login
       },
       select: {
         id: true,
@@ -171,6 +179,8 @@ export async function POST(request: NextRequest) {
         role: true,
         pejecoins: true,
         isActive: true,
+        emailConfirmed: true,
+        adminApproved: true,
       },
     });
 

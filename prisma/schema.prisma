@@ -85,6 +85,7 @@ model User {
   refreshTokens             RefreshToken[]
   twoFactorEnabled          Boolean                 @default(false)
   twoFactorSecret           String?
+  mustChangePassword        Boolean                 @default(false)
   mentorAssignments         MentorAssignment[]        @relation("UserMentorAssignments")
   menteeAssignments         MentorAssignment[]        @relation("MentorMentorAssignments")
   notifications             Notification[]

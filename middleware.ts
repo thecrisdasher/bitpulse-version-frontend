@@ -10,8 +10,10 @@ const defaultLocale = 'es';
 // Rutas públicas que no requieren autenticación
 const PUBLIC_ROUTES = [
   '/auth',
+  '/auth/change-password',
   '/api/auth/login',
   '/api/auth/register',
+  '/api/auth/change-password',
   '/api/health',
   '/_next',
   '/favicon.ico',
@@ -252,7 +254,14 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(forbiddenUrl);
     }
 
-    // Usuario autenticado - registrar actividad y continuar
+    // Usuario autenticado - verificar si debe cambiar contraseña
+    if (payload.mustChangePassword && pathname !== '/auth/change-password') {
+      // Redirigir a la página de cambio de contraseña obligatorio
+      const changePasswordUrl = new URL('/auth/change-password', request.url);
+      changePasswordUrl.searchParams.set('required', 'true');
+      return NextResponse.redirect(changePasswordUrl);
+    }
+    
     await logUserActivity(request, payload.sub as string, 'authenticated_access');
     
     // Agregar información del usuario a headers para uso en la aplicación
