@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -65,6 +65,26 @@ interface RegisterFormProps {
   onSwitchToLogin?: () => void;
 }
 
+// Función para generar nombre de usuario a partir de nombre y apellido
+const generateUsername = (firstName: string, lastName: string): string => {
+  if (!firstName || !lastName) return '';
+  
+  // Normalizar strings: remover acentos, convertir a lowercase, y remover caracteres especiales
+  const normalize = (str: string) => str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // Remover acentos
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, ''); // Solo letras y números
+  
+  const normalizedFirstName = normalize(firstName);
+  const normalizedLastName = normalize(lastName);
+  
+  // Generar username como nombre + apellido, limitado a 18 caracteres para dejar espacio para números
+  let username = (normalizedFirstName + normalizedLastName).substring(0, 18);
+  
+  return username;
+};
+
 export function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -77,7 +97,8 @@ export function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) 
     handleSubmit,
     formState: { errors, isSubmitting },
     watch,
-    setError
+    setError,
+    setValue
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
@@ -91,7 +112,17 @@ export function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) 
     }
   });
 
+  const firstName = watch('firstName');
+  const lastName = watch('lastName');
   const password = watch('password');
+
+  // Efecto para generar automáticamente el nombre de usuario
+  useEffect(() => {
+    const generatedUsername = generateUsername(firstName, lastName);
+    if (generatedUsername) {
+      setValue('username', generatedUsername, { shouldValidate: true });
+    }
+  }, [firstName, lastName, setValue]);
 
   // Calcular fuerza de la contraseña
   const calculatePasswordStrength = (password: string): { score: number; feedback: string[] } => {
@@ -222,12 +253,16 @@ export function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) 
               <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
               <Input
                 id="username"
-                placeholder="juanperez"
-                className="pl-10"
+                placeholder="Se genera automáticamente"
+                className="pl-10 bg-gray-50 text-gray-600"
                 {...register('username')}
-                disabled={isSubmitting || isLoading}
+                disabled={true}
+                readOnly={true}
               />
             </div>
+            <p className="text-xs text-gray-500">
+              Se genera automáticamente a partir de tu nombre y apellido
+            </p>
             {errors.username && (
               <p className="text-sm text-red-500">{errors.username.message}</p>
             )}

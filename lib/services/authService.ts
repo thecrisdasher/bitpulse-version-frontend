@@ -19,6 +19,36 @@ import type { RefreshTokenPayload } from '../types/auth';
  * En producción debería conectarse a una base de datos real
  */
 
+/**
+ * Convertir un usuario de Prisma al tipo User de manera segura
+ */
+function convertPrismaUserToUser(dbUser: any): User {
+  return {
+    id: dbUser.id,
+    username: dbUser.username,
+    email: dbUser.email,
+    firstName: dbUser.firstName,
+    lastName: dbUser.lastName,
+    role: dbUser.role,
+    createdAt: dbUser.createdAt.toISOString(),
+    updatedAt: dbUser.updatedAt.toISOString(),
+    lastLogin: dbUser.lastLogin?.toISOString(),
+    isActive: dbUser.isActive,
+    profilePicture: dbUser.profilePicture || undefined,
+    preferences: dbUser.preferences && 
+      typeof dbUser.preferences === 'object' && 
+      !Array.isArray(dbUser.preferences) && 
+      dbUser.preferences !== null && 
+      typeof dbUser.preferences !== 'string' && 
+      typeof dbUser.preferences !== 'number' && 
+      typeof dbUser.preferences !== 'boolean'
+      ? dbUser.preferences as Record<string, any> 
+      : undefined,
+    pejecoins: dbUser.pejecoins,
+    twoFactorEnabled: Boolean(dbUser.twoFactorSecret)
+  };
+}
+
 export class AuthService {
   /**
    * Autenticar usuario con email y contraseña
@@ -58,26 +88,36 @@ export class AuthService {
         }
       });
       // Mapear usuario para respuesta (sin password)
-      const user: User = {
-        id: updatedUser.id,
-        username: updatedUser.username,
-        email: updatedUser.email,
-        firstName: updatedUser.firstName,
-        lastName: updatedUser.lastName,
-        role: updatedUser.role,
-        createdAt: updatedUser.createdAt.toISOString(),
-        updatedAt: updatedUser.updatedAt.toISOString(),
-        lastLogin: updatedUser.lastLogin?.toISOString(),
-        isActive: updatedUser.isActive,
-        profilePicture: updatedUser.profilePicture || undefined,
-        preferences: updatedUser.preferences || undefined,
-        pejecoins: updatedUser.pejecoins
-      };
+      const user = convertPrismaUserToUser(updatedUser);
       return { success: true, data: { user, tokens: { ...tokens, tokenType: 'Bearer' } }, message: 'Login exitoso', timestamp: new Date().toISOString() };
     } catch (error) {
       logger.error('auth', 'Login error', error as Error, { email: credentials.email });
       return { success: false, message: 'Error interno del servidor', timestamp: new Date().toISOString() };
     }
+  }
+
+  /**
+   * Generar un nombre de usuario único
+   */
+  static async generateUniqueUsername(baseUsername: string): Promise<string> {
+    let username = baseUsername;
+    let counter = 1;
+
+    // Verificar si el username base está disponible
+    while (await prisma.user.findUnique({ where: { username } })) {
+      // Si no está disponible, agregar un número al final
+      const suffix = counter.toString();
+      const maxBaseLength = 20 - suffix.length;
+      username = baseUsername.substring(0, maxBaseLength) + suffix;
+      counter++;
+      
+      // Evitar bucle infinito
+      if (counter > 9999) {
+        throw new Error('No se pudo generar un nombre de usuario único');
+      }
+    }
+
+    return username;
   }
 
   /**
@@ -97,10 +137,14 @@ export class AuthService {
       if (!pwdStrength.isValid) {
         return { success: false, message: pwdStrength.errors.join(', '), errors: { password: pwdStrength.errors }, timestamp: new Date().toISOString() };
       }
+
+      // Generar username único basado en el username proporcionado
+      const uniqueUsername = await this.generateUniqueUsername(data.username);
+
       const hashed = await SecurityUtils.hashPassword(data.password);
       const newUser = await prisma.user.create({
         data: {
-        username: data.username,
+        username: uniqueUsername,
         email: data.email,
           password: hashed,
         firstName: data.firstName,
@@ -119,7 +163,8 @@ export class AuthService {
         createdAt: newUser.createdAt.toISOString(),
         updatedAt: newUser.updatedAt.toISOString(),
         isActive: newUser.isActive,
-        pejecoins: newUser.pejecoins
+        pejecoins: newUser.pejecoins,
+        twoFactorEnabled: false
       };
       return { success: true, data: { user: responseUser }, message: 'Usuario registrado exitosamente', timestamp: new Date().toISOString() };
     } catch (error) {
@@ -136,21 +181,7 @@ export class AuthService {
       const payload = await JWTService.verifyToken(token);
       const dbUser = await prisma.user.findUnique({ where: { id: payload.sub } });
       if (!dbUser) return { success: false, message: 'Usuario no encontrado', timestamp: new Date().toISOString() };
-      const user: User = {
-        id: dbUser.id,
-        username: dbUser.username,
-        email: dbUser.email,
-        firstName: dbUser.firstName,
-        lastName: dbUser.lastName,
-        role: dbUser.role,
-        createdAt: dbUser.createdAt.toISOString(),
-        updatedAt: dbUser.updatedAt.toISOString(),
-        lastLogin: dbUser.lastLogin?.toISOString(),
-        isActive: dbUser.isActive,
-        profilePicture: dbUser.profilePicture || undefined,
-        preferences: dbUser.preferences || undefined,
-        pejecoins: dbUser.pejecoins
-      };
+      const user = convertPrismaUserToUser(dbUser);
       return { success: true, data: user, timestamp: new Date().toISOString() };
     } catch (error) {
       logger.error('auth', 'Get profile error', error as Error);
@@ -168,21 +199,7 @@ export class AuthService {
     try {
       const dbUser = await prisma.user.update({ where: { id: userId }, data: { ...updates as any } });
       logger.logUserActivity('profile_updated', userId, { updatedFields: Object.keys(updates) });
-      const user: User = {
-        id: dbUser.id,
-        username: dbUser.username,
-        email: dbUser.email,
-        firstName: dbUser.firstName,
-        lastName: dbUser.lastName,
-        role: dbUser.role,
-        createdAt: dbUser.createdAt.toISOString(),
-        updatedAt: dbUser.updatedAt.toISOString(),
-        lastLogin: dbUser.lastLogin?.toISOString(),
-        isActive: dbUser.isActive,
-        profilePicture: dbUser.profilePicture || undefined,
-        preferences: dbUser.preferences || undefined,
-        pejecoins: dbUser.pejecoins
-      };
+      const user = convertPrismaUserToUser(dbUser);
       return { success: true, data: user, message: 'Perfil actualizado exitosamente', timestamp: new Date().toISOString() };
     } catch (error) {
       logger.error('auth', 'Update profile error', error as Error, { userId });
@@ -218,20 +235,6 @@ export class AuthService {
    */
   static async getAllUsers(): Promise<User[]> {
     const users = await prisma.user.findMany({ where: { isActive: true } }) as any[];
-    return users.map((u: any): User => ({
-      id: u.id,
-      username: u.username,
-      email: u.email,
-      firstName: u.firstName,
-      lastName: u.lastName,
-      role: u.role,
-      createdAt: u.createdAt.toISOString(),
-      updatedAt: u.updatedAt.toISOString(),
-      lastLogin: u.lastLogin?.toISOString(),
-      isActive: u.isActive,
-      profilePicture: u.profilePicture || undefined,
-      preferences: u.preferences || undefined,
-      pejecoins: u.pejecoins
-    }));
+    return users.map((u: any) => convertPrismaUserToUser(u));
   }
 } 
