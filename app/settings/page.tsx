@@ -175,7 +175,7 @@ const SettingsPage = () => {
   });
 
   // Estado para retiros
-  const [userBalance, setUserBalance] = useState<number>(300797.35);
+  const [userBalance, setUserBalance] = useState<number>(0);
   const [showWithdrawalForm, setShowWithdrawalForm] = useState(false);
   const [withdrawalHistory, setWithdrawalHistory] = useState<any[]>([]);
 
@@ -188,8 +188,8 @@ const SettingsPage = () => {
         email: user.email || prev.email,
       }));
       
-      // Cargar balance del usuario
-      setUserBalance((user as any).balance || 300797.35);
+      // Cargar balance del usuario (pejecoins)
+      setUserBalance((user as any).pejecoins || 0);
       loadWithdrawalHistory();
     }
   }, [user]);
@@ -1046,11 +1046,22 @@ const SettingsPage = () => {
                 <div className="space-y-4">
                   <WithdrawalForm
                     userBalance={userBalance}
-                    onSuccess={() => {
+                    onSuccess={async () => {
                       setShowWithdrawalForm(false);
                       loadWithdrawalHistory();
-                      // Actualizar balance (se descuenta inmediatamente)
-                      setUserBalance(prev => prev - parseFloat(document.getElementById('amount')?.getAttribute('value') || '0'));
+                      
+                      // Refrescar el saldo del usuario desde el servidor
+                      try {
+                        const response = await fetch('/api/auth/profile', { 
+                          credentials: 'include' 
+                        });
+                        const result = await response.json();
+                        if (result.success && result.data) {
+                          setUserBalance(result.data.pejecoins || 0);
+                        }
+                      } catch (error) {
+                        console.error('Error refreshing user balance:', error);
+                      }
                     }}
                     onCancel={() => setShowWithdrawalForm(false)}
                   />
