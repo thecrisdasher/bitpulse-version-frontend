@@ -5,7 +5,7 @@ import Sidebar from "@/components/Sidebar"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useAuth } from "@/contexts/AuthContext"
-import { Coins, History, DollarSign, ArrowRight } from "lucide-react"
+import { Coins, History, DollarSign, ArrowRight, Search, X } from "lucide-react"
 import { CompatButton as Button } from "@/components/ui/compat-button"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
@@ -24,6 +24,16 @@ export default function PejecoinsPage() {
   const [amount, setAmount] = useState<number>(100);
   const [concept, setConcept] = useState('Asignación de PejeCoins');
   const [balance, setBalance] = useState(user?.pejecoins || 0);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Filtrar usuarios basado en el término de búsqueda
+  const filteredUsers = usersList.filter(user => {
+    if (!searchTerm) return true;
+    const searchLower = searchTerm.toLowerCase();
+    const fullName = `${user.firstName} ${user.lastName}`.toLowerCase();
+    const email = user.email.toLowerCase();
+    return fullName.includes(searchLower) || email.includes(searchLower);
+  });
 
   useEffect(() => {
     if (isAdmin) {
@@ -58,6 +68,7 @@ export default function PejecoinsPage() {
       toast.success('PejeCoins asignados');
       setSelectedUserId('');
       setAmount(100);
+      setSearchTerm(''); // Limpiar el filtro después de asignar
       // refrescar balance si asignamos a nuestro propio usuario o para mostrar consistencia
       fetch('/api/auth/profile', { credentials: 'include' })
         .then(r=>r.json()).then(p=>{ if(p.success && p.data){ setBalance(p.data.pejecoins); } });
@@ -103,15 +114,61 @@ export default function PejecoinsPage() {
                 <CardContent>
                   <div className="space-y-4">
                     <div>
+                      <Label>Buscar Usuario</Label>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                        <Input 
+                          placeholder="Buscar por nombre o correo..." 
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          className="pl-10 pr-10"
+                        />
+                        {searchTerm && (
+                          <button
+                            onClick={() => setSearchTerm('')}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                            type="button"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <div>
                       <Label>Usuario</Label>
                       <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                        <SelectTrigger><SelectValue placeholder="Selecciona usuario" /></SelectTrigger>
+                        <SelectTrigger>
+                          <SelectValue placeholder={
+                            filteredUsers.length === 0 && searchTerm 
+                              ? "No se encontraron usuarios" 
+                              : "Selecciona usuario"
+                          } />
+                        </SelectTrigger>
                         <SelectContent>
-                          {usersList.map(u => (
-                            <SelectItem key={u.id} value={u.id}>{u.firstName} {u.lastName} ({u.email})</SelectItem>
-                          ))}
+                          {filteredUsers.length > 0 ? (
+                            filteredUsers.map(u => (
+                              <SelectItem key={u.id} value={u.id}>
+                                {u.firstName} {u.lastName} ({u.email})
+                              </SelectItem>
+                            ))
+                          ) : searchTerm ? (
+                            <SelectItem value="" disabled>
+                              No se encontraron usuarios que coincidan con "{searchTerm}"
+                            </SelectItem>
+                          ) : (
+                            usersList.map(u => (
+                              <SelectItem key={u.id} value={u.id}>
+                                {u.firstName} {u.lastName} ({u.email})
+                              </SelectItem>
+                            ))
+                          )}
                         </SelectContent>
                       </Select>
+                      {filteredUsers.length > 0 && searchTerm && (
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {filteredUsers.length} usuario{filteredUsers.length !== 1 ? 's' : ''} encontrado{filteredUsers.length !== 1 ? 's' : ''}
+                        </p>
+                      )}
                     </div>
                     <div>
                       <Label>Monto</Label>
