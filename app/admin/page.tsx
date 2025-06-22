@@ -184,6 +184,17 @@ const AdminDashboardPage = () => {
       <div>
         <h2 className="text-xl font-semibold mb-4">Accesos rápidos</h2>
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          <Link href="/admin/users/approvals" className="group">
+            <Card className="cursor-pointer group-hover:shadow-lg transition-shadow">
+              <CardHeader className="flex items-center gap-2">
+                <UsersIcon className="h-5 w-5 text-primary" />
+                <CardTitle className="text-sm font-medium">Aprobación de Usuarios</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground text-sm">Revisar solicitudes de registro</p>
+              </CardContent>
+            </Card>
+          </Link>
           <Link href="/crm" className="group">
             <Card className="cursor-pointer group-hover:shadow-lg transition-shadow">
               <CardHeader className="flex items-center gap-2">

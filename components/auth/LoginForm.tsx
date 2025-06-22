@@ -42,27 +42,16 @@ export function LoginForm() {
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Error desconocido';
       if (errorMsg === 'EMAIL_NOT_CONFIRMED') {
-        toast.error('Debes confirmar tu correo. Revisa tu email para completar tu registro.', {
-          action: {
-            label: 'Reenviar correo',
-            onClick: async () => {
-              try {
-                const res = await fetch('/api/auth/resend-confirmation', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ email: data.email })
-                });
-                const json = await res.json();
-                if (json.success) {
-                  toast.success('Correo de confirmación reenviado');
-                } else {
-                  toast.error(json.message || 'No se pudo reenviar correo');
-                }
-              } catch (err) {
-                toast.error('Error al reenviar correo');
-              }
-            }
-          }
+        toast.error('Tu cuenta está siendo revisada', {
+          description: 'Tu solicitud de registro está pendiente de aprobación por el administrador.',
+        });
+      } else if (errorMsg.includes('pendiente de aprobación')) {
+        toast.error('Cuenta pendiente de aprobación', {
+          description: 'Tu cuenta está siendo revisada por el administrador. Te contactaremos pronto.',
+        });
+      } else if (errorMsg.includes('solicitud de registro ha expirado')) {
+        toast.error('Solicitud expirada', {
+          description: 'Tu solicitud de registro ha expirado. Debes registrarte nuevamente.',
         });
       } else {
       toast.error('Error al iniciar sesión', {

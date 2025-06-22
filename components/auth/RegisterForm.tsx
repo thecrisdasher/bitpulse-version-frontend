@@ -180,7 +180,10 @@ export function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) 
       const token = await executeRecaptcha?.('register') || '';
       const payload: RegisterData = { ...data, recaptchaToken: token };
       await registerUser(payload);
-      toast.success('¡Cuenta creada exitosamente!');
+      toast.success('¡Cuenta creada exitosamente!', {
+        description: 'Ya puedes acceder a la plataforma. Tu cuenta será revisada en los próximos 3 días.',
+        duration: 6000
+      });
       onSuccess?.();
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error desconocido';

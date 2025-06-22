@@ -142,6 +142,11 @@ export class AuthService {
       const uniqueUsername = await this.generateUniqueUsername(data.username);
 
       const hashed = await SecurityUtils.hashPassword(data.password);
+      
+      // Configurar fechas de aprobación
+      const now = new Date();
+      const approvalExpiresAt = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000); // 3 días
+      
       const newUser = await prisma.user.create({
         data: {
         username: uniqueUsername,
@@ -150,7 +155,12 @@ export class AuthService {
         firstName: data.firstName,
         lastName: data.lastName,
           role: 'cliente',
-          pejecoins: 1000
+          pejecoins: 1000,
+          emailConfirmed: true, // Se confirma automáticamente
+          adminApprovalRequired: true,
+          adminApprovalRequestedAt: now,
+          adminApprovalExpiresAt: approvalExpiresAt,
+          adminApproved: false
         }
       });
       const responseUser: User = {

@@ -2,9 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { AuthService } from '@/lib/services/authService';
 import { SecurityUtils } from '@/lib/utils/security';
 import type { RegisterData } from '@/lib/types/auth';
-import crypto from 'crypto';
 import { prisma } from '@/lib/db';
-import { sendConfirmationEmail } from '@/lib/services/emailService';
 
 /**
  * API Route para registro de usuarios
@@ -112,26 +110,28 @@ async function handleRegister(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json(result, { status: 400 });
     }
 
-    // Generar token de confirmación de email
-    const token = crypto.randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    // Guardar token de confirmación de email (cast a any para evitar errores de TS)
-    await (prisma.user as any).update({
+    // Configurar aprobación manual por admin
+    const now = new Date();
+    const approvalExpiresAt = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000); // 3 días
+    
+    await prisma.user.update({
       where: { email: registerData.email },
-      data: { emailConfirmationToken: token, emailConfirmationExpiresAt: expiresAt }
+      data: { 
+        emailConfirmed: true, // Se confirma automáticamente
+        adminApprovalRequired: true,
+        adminApprovalRequestedAt: now,
+        adminApprovalExpiresAt: approvalExpiresAt,
+        adminApproved: false
+      }
     });
 
-    // Enviar email de confirmación (Ethereal fallback si no hay SMTP)
-    const confirmUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/auth/confirm?token=${token}`;
-    try {
-      await sendConfirmationEmail(registerData.email, confirmUrl);
-    } catch (emailError) {
-      console.error('Error enviando email de confirmación:', emailError);
-    }
-
-    // Responder con instrucción de revisar email
+    // Responder con instrucción de esperar aprobación del admin
     return NextResponse.json(
-      { success: true, message: 'Registro exitoso. Revisa tu correo para confirmarlo. Revisa la consola para un enlace de vista previa si estás en desarrollo.' },
+      { 
+        success: true, 
+        message: 'Registro exitoso. Tu cuenta ha sido enviada para revisión por el administrador. Recibirás una respuesta en un máximo de 3 días hábiles.',
+        requiresAdminApproval: true
+      },
       { status: 201 }
     );
 

@@ -49,7 +49,37 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (!userRecord) {
       return NextResponse.json({ success: false, message: 'Email o contraseña incorrectos', timestamp: new Date().toISOString() }, { status: 401 });
     }
-    // Check if email is confirmed
+    
+    // Verificar si el usuario requiere aprobación del admin
+    if (userRecord.adminApprovalRequired) {
+      if (!userRecord.adminApproved) {
+        // Verificar si la solicitud de aprobación ha expirado
+        const now = new Date();
+        if (userRecord.adminApprovalExpiresAt && userRecord.adminApprovalExpiresAt < now) {
+          // Expirado - desactivar usuario si aún no se ha hecho
+          if (userRecord.isActive) {
+            await prisma.user.update({
+              where: { id: userRecord.id },
+              data: { 
+                isActive: false,
+                emailConfirmed: false 
+              }
+            });
+          }
+          return NextResponse.json({ 
+            success: false, 
+            message: 'Tu solicitud de registro ha expirado. No puedes acceder a la plataforma.', 
+            timestamp: new Date().toISOString() 
+          }, { status: 401 });
+        }
+        
+        // En periodo de gracia - permitir acceso pero informar sobre el estado
+        console.log(`🕐 Usuario ${userRecord.email} accede durante periodo de gracia`);
+        // Continuar con el login normal - no bloquear el acceso
+      }
+    }
+    
+    // Check if email is confirmed (mantenemos esta verificación como respaldo)
     if (!userRecord.emailConfirmed) {
       return NextResponse.json({ success: false, message: 'EMAIL_NOT_CONFIRMED', timestamp: new Date().toISOString() }, { status: 401 });
     }

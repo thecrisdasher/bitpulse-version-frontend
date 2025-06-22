@@ -300,26 +300,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         email: data.email
       });
 
-      toast.success('¡Cuenta creada! Revisa tu correo para confirmarlo.', {
-        action: {
-          label: 'Reenviar correo',
-          onClick: async () => {
-            try {
-              const res = await fetch('/api/auth/resend-confirmation', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: data.email })
-              });
-              const json = await res.json();
-              if (json.success) {
-                toast.success('Correo de confirmación reenviado');
-              } else {
-                toast.error(json.message || 'No se pudo reenviar');
-              }
-            } catch (err) {
-              toast.error('Error al reenviar correo');
-            }
-          }
-        }
+      toast.success('¡Cuenta creada exitosamente!', {
+        description: 'Tienes acceso completo a la plataforma. Tu cuenta será revisada por el administrador en los próximos 3 días.',
+        duration: 6000
       });
 
     } catch (error) {

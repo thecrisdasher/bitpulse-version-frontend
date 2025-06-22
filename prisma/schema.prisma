@@ -62,6 +62,13 @@ model User {
   emailConfirmed            Boolean                 @default(false)
   emailConfirmationToken    String?
   emailConfirmationExpiresAt DateTime?
+  // Campos para aprobación manual por admin
+  adminApprovalRequired     Boolean                 @default(true)
+  adminApproved             Boolean                 @default(false)
+  adminApprovalRequestedAt  DateTime?
+  adminApprovalExpiresAt    DateTime?
+  adminApprovedBy           String?
+  adminApprovalNotes        String?
   createdAt                 DateTime                @default(now())
   updatedAt                 DateTime                @updatedAt
   lastLogin                 DateTime?

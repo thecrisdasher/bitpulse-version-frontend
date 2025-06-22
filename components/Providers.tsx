@@ -6,6 +6,7 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { TradePositionsProvider } from '@/contexts/TradePositionsContext';
 import { Toaster } from '@/components/ui/toaster';
 import { Toaster as SonnerToaster } from 'sonner';
+import { GracePeriodBanner } from '@/components/GracePeriodBanner';
 
 interface ProvidersProps {
   children: React.ReactNode;
@@ -19,6 +20,7 @@ export function Providers({ children }: ProvidersProps) {
     >
       <AuthProvider>
         <TradePositionsProvider>
+          <GracePeriodBanner />
           {children}
         </TradePositionsProvider>
       </AuthProvider>
