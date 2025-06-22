@@ -30,6 +30,18 @@ enum PositionStatus {
   liquidated
 }
 
+enum WithdrawalType {
+  bank_account
+  crypto
+}
+
+enum WithdrawalStatus {
+  pending
+  approved
+  rejected
+  processed
+}
+
 // ---------------------------
 // 🚀 Módulo de Chat en vivo
 // ---------------------------
@@ -73,6 +85,7 @@ model User {
   messagesSent              Message[]                 @relation("UserMessages")
   clientComments            ClientComment[]           @relation("ClientComments")
   authoredComments          ClientComment[]           @relation("AuthorComments")
+  withdrawals               Withdrawal[]              @relation("UserWithdrawals")
   @@map("users")
 }
 
@@ -253,4 +266,36 @@ model PositionModification {
   timestamp       DateTime      @default(now())
   
   @@map("position_modifications")
+}
+
+// ---------------------------
+// 🚀 Módulo de Retiros
+// ---------------------------
+
+model Withdrawal {
+  id              String           @id @default(uuid())
+  user            User             @relation("UserWithdrawals", fields: [userId], references: [id])
+  userId          String
+  type            WithdrawalType   // bank_account | crypto
+  amount          Float            // Monto en USD
+  status          WithdrawalStatus @default(pending)
+  
+  // Campos para Cuenta Bancaria
+  bankName        String?
+  accountType     String?          // Ahorros | Corriente
+  accountNumber   String?
+  city            String?
+  
+  // Campos para Criptomonedas
+  cryptoType      String?          // USDT | USDC | BTC
+  networkType     String?          // Red blockchain
+  walletAddress   String?
+  
+  // Metadatos
+  requestedAt     DateTime         @default(now())
+  processedAt     DateTime?
+  processedBy     String?          // ID del admin que procesó
+  adminNotes      String?          // Notas del administrador
+  
+  @@map("withdrawals")
 }

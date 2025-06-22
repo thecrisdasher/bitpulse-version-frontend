@@ -1,6 +1,6 @@
 "use client"
 
-import { Home, TrendingUp, BarChart2, PlusCircle, Settings, Wallet, HelpCircle, CandlestickChart, LineChart, MessageSquare, BookOpen, LogOut, Coins, Shield } from "lucide-react"
+import { Home, TrendingUp, BarChart2, PlusCircle, Settings, Wallet, HelpCircle, CandlestickChart, LineChart, MessageSquare, BookOpen, LogOut, Coins, Shield, CreditCard } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { cryptocurrencies } from "@/lib/mockData"
@@ -54,6 +54,9 @@ const Sidebar = () => {
             </li>
             <li>
               <Link href="/crm/comentarios" className={cn("flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors", currentPath === "/crm/comentarios" ? "bg-primary text-primary-foreground" : "hover:bg-muted")}> <MessageSquare size={18}/> Comentarios </Link>
+            </li>
+            <li>
+              <Link href="/admin/withdrawals" className={cn("flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors", currentPath === "/admin/withdrawals" ? "bg-primary text-primary-foreground" : "hover:bg-muted")}> <CreditCard size={18}/> Retiros </Link>
             </li>
           </ul>
         </nav>
@@ -224,7 +227,7 @@ const Sidebar = () => {
               </Link>
             </li>
           )}
-
+          
           {/* Comentarios para maestros y admins */}
           {(isMaestro || isAdmin) && (
             <li>

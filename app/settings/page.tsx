@@ -40,12 +40,14 @@ import {
   BarChart3,
   Settings2,
   Users,
-  Coins
+  Coins,
+  CreditCard
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import TwoFactorSettings from '@/components/auth/TwoFactorSettings';
+import WithdrawalForm from '@/components/withdrawal/WithdrawalForm';
 
 // Tipos para las configuraciones
 interface UserSettings {
@@ -172,6 +174,11 @@ const SettingsPage = () => {
     suspiciousActivityAlerts: true
   });
 
+  // Estado para retiros
+  const [userBalance, setUserBalance] = useState<number>(300797.35);
+  const [showWithdrawalForm, setShowWithdrawalForm] = useState(false);
+  const [withdrawalHistory, setWithdrawalHistory] = useState<any[]>([]);
+
   // Cargar datos del usuario actual cuando esté disponible
   useEffect(() => {
     if (user) {
@@ -180,8 +187,28 @@ const SettingsPage = () => {
         displayName: `${user.firstName} ${user.lastName}` || prev.displayName,
         email: user.email || prev.email,
       }));
+      
+      // Cargar balance del usuario
+      setUserBalance((user as any).balance || 300797.35);
+      loadWithdrawalHistory();
     }
   }, [user]);
+
+  // Cargar historial de retiros
+  const loadWithdrawalHistory = async () => {
+    try {
+      const response = await fetch('/api/withdrawal', {
+        credentials: 'include'
+      });
+      const result = await response.json();
+      
+      if (result.success) {
+        setWithdrawalHistory(result.data);
+      }
+    } catch (error) {
+      console.error('Error loading withdrawal history:', error);
+    }
+  };
 
   const handleSave = () => {
     // Simular guardado
@@ -291,6 +318,10 @@ const SettingsPage = () => {
     <TabsTrigger key="security" value="security" className="flex items-center gap-2">
       <Shield className="h-4 w-4" />
       Seguridad
+    </TabsTrigger>,
+    <TabsTrigger key="withdrawal" value="withdrawal" className="flex items-center gap-2">
+      <CreditCard className="h-4 w-4" />
+      Retiro
     </TabsTrigger>,
     <TabsTrigger key="appearance" value="appearance" className="flex items-center gap-2">
       <Palette className="h-4 w-4" />
@@ -924,6 +955,107 @@ const SettingsPage = () => {
                   </div>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Retiro */}
+        <TabsContent value="withdrawal" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CreditCard className="h-5 w-5" />
+                Retiros
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {!showWithdrawalForm ? (
+                <div className="space-y-6">
+                  {/* Balance y botón principal */}
+                  <div className="text-center space-y-4">
+                    <div className="space-y-2">
+                      <h3 className="text-2xl font-bold">Saldo Disponible</h3>
+                      <p className="text-3xl font-bold text-green-600">
+                        ${userBalance.toLocaleString('es-CO', { minimumFractionDigits: 2 })}
+                      </p>
+                    </div>
+                    <Button 
+                      size="lg" 
+                      onClick={() => setShowWithdrawalForm(true)}
+                      className="min-w-48"
+                    >
+                      <CreditCard className="h-5 w-5 mr-2" />
+                      Solicitar Retiro
+                    </Button>
+                  </div>
+
+                  {/* Historial de retiros */}
+                  <div className="space-y-4">
+                    <h4 className="text-lg font-semibold">Historial de Retiros</h4>
+                    {withdrawalHistory.length > 0 ? (
+                      <div className="border rounded-lg overflow-hidden">
+                        <table className="min-w-full divide-y divide-border">
+                          <thead className="bg-muted">
+                            <tr>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Fecha</th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Tipo</th>
+                              <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">Monto</th>
+                              <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">Estado</th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-card divide-y divide-border">
+                            {withdrawalHistory.map((withdrawal: any) => (
+                              <tr key={withdrawal.id} className="hover:bg-muted/50">
+                                <td className="px-4 py-3 whitespace-nowrap text-sm">
+                                  {new Date(withdrawal.requestedAt).toLocaleDateString('es-CO')}
+                                </td>
+                                <td className="px-4 py-3 whitespace-nowrap">
+                                  <Badge variant="outline">
+                                    {withdrawal.type === 'bank_account' ? 'Banco' : 'Cripto'}
+                                  </Badge>
+                                </td>
+                                <td className="px-4 py-3 whitespace-nowrap text-right font-mono">
+                                  ${withdrawal.amount.toLocaleString('es-CO', { minimumFractionDigits: 2 })}
+                                </td>
+                                <td className="px-4 py-3 whitespace-nowrap text-center">
+                                  <Badge 
+                                    variant={
+                                      withdrawal.status === 'approved' ? 'default' :
+                                      withdrawal.status === 'processed' ? 'secondary' :
+                                      withdrawal.status === 'rejected' ? 'destructive' : 'outline'
+                                    }
+                                  >
+                                    {withdrawal.status === 'pending' ? 'Pendiente' :
+                                     withdrawal.status === 'approved' ? 'Aprobado' :
+                                     withdrawal.status === 'processed' ? 'Procesado' : 'Rechazado'}
+                                  </Badge>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        No tienes solicitudes de retiro aún
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <WithdrawalForm
+                    userBalance={userBalance}
+                    onSuccess={() => {
+                      setShowWithdrawalForm(false);
+                      loadWithdrawalHistory();
+                      // Actualizar balance (se descuenta inmediatamente)
+                      setUserBalance(prev => prev - parseFloat(document.getElementById('amount')?.getAttribute('value') || '0'));
+                    }}
+                    onCancel={() => setShowWithdrawalForm(false)}
+                  />
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
