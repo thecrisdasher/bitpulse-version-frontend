@@ -15,6 +15,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { useGoogleReCaptcha } from 'react-google-recaptcha-v3';
 import type { RegisterData } from '@/lib/types/auth';
+import { PrivacyPolicyModal } from '@/components/ui/privacy-policy-modal';
+import { TermsConditionsModal } from '@/components/ui/terms-conditions-modal';
 
 /**
  * Esquema de validación para el formulario de registro
@@ -88,6 +90,8 @@ const generateUsername = (firstName: string, lastName: string): string => {
 export function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
+  const [showTermsConditions, setShowTermsConditions] = useState(false);
   const { register: registerUser, isLoading } = useAuth();
   const { executeRecaptcha } = useGoogleReCaptcha();
 
@@ -399,7 +403,7 @@ export function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) 
                 <button
                   type="button"
                   className="text-blue-600 hover:text-blue-800 hover:underline"
-                  onClick={() => toast.info('Términos y condiciones próximamente')}
+                  onClick={() => setShowTermsConditions(true)}
                 >
                   términos y condiciones
                 </button>{' '}
@@ -407,7 +411,7 @@ export function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) 
                 <button
                   type="button"
                   className="text-blue-600 hover:text-blue-800 hover:underline"
-                  onClick={() => toast.info('Política de privacidad próximamente')}
+                  onClick={() => setShowPrivacyPolicy(true)}
                 >
                   política de privacidad
                 </button>
@@ -454,6 +458,18 @@ export function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) 
           </div>
         )}
       </CardContent>
+
+      {/* Modal de Política de Privacidad */}
+      <PrivacyPolicyModal 
+        open={showPrivacyPolicy} 
+        onOpenChange={setShowPrivacyPolicy} 
+      />
+
+      {/* Modal de Términos y Condiciones */}
+      <TermsConditionsModal 
+        open={showTermsConditions} 
+        onOpenChange={setShowTermsConditions} 
+      />
     </Card>
   );
 } 
