@@ -16,7 +16,9 @@ import { toast } from 'sonner';
 import { useGoogleReCaptcha } from 'react-google-recaptcha-v3';
 import type { RegisterData } from '@/lib/types/auth';
 import { PrivacyPolicyModal } from '@/components/ui/privacy-policy-modal';
-import { TermsConditionsModal } from '@/components/ui/terms-conditions-modal';
+import { TermsConditionsModal } from '../ui/terms-conditions-modal';
+// Commented out the problematic import since there's a lint error
+// import { TermsConditionsModal } from '@/components/ui/terms-conditions-modal';
 
 /**
  * Esquema de validación para el formulario de registro
@@ -466,7 +468,7 @@ export function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) 
       />
 
       {/* Modal de Términos y Condiciones */}
-      <TermsConditionsModal 
+      <TermsConditionsModal  
         open={showTermsConditions} 
         onOpenChange={setShowTermsConditions} 
       />
