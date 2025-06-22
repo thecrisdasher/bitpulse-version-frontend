@@ -26,7 +26,7 @@ export async function PATCH(
     }
 
     const { action, notes } = await request.json();
-    const userId = params.id;
+    const { id: userId } = await params;
 
     if (!action || !['approve', 'reject'].includes(action)) {
       return NextResponse.json({ error: 'Acción inválida' }, { status: 400 });
@@ -132,8 +132,9 @@ export async function GET(
       return NextResponse.json({ error: 'Acceso denegado' }, { status: 403 });
     }
 
+    const { id } = await params;
     const user = await prisma.user.findUnique({
-      where: { id: params.id },
+      where: { id },
       select: {
         id: true,
         username: true,
@@ -177,6 +178,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
     const body = await request.json();
     const { firstName, lastName, email, role, pejecoins, isActive, password } = body;
+    const { id } = await params;
 
     const data: any = {};
     if (firstName) data.firstName = firstName;
@@ -188,7 +190,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     if (password) data.password = await SecurityUtils.hashPassword(password);
 
     const updated = await prisma.user.update({
-      where: { id: params.id },
+      where: { id },
       data,
       select: {
         id: true,
@@ -205,5 +207,68 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   } catch (error) {
     console.error('Error actualizando usuario:', error);
     return NextResponse.json({ error: 'Error interno' }, { status: 500 });
+  }
+}
+
+// DELETE /api/admin/users/[id] - Eliminar usuario definitivamente
+export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    const session = await createSessionFromRequest(request);
+    if (!session) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    }
+
+    const currentUser = await prisma.user.findUnique({ 
+      where: { id: session.sub }, 
+      select: { role: true, id: true } 
+    });
+    
+    if (!currentUser || currentUser.role !== 'admin') {
+      return NextResponse.json({ error: 'Acceso denegado' }, { status: 403 });
+    }
+
+    const { id: userId } = await params;
+
+    // Verificar que no se está intentando eliminar a sí mismo
+    if (currentUser.id === userId) {
+      return NextResponse.json({ error: 'No puedes eliminarte a ti mismo' }, { status: 400 });
+    }
+
+    // Verificar que el usuario existe
+    const targetUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { 
+        id: true, 
+        firstName: true, 
+        lastName: true,
+        email: true,
+        isActive: true
+      }
+    });
+
+    if (!targetUser) {
+      return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
+    }
+
+    // Solo permitir eliminar usuarios que ya están inactivos (soft deleted)
+    if (targetUser.isActive) {
+      return NextResponse.json({ 
+        error: 'Solo se pueden eliminar definitivamente usuarios que ya han sido eliminados (inactivos)' 
+      }, { status: 400 });
+    }
+
+    // Eliminar usuario definitivamente de la base de datos
+    await prisma.user.delete({
+      where: { id: userId }
+    });
+
+    return NextResponse.json({ 
+      success: true,
+      message: `Usuario ${targetUser.firstName} ${targetUser.lastName} eliminado definitivamente de la base de datos`
+    });
+
+  } catch (error) {
+    console.error('Error eliminando usuario definitivamente:', error);
+    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
   }
 } 

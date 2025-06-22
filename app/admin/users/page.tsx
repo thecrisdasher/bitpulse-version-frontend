@@ -37,7 +37,11 @@ import {
   XCircle,
   Eye,
   EyeOff,
-  RefreshCw
+  RefreshCw,
+  RotateCcw,
+  Trash,
+  Archive,
+  UserX
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
@@ -113,6 +117,9 @@ const UsersPage = () => {
   });
   const [isUpdating, setIsUpdating] = useState(false);
   const [passwordMethod, setPasswordMethod] = useState<'keep' | 'generate' | 'custom'>('keep');
+  const [deletedUsers, setDeletedUsers] = useState<UserData[]>([]);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeletedUsers, setShowDeletedUsers] = useState(false);
 
   // Verificar permisos de administrador
   useEffect(() => {
@@ -130,7 +137,14 @@ const UsersPage = () => {
           const res = await fetch('/api/admin/users', { credentials: 'include' })
           if (!res.ok) throw new Error('Error obteniendo usuarios')
           const json = await res.json()
-          setUsers(json.users as UserData[])
+          
+          // Separar usuarios activos de eliminados
+          const allUsers = json.users as UserData[];
+          const activeUsers = allUsers.filter(user => user.status === 'active');
+          const inactiveUsers = allUsers.filter(user => user.status === 'inactive');
+          
+          setUsers(activeUsers);
+          setDeletedUsers(inactiveUsers);
         } catch (error) {
           console.error(error)
           toast.error('Error al cargar usuarios')
@@ -391,6 +405,112 @@ const UsersPage = () => {
     }
   }
 
+  // Eliminar usuario (soft delete)
+  const handleDeleteUser = async (user: UserData) => {
+    if (!confirm(`¿Estás seguro de que quieres eliminar a ${user.firstName} ${user.lastName}? El usuario será movido al historial y podrá ser recuperado.`)) {
+      return;
+    }
+
+    try {
+      setIsDeleting(true);
+
+      const res = await fetch(`/api/admin/users/${user.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ isActive: false }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error || 'Error al eliminar usuario');
+      }
+
+      // Mover usuario de activos a eliminados
+      setUsers(prev => prev.filter(u => u.id !== user.id));
+      setDeletedUsers(prev => [...prev, { ...user, status: 'inactive' }]);
+
+      toast.success(`Usuario ${user.firstName} ${user.lastName} eliminado. Movido al historial.`);
+      
+    } catch (error) {
+      console.error('Error al eliminar usuario:', error);
+      toast.error('Error al eliminar usuario');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // Recuperar usuario
+  const handleRecoverUser = async (user: UserData) => {
+    if (!confirm(`¿Estás seguro de que quieres recuperar a ${user.firstName} ${user.lastName}?`)) {
+      return;
+    }
+
+    try {
+      setIsDeleting(true);
+
+      const res = await fetch(`/api/admin/users/${user.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ isActive: true }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error || 'Error al recuperar usuario');
+      }
+
+      // Mover usuario de eliminados a activos
+      setDeletedUsers(prev => prev.filter(u => u.id !== user.id));
+      setUsers(prev => [...prev, { ...user, status: 'active' }]);
+
+      toast.success(`Usuario ${user.firstName} ${user.lastName} recuperado exitosamente.`);
+      
+    } catch (error) {
+      console.error('Error al recuperar usuario:', error);
+      toast.error('Error al recuperar usuario');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // Eliminar usuario definitivamente
+  const handlePermanentDelete = async (user: UserData) => {
+    if (!confirm(`⚠️ ATENCIÓN: ¿Estás seguro de que quieres eliminar DEFINITIVAMENTE a ${user.firstName} ${user.lastName}? Esta acción NO se puede deshacer y se perderán todos los datos del usuario.`)) {
+      return;
+    }
+
+    if (!confirm(`Esta es tu última oportunidad. ¿Realmente quieres eliminar PARA SIEMPRE a ${user.firstName} ${user.lastName}?`)) {
+      return;
+    }
+
+    try {
+      setIsDeleting(true);
+
+      const res = await fetch(`/api/admin/users/${user.id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+
+      if (!res.ok) {
+        const json = await res.json();
+        throw new Error(json.error || 'Error al eliminar usuario definitivamente');
+      }
+
+      // Remover usuario de la lista de eliminados
+      setDeletedUsers(prev => prev.filter(u => u.id !== user.id));
+
+      toast.success(`Usuario ${user.firstName} ${user.lastName} eliminado definitivamente.`);
+      
+    } catch (error) {
+      console.error('Error al eliminar usuario definitivamente:', error);
+      toast.error('Error al eliminar usuario definitivamente');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   if (!isAuthenticated || !hasRole('admin')) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -571,7 +691,11 @@ const UsersPage = () => {
                               <span>Editar Usuario</span>
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-destructive">
+                            <DropdownMenuItem 
+                              className="text-destructive"
+                              onClick={() => handleDeleteUser(user)}
+                              disabled={isDeleting}
+                            >
                               <Trash2 className="mr-2 h-4 w-4" />
                               <span>Eliminar</span>
                             </DropdownMenuItem>
@@ -585,6 +709,126 @@ const UsersPage = () => {
             </Table>
           </div>
         </CardContent>
+      </Card>
+
+      {/* Sección de Usuarios Eliminados */}
+      <Card className="mt-8">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center">
+              <Archive className="mr-2 h-5 w-5 text-muted-foreground" />
+              <span>Historial de Usuarios Eliminados ({deletedUsers.length})</span>
+            </CardTitle>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setShowDeletedUsers(!showDeletedUsers)}
+            >
+              {showDeletedUsers ? (
+                <>
+                  <EyeOff className="mr-2 h-4 w-4" />
+                  Ocultar
+                </>
+              ) : (
+                <>
+                  <Eye className="mr-2 h-4 w-4" />
+                  Mostrar ({deletedUsers.length})
+                </>
+              )}
+            </Button>
+          </div>
+        </CardHeader>
+        
+        {showDeletedUsers && (
+          <CardContent>
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Usuario</TableHead>
+                    <TableHead>Rol</TableHead>
+                    <TableHead className="text-right">PejeCoins</TableHead>
+                    <TableHead>Último Acceso</TableHead>
+                    <TableHead>Registro</TableHead>
+                    <TableHead className="text-right">Acciones</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {deletedUsers.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-8">
+                        <div className="flex flex-col items-center justify-center">
+                          <UserX className="h-8 w-8 text-muted-foreground mb-2" />
+                          <span className="text-muted-foreground">No hay usuarios eliminados</span>
+                          <span className="text-sm text-muted-foreground mt-1">Los usuarios eliminados aparecerán aquí</span>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    deletedUsers.map((user) => (
+                      <TableRow key={user.id} className="opacity-75">
+                        <TableCell>
+                          <div className="flex items-center">
+                            <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center mr-3">
+                              <UserX className="h-5 w-5 text-muted-foreground" />
+                            </div>
+                            <div>
+                              <div className="font-medium text-muted-foreground">{user.firstName} {user.lastName}</div>
+                              <div className="text-sm text-muted-foreground">{user.email}</div>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-muted-foreground border-muted-foreground">
+                            {user.role}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-muted-foreground">
+                          {user.pejecoins.toLocaleString()}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {formatDate(user.lastLogin)}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {formatDate(user.createdAt)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" disabled={isDeleting}>
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                              <DropdownMenuItem 
+                                onClick={() => handleRecoverUser(user)}
+                                disabled={isDeleting}
+                                className="text-green-600"
+                              >
+                                <RotateCcw className="mr-2 h-4 w-4" />
+                                <span>Recuperar Usuario</span>
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem 
+                                className="text-destructive"
+                                onClick={() => handlePermanentDelete(user)}
+                                disabled={isDeleting}
+                              >
+                                <Trash className="mr-2 h-4 w-4" />
+                                <span>Eliminar Definitivamente</span>
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        )}
       </Card>
 
       {/* Diálogo para asignar pejecoins */}
