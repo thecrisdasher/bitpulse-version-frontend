@@ -46,7 +46,8 @@ import {
   Calendar,
   Lock,
   Filter,
-  Search
+  Search,
+  X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -100,6 +101,7 @@ const ClientCommentsManager: React.FC<ClientCommentsManagerProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClient, setSelectedClient] = useState<string>(clientId || 'all');
   const [selectedTag, setSelectedTag] = useState<string>('all');
+  const [clientSearchTerm, setClientSearchTerm] = useState('');
   
   // Estados para formularios
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -222,6 +224,7 @@ const ClientCommentsManager: React.FC<ClientCommentsManagerProps> = ({
           tagIds: [],
           isPrivate: false
         });
+        setClientSearchTerm(''); // Limpiar filtro de búsqueda
         toast.success('Comentario creado exitosamente');
       } else {
         const errorData = await response.json();
@@ -306,6 +309,15 @@ const ClientCommentsManager: React.FC<ClientCommentsManagerProps> = ({
     setIsEditDialogOpen(true);
   };
 
+  // Filtrar clientes basado en el término de búsqueda
+  const filteredClients = clients.filter(client => {
+    if (!clientSearchTerm) return true;
+    const searchLower = clientSearchTerm.toLowerCase();
+    const fullName = `${client.firstName} ${client.lastName}`.toLowerCase();
+    const email = client.email.toLowerCase();
+    return fullName.includes(searchLower) || email.includes(searchLower);
+  });
+
   // Filtrar comentarios
   const filteredComments = comments.filter(comment => {
     const matchesSearch = comment.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -357,22 +369,62 @@ const ClientCommentsManager: React.FC<ClientCommentsManagerProps> = ({
               <div className="space-y-4">
                 {showClientSelector && (
                   <div>
+                    <Label htmlFor="client-search">Buscar Cliente</Label>
+                    <div className="relative mb-2">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                      <Input 
+                        placeholder="Buscar por nombre o correo..." 
+                        value={clientSearchTerm}
+                        onChange={(e) => setClientSearchTerm(e.target.value)}
+                        className="pl-10 pr-10"
+                      />
+                      {clientSearchTerm && (
+                        <button
+                          onClick={() => setClientSearchTerm('')}
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                          type="button"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
                     <Label htmlFor="client-select">Cliente</Label>
                     <Select
                       value={formData.clientId}
                       onValueChange={(value) => setFormData(prev => ({ ...prev, clientId: value }))}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar cliente" />
+                        <SelectValue placeholder={
+                          filteredClients.length === 0 && clientSearchTerm 
+                            ? "No se encontraron clientes" 
+                            : "Seleccionar cliente"
+                        } />
                       </SelectTrigger>
                       <SelectContent>
-                        {clients.map(client => (
-                          <SelectItem key={client.id} value={client.id}>
-                            {client.firstName} {client.lastName} - {client.email}
+                        {filteredClients.length > 0 ? (
+                          filteredClients.map(client => (
+                            <SelectItem key={client.id} value={client.id}>
+                              {client.firstName} {client.lastName} - {client.email}
+                            </SelectItem>
+                          ))
+                        ) : clientSearchTerm ? (
+                          <SelectItem value="" disabled>
+                            No se encontraron clientes que coincidan con "{clientSearchTerm}"
                           </SelectItem>
-                        ))}
+                        ) : (
+                          clients.map(client => (
+                            <SelectItem key={client.id} value={client.id}>
+                              {client.firstName} {client.lastName} - {client.email}
+                            </SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
+                    {filteredClients.length > 0 && clientSearchTerm && (
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {filteredClients.length} cliente{filteredClients.length !== 1 ? 's' : ''} encontrado{filteredClients.length !== 1 ? 's' : ''}
+                      </p>
+                    )}
                   </div>
                 )}
                 
@@ -442,7 +494,10 @@ const ClientCommentsManager: React.FC<ClientCommentsManagerProps> = ({
               </div>
               
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+                <Button variant="outline" onClick={() => {
+                  setIsCreateDialogOpen(false);
+                  setClientSearchTerm('');
+                }}>
                   Cancelar
                 </Button>
                 <Button onClick={handleCreateComment}>
@@ -471,19 +526,49 @@ const ClientCommentsManager: React.FC<ClientCommentsManagerProps> = ({
             </div>
             
             {showClientSelector && (
-                          <Select value={selectedClient} onValueChange={setSelectedClient}>
-              <SelectTrigger className="w-64">
-                <SelectValue placeholder="Todos los clientes" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos los clientes</SelectItem>
-                {clients.map(client => (
-                  <SelectItem key={client.id} value={client.id}>
-                    {client.firstName} {client.lastName}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <div className="w-64 space-y-2">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                  <Input 
+                    placeholder="Buscar cliente..." 
+                    value={clientSearchTerm}
+                    onChange={(e) => setClientSearchTerm(e.target.value)}
+                    className="pl-10 pr-8 h-9"
+                  />
+                  {clientSearchTerm && (
+                    <button
+                      onClick={() => setClientSearchTerm('')}
+                      className="absolute right-2 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                      type="button"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+                <Select value={selectedClient} onValueChange={setSelectedClient}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Todos los clientes" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los clientes</SelectItem>
+                    {(clientSearchTerm ? filteredClients : clients).map(client => (
+                      <SelectItem key={client.id} value={client.id}>
+                        {client.firstName} {client.lastName}
+                      </SelectItem>
+                    ))}
+                    {clientSearchTerm && filteredClients.length === 0 && (
+                      <SelectItem value="" disabled>
+                        No se encontraron clientes
+                      </SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+                {clientSearchTerm && filteredClients.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {filteredClients.length} resultado{filteredClients.length !== 1 ? 's' : ''}
+                  </p>
+                )}
+              </div>
             )}
             
             <Select value={selectedTag} onValueChange={setSelectedTag}>
