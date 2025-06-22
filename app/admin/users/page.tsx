@@ -34,7 +34,10 @@ import {
   User,
   CheckCircle,
   AlertTriangle,
-  XCircle
+  XCircle,
+  Eye,
+  EyeOff,
+  RefreshCw
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
@@ -96,6 +99,20 @@ const UsersPage = () => {
     concept: 'Asignación de pejecoins por administrador'
   });
   const [isAssigning, setIsAssigning] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<UserData | null>(null);
+  const [editForm, setEditForm] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    role: 'cliente' as 'cliente' | 'admin' | 'maestro',
+    pejecoins: 0,
+    isActive: true,
+    password: '',
+    confirmPassword: ''
+  });
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [passwordMethod, setPasswordMethod] = useState<'keep' | 'generate' | 'custom'>('keep');
 
   // Verificar permisos de administrador
   useEffect(() => {
@@ -175,6 +192,139 @@ const UsersPage = () => {
       toast.error('Error al asignar pejecoins');
     } finally {
       setIsAssigning(false);
+    }
+  };
+
+  // Abrir modal de edición
+  const handleEditUser = (user: UserData) => {
+    setEditingUser(user);
+    setEditForm({
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      role: user.role,
+      pejecoins: user.pejecoins,
+      isActive: user.status === 'active',
+      password: '',
+      confirmPassword: ''
+    });
+    setPasswordMethod('keep');
+    setIsEditDialogOpen(true);
+  };
+
+  // Generar contraseña automática
+  const generatePassword = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+    let password = '';
+    for (let i = 0; i < 12; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setEditForm(prev => ({ ...prev, password, confirmPassword: password }));
+  };
+
+  // Efecto para generar contraseña cuando se selecciona el método automático
+  useEffect(() => {
+    if (passwordMethod === 'generate') {
+      generatePassword();
+    } else if (passwordMethod === 'keep') {
+      setEditForm(prev => ({ ...prev, password: '', confirmPassword: '' }));
+    }
+  }, [passwordMethod]);
+
+  // Manejar actualización de usuario
+  const handleUpdateUser = async () => {
+    if (!editingUser) return;
+
+    // Validaciones
+    if (!editForm.firstName.trim() || !editForm.lastName.trim() || !editForm.email.trim()) {
+      toast.error('Por favor completa todos los campos obligatorios');
+      return;
+    }
+
+    if (passwordMethod === 'custom') {
+      if (!editForm.password) {
+        toast.error('Por favor ingresa una contraseña');
+        return;
+      }
+      if (editForm.password !== editForm.confirmPassword) {
+        toast.error('Las contraseñas no coinciden');
+        return;
+      }
+      if (editForm.password.length < 8) {
+        toast.error('La contraseña debe tener al menos 8 caracteres');
+        return;
+      }
+    }
+
+    try {
+      setIsUpdating(true);
+
+      const updateData: any = {
+        firstName: editForm.firstName.trim(),
+        lastName: editForm.lastName.trim(),
+        email: editForm.email.trim(),
+        role: editForm.role,
+        pejecoins: editForm.pejecoins,
+        isActive: editForm.isActive
+      };
+
+      // Solo incluir contraseña si se va a cambiar
+      if (passwordMethod === 'generate' || passwordMethod === 'custom') {
+        updateData.password = editForm.password;
+      }
+
+      const res = await fetch(`/api/admin/users/${editingUser.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(updateData),
+      });
+
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error || 'Error al actualizar usuario');
+      }
+
+      // Actualizar usuario en la lista local
+      setUsers(prev => prev.map(u => 
+        u.id === editingUser.id 
+          ? { 
+              ...u, 
+              firstName: editForm.firstName,
+              lastName: editForm.lastName,
+              email: editForm.email,
+              role: editForm.role,
+              pejecoins: editForm.pejecoins,
+              status: editForm.isActive ? 'active' : 'inactive'
+            }
+          : u
+      ));
+
+      let successMessage = `Usuario ${editForm.firstName} ${editForm.lastName} actualizado exitosamente`;
+      if (passwordMethod === 'generate') {
+        successMessage += '. La nueva contraseña se ha generado y debe ser comunicada al usuario.';
+      } else if (passwordMethod === 'custom') {
+        successMessage += '. La contraseña ha sido actualizada.';
+      }
+
+      toast.success(successMessage);
+      
+      // Mostrar contraseña generada si es necesario
+      if (passwordMethod === 'generate') {
+        setTimeout(() => {
+          toast.info(`Contraseña generada: ${editForm.password}`, {
+            duration: 10000,
+          });
+        }, 1000);
+      }
+      
+      setIsEditDialogOpen(false);
+      
+    } catch (error) {
+      console.error('Error al actualizar usuario:', error);
+      toast.error('Error al actualizar usuario');
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -416,7 +566,7 @@ const UsersPage = () => {
                               <Coins className="mr-2 h-4 w-4" />
                               <span>Asignar PejeCoins</span>
                             </DropdownMenuItem>
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleEditUser(user)}>
                               <Edit className="mr-2 h-4 w-4" />
                               <span>Editar Usuario</span>
                             </DropdownMenuItem>
@@ -488,6 +638,199 @@ const UsersPage = () => {
               disabled={isAssigning || coinAssignment.amount <= 0}
             >
               {isAssigning ? "Asignando..." : "Asignar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo para editar usuario */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit className="h-5 w-5" />
+              Editar Usuario
+            </DialogTitle>
+            <DialogDescription>
+              {editingUser && `Editar información de ${editingUser.firstName} ${editingUser.lastName}`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="firstName" className="text-right">
+                Nombre
+              </Label>
+              <div className="col-span-3">
+                <Input
+                  id="firstName"
+                  value={editForm.firstName}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, firstName: e.target.value }))}
+                  className="w-full"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="lastName" className="text-right">
+                Apellido
+              </Label>
+              <div className="col-span-3">
+                <Input
+                  id="lastName"
+                  value={editForm.lastName}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, lastName: e.target.value }))}
+                  className="w-full"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="email" className="text-right">
+                Email
+              </Label>
+              <div className="col-span-3">
+                <Input
+                  id="email"
+                  value={editForm.email}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
+                  className="w-full"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="role" className="text-right">
+                Rol
+              </Label>
+              <div className="col-span-3">
+                <Select value={editForm.role} onValueChange={(value) => setEditForm(prev => ({ ...prev, role: value as 'cliente' | 'admin' | 'maestro' }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona un rol" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cliente">Cliente</SelectItem>
+                    <SelectItem value="maestro">Maestro</SelectItem>
+                    <SelectItem value="admin">Administrador</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="pejecoins" className="text-right">
+                PejeCoins
+              </Label>
+              <div className="col-span-3">
+                <Input
+                  id="pejecoins"
+                  type="number"
+                  value={editForm.pejecoins}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, pejecoins: parseInt(e.target.value) || 0 }))}
+                  className="w-full"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="isActive" className="text-right">
+                Estado
+              </Label>
+              <div className="col-span-3">
+                <Select value={editForm.isActive ? 'active' : 'inactive'} onValueChange={(value) => setEditForm(prev => ({ ...prev, isActive: value === 'active' }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona un estado" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Activo</SelectItem>
+                    <SelectItem value="inactive">Inactivo</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="passwordMethod" className="text-right">
+                Contraseña
+              </Label>
+              <div className="col-span-3">
+                <Select value={passwordMethod} onValueChange={(value) => setPasswordMethod(value as 'keep' | 'generate' | 'custom')}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona una opción" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="keep">Mantener contraseña actual</SelectItem>
+                    <SelectItem value="generate">Generar automáticamente</SelectItem>
+                    <SelectItem value="custom">Establecer nueva contraseña</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            {passwordMethod === 'generate' && (
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right text-sm text-muted-foreground">
+                  Contraseña Generada
+                </Label>
+                <div className="col-span-3">
+                  <div className="p-3 bg-muted/50 rounded-md">
+                    <div className="flex items-center justify-between">
+                      <code className="text-sm font-mono">{editForm.password}</code>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={generatePassword}
+                        className="ml-2"
+                      >
+                        🔄 Regenerar
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      La contraseña se mostrará al usuario y se enviará por email
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {passwordMethod === 'custom' && (
+              <>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="password" className="text-right">
+                    Nueva Contraseña
+                  </Label>
+                  <div className="col-span-3">
+                    <Input
+                      id="password"
+                      type="password"
+                      value={editForm.password}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, password: e.target.value }))}
+                      className="w-full"
+                      placeholder="Mínimo 8 caracteres"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="confirmPassword" className="text-right">
+                    Confirmar Contraseña
+                  </Label>
+                  <div className="col-span-3">
+                    <Input
+                      id="confirmPassword"
+                      type="password"
+                      value={editForm.confirmPassword}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                      className="w-full"
+                      placeholder="Confirma la nueva contraseña"
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleUpdateUser}
+              disabled={isUpdating}
+            >
+              {isUpdating ? "Actualizando..." : "Actualizar"}
             </Button>
           </DialogFooter>
         </DialogContent>
