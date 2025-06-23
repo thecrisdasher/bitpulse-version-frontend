@@ -364,16 +364,35 @@ app.prepare().then(() => {
   // Función para crear sala privada entre usuario y mentor
   async function createPrivateRoom(userId, mentorId) {
     try {
-      // Verificar si ya existe una sala entre estos usuarios
-      const existingRoom = await prisma.chatRoom.findFirst({
+      // Verificar si ya existe una sala entre estos dos usuarios específicos
+      const existingRooms = await prisma.chatRoom.findMany({
         where: {
-          type: 'private',
+          type: 'private'
+        },
+        include: {
           participants: {
-            every: {
-              userId: { in: [userId, mentorId] }
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  username: true,
+                  firstName: true,
+                  lastName: true,
+                  role: true,
+                  profilePicture: true
+                }
+              }
             }
           }
         }
+      });
+
+      // Buscar una sala que tenga exactamente estos dos participantes
+      const existingRoom = existingRooms.find(room => {
+        const participantIds = room.participants.map(p => p.userId);
+        return participantIds.length === 2 && 
+               participantIds.includes(userId) && 
+               participantIds.includes(mentorId);
       });
 
       if (existingRoom) {

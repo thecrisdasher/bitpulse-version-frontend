@@ -68,6 +68,9 @@ interface ChatContextType {
   loadRooms: (all?: boolean) => Promise<void>;
   loadMessages: (roomId: string) => Promise<void>;
   loadMentors: () => Promise<void>;
+  
+  // Funciones de gestión de salas
+  findOrCreatePrivateRoom: (participantId: string) => Promise<ChatRoom | null>;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -297,14 +300,8 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
     }
   }, [socket]);
 
-  const assignMentor = useCallback((userId: string, mentorId: string) => {
-    if (socket) {
-      socket.emit('assign_mentor', { userId, mentorId });
-    }
-  }, [socket]);
-
   // Helper para dar formato uniforme a una sala nueva
-  const formatRoom = (room: any): ChatRoom => {
+  const formatRoom = useCallback((room: any): ChatRoom => {
     if (room.type === 'private' && user) {
       const other = room.participants.find((p: any) => p.userId !== user.id)?.user;
       return {
@@ -320,7 +317,56 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
       } as ChatRoom;
     }
     return room;
-  };
+  }, [user]);
+
+  const assignMentor = useCallback((userId: string, mentorId: string) => {
+    if (socket) {
+      socket.emit('assign_mentor', { userId, mentorId });
+    }
+  }, [socket]);
+
+  // Función para encontrar o crear una sala privada con un participante específico
+  const findOrCreatePrivateRoom = useCallback(async (participantId: string): Promise<ChatRoom | null> => {
+    try {
+      // Primero, buscar en las salas existentes
+      const existingRoom = rooms.find(room => 
+        room.type === 'private' && 
+        room.otherParticipant?.id === participantId
+      );
+
+      if (existingRoom) {
+        return existingRoom;
+      }
+
+      // Si no existe, crear una nueva sala
+      const response = await fetch('/api/chat/rooms', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          type: 'private',
+          participantIds: [user?.id, participantId]
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const formattedRoom = formatRoom(data.room);
+        
+        // Agregar la nueva sala a la lista
+        setRooms(prev => [formattedRoom, ...prev]);
+        
+        return formattedRoom;
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error finding or creating private room:', error);
+      return null;
+    }
+  }, [rooms, user, formatRoom]);
 
   const contextValue: ChatContextType = {
     isConnected,
@@ -341,7 +387,8 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
     userMentor,
     loadRooms,
     loadMessages,
-    loadMentors
+    loadMentors,
+    findOrCreatePrivateRoom
   };
 
   return (

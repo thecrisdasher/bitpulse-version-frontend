@@ -218,14 +218,10 @@ export async function POST(request: NextRequest) {
 
     // Verificar si ya existe una sala privada entre estos usuarios
     if (type === 'private') {
-      const existingRoom = await prisma.chatRoom.findFirst({
+      // Buscar todas las salas privadas y verificar participantes exactos
+      const existingRooms = await prisma.chatRoom.findMany({
         where: {
-          type: 'private',
-          participants: {
-            every: {
-              userId: { in: participantIds }
-            }
-          }
+          type: 'private'
         },
         include: {
           participants: {
@@ -243,6 +239,13 @@ export async function POST(request: NextRequest) {
             }
           }
         }
+      });
+
+      // Buscar una sala que tenga exactamente estos participantes
+      const existingRoom = existingRooms.find(room => {
+        const roomParticipantIds = room.participants.map(p => p.userId);
+        return roomParticipantIds.length === participantIds.length && 
+               participantIds.every((id: string) => roomParticipantIds.includes(id));
       });
 
       if (existingRoom) {

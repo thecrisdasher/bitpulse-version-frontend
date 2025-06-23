@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/hooks/use-toast'
+import { useChat, ChatProvider } from '@/contexts/ChatContext'
 import {
   Table,
   TableBody,
@@ -60,10 +61,11 @@ interface AssignedClient {
   totalPejecoins: number
 }
 
-export default function MaestroClientesAsignadosPage() {
+function MaestroClientesAsignadosPageContent() {
   const { user, hasRole } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
+  const { findOrCreatePrivateRoom, setCurrentRoom, joinRoom } = useChat()
   
   const [clients, setClients] = useState<AssignedClient[]>([])
   const [loading, setLoading] = useState(true)
@@ -123,8 +125,25 @@ export default function MaestroClientesAsignadosPage() {
     }
   }
 
-  const handleChatWithClient = (clientId: string) => {
-    router.push(`/chat?participant=${clientId}`)
+  const handleChatWithClient = async (clientId: string) => {
+    try {
+      // Intentar encontrar o crear la sala de chat
+      const room = await findOrCreatePrivateRoom(clientId)
+      
+      if (room) {
+        // Si se encontró o creó la sala, navegar al chat y seleccionarla
+        setCurrentRoom(room)
+        joinRoom(room.id)
+        router.push(`/chat?roomId=${room.id}`)
+      } else {
+        // Fallback a la redirección original
+        router.push(`/chat?participant=${clientId}`)
+      }
+    } catch (error) {
+      console.error('Error opening chat:', error)
+      // Fallback a la redirección original
+      router.push(`/chat?participant=${clientId}`)
+    }
   }
 
   const handleViewClientDetails = (client: AssignedClient) => {
@@ -548,5 +567,13 @@ export default function MaestroClientesAsignadosPage() {
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+export default function MaestroClientesAsignadosPage() {
+  return (
+    <ChatProvider>
+      <MaestroClientesAsignadosPageContent />
+    </ChatProvider>
   )
 } 

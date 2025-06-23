@@ -205,15 +205,10 @@ export async function DELETE(request: NextRequest) {
 // Función auxiliar para crear sala privada
 async function createPrivateRoom(userId: string, mentorId: string) {
   try {
-    // Verificar si ya existe una sala entre estos usuarios
-    const existingRoom = await prisma.chatRoom.findFirst({
+    // Verificar si ya existe una sala entre estos dos usuarios específicos
+    const existingRooms = await prisma.chatRoom.findMany({
       where: {
-        type: 'private',
-        participants: {
-          every: {
-            userId: { in: [userId, mentorId] }
-          }
-        }
+        type: 'private'
       },
       include: {
         participants: {
@@ -231,6 +226,14 @@ async function createPrivateRoom(userId: string, mentorId: string) {
           }
         }
       }
+    });
+
+    // Buscar una sala que tenga exactamente estos dos participantes
+    const existingRoom = existingRooms.find(room => {
+      const participantIds = room.participants.map(p => p.userId);
+      return participantIds.length === 2 && 
+             participantIds.includes(userId) && 
+             participantIds.includes(mentorId);
     });
 
     if (existingRoom) {
