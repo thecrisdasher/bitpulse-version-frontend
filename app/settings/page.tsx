@@ -343,8 +343,8 @@ const SettingsPage = () => {
       }
 
             // Mostrar mensaje de éxito
-      setSavedMessage(true);
-      setTimeout(() => setSavedMessage(false), 3000);
+    setSavedMessage(true);
+    setTimeout(() => setSavedMessage(false), 3000);
       
       // Recargar historial para mostrar los cambios
       loadProfileHistory();
@@ -492,7 +492,7 @@ const SettingsPage = () => {
   const updatePasswordForm = (key: keyof PasswordChangeForm, value: string) => {
     setPasswordForm(prev => ({ ...prev, [key]: value }));
   };
-
+  
   // Determinar las pestañas disponibles según el rol
   const tabItems = [
     <TabsTrigger key="profile" value="profile" className="flex items-center gap-2">
@@ -658,13 +658,13 @@ const SettingsPage = () => {
                                   hour: '2-digit',
                                   minute: '2-digit'
                                 })}
-                              </div>
+                </div>
                             </td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
-                  </div>
+              </div>
                   {profileHistory.length > 10 && (
                     <p className="text-xs text-muted-foreground text-center">
                       Mostrando los últimos 10 cambios de {profileHistory.length} total
@@ -718,7 +718,7 @@ const SettingsPage = () => {
                 <div className="flex items-center justify-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                   <span className="ml-3 text-muted-foreground">Cargando notificaciones...</span>
-                </div>
+                  </div>
               ) : recentNotifications.length > 0 ? (
                 <div className="space-y-4">
                   <p className="text-sm text-muted-foreground">
@@ -745,7 +745,7 @@ const SettingsPage = () => {
                               {!notification.isRead && (
                                 <div className="h-2 w-2 bg-primary rounded-full"></div>
                               )}
-                            </div>
+                  </div>
                             <p className="text-sm text-muted-foreground mt-1">
                               {notification.body}
                             </p>
@@ -760,9 +760,9 @@ const SettingsPage = () => {
                                   minute: '2-digit'
                                 })}
                               </span>
-                            </div>
-                          </div>
-                        </div>
+                </div>
+              </div>
+                    </div>
                       </div>
                     ))}
                   </div>
@@ -770,8 +770,8 @@ const SettingsPage = () => {
                     <p className="text-xs text-muted-foreground text-center">
                       Mostrando las últimas 20 notificaciones
                     </p>
-                  )}
-                </div>
+                    )}
+                  </div>
               ) : (
                 <div className="text-center py-8">
                   <Bell className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
@@ -802,7 +802,7 @@ const SettingsPage = () => {
                     <div className="flex items-center gap-2">
                       <Mail className="h-4 w-4" />
                       <div>
-                        <Label htmlFor="emailNotifications">Notificaciones por email</Label>
+                      <Label htmlFor="emailNotifications">Notificaciones por email</Label>
                         <p className="text-sm text-muted-foreground">Recibe notificaciones en tu correo electrónico</p>
                       </div>
                     </div>
@@ -819,49 +819,49 @@ const SettingsPage = () => {
 
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold">Tipos de notificaciones</h3>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <CreditCard className="h-4 w-4" />
                       <div>
                         <Label htmlFor="withdrawalAlerts">Alertas de retiros</Label>
                         <p className="text-sm text-muted-foreground">Notificaciones sobre tus solicitudes de retiro</p>
-                      </div>
                     </div>
-                    <Switch
+                    </div>
+                      <Switch
                       id="withdrawalAlerts"
                       checked={notificationSettings.withdrawalAlerts}
                       onCheckedChange={(checked) => updateNotificationSetting('withdrawalAlerts', checked)}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Coins className="h-4 w-4" />
                       <div>
                         <Label htmlFor="pejeCoinUpdates">Actualizaciones de saldo</Label>
                         <p className="text-sm text-muted-foreground">Notificaciones cuando se actualice tu saldo</p>
-                      </div>
                     </div>
-                    <Switch
+                  </div>
+                      <Switch
                       id="pejeCoinUpdates"
                       checked={notificationSettings.pejeCoinUpdates}
                       onCheckedChange={(checked) => updateNotificationSetting('pejeCoinUpdates', checked)}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Users className="h-4 w-4" />
                       <div>
-                        <Label htmlFor="mentorMessages">Mensajes de mentores</Label>
+                      <Label htmlFor="mentorMessages">Mensajes de mentores</Label>
                         <p className="text-sm text-muted-foreground">Notificaciones de mensajes de tus mentores</p>
                       </div>
                     </div>
-                    <Switch
-                      id="mentorMessages"
-                      checked={notificationSettings.mentorMessages}
-                      onCheckedChange={(checked) => updateNotificationSetting('mentorMessages', checked)}
-                    />
-                  </div>
+                      <Switch
+                        id="mentorMessages"
+                        checked={notificationSettings.mentorMessages}
+                        onCheckedChange={(checked) => updateNotificationSetting('mentorMessages', checked)}
+                      />
+                    </div>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Shield className="h-4 w-4" />
@@ -975,39 +975,39 @@ const SettingsPage = () => {
                 <h3 className="text-lg font-semibold">Cambiar contraseña</h3>
                 <form onSubmit={handlePasswordChange} className="space-y-4">
                   <div className="grid grid-cols-1 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="currentPassword">Contraseña actual</Label>
-                      <div className="relative">
-                        <Input
-                          id="currentPassword"
-                          type={showPassword ? "text" : "password"}
+                  <div className="space-y-2">
+                    <Label htmlFor="currentPassword">Contraseña actual</Label>
+                    <div className="relative">
+                      <Input
+                        id="currentPassword"
+                        type={showPassword ? "text" : "password"}
                           value={passwordForm.currentPassword}
                           onChange={(e) => updatePasswordForm('currentPassword', e.target.value)}
                           placeholder="Ingresa tu contraseña actual"
                           required
                           disabled={isChangingPassword}
-                        />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                          onClick={() => setShowPassword(!showPassword)}
-                        >
-                          {showPassword ? (
-                            <EyeOff className="h-4 w-4" />
-                          ) : (
-                            <Eye className="h-4 w-4" />
-                          )}
-                        </Button>
-                      </div>
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </Button>
                     </div>
+                  </div>
                     
-                    <div className="space-y-2">
-                      <Label htmlFor="newPassword">Nueva contraseña</Label>
+                  <div className="space-y-2">
+                    <Label htmlFor="newPassword">Nueva contraseña</Label>
                       <div className="relative">
-                        <Input
-                          id="newPassword"
+                    <Input
+                      id="newPassword"
                           type={showNewPassword ? "text" : "password"}
                           value={passwordForm.newPassword}
                           onChange={(e) => updatePasswordForm('newPassword', e.target.value)}
@@ -1015,7 +1015,7 @@ const SettingsPage = () => {
                           required
                           disabled={isChangingPassword}
                         />
-                        <Button
+                  <Button
                           type="button"
                           variant="ghost"
                           size="sm"
@@ -1027,8 +1027,8 @@ const SettingsPage = () => {
                           ) : (
                             <Eye className="h-4 w-4" />
                           )}
-                        </Button>
-                      </div>
+                  </Button>
+                    </div>
                     </div>
                     
                     <div className="space-y-2">
@@ -1043,7 +1043,7 @@ const SettingsPage = () => {
                           required
                           disabled={isChangingPassword}
                         />
-                        <Button
+                  <Button
                           type="button"
                           variant="ghost"
                           size="sm"
@@ -1055,11 +1055,11 @@ const SettingsPage = () => {
                           ) : (
                             <Eye className="h-4 w-4" />
                           )}
-                        </Button>
+                  </Button>
                       </div>
-                    </div>
-                  </div>
-                  
+                </div>
+              </div>
+
                   {/* Validaciones visuales */}
                   {passwordForm.newPassword && (
                     <div className="space-y-2 text-sm">
@@ -1068,30 +1068,30 @@ const SettingsPage = () => {
                         <div className={`flex items-center gap-2 ${passwordValidations.length ? 'text-green-600' : 'text-red-600'}`}>
                           {passwordValidations.length ? <Check className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
                           <span>Mínimo 8 caracteres</span>
-                        </div>
+                  </div>
                         <div className={`flex items-center gap-2 ${passwordValidations.uppercase ? 'text-green-600' : 'text-red-600'}`}>
                           {passwordValidations.uppercase ? <Check className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
                           <span>Al menos una mayúscula</span>
-                        </div>
+                    </div>
                         <div className={`flex items-center gap-2 ${passwordValidations.lowercase ? 'text-green-600' : 'text-red-600'}`}>
                           {passwordValidations.lowercase ? <Check className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
                           <span>Al menos una minúscula</span>
-                        </div>
+                  </div>
                         <div className={`flex items-center gap-2 ${passwordValidations.number ? 'text-green-600' : 'text-red-600'}`}>
                           {passwordValidations.number ? <Check className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
                           <span>Al menos un número</span>
-                        </div>
+                    </div>
                         <div className={`flex items-center gap-2 ${passwordValidations.special ? 'text-green-600' : 'text-red-600'}`}>
                           {passwordValidations.special ? <Check className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
                           <span>Al menos un símbolo especial</span>
-                        </div>
+                  </div>
                         {passwordForm.confirmPassword && (
                           <div className={`flex items-center gap-2 ${passwordValidations.match ? 'text-green-600' : 'text-red-600'}`}>
                             {passwordValidations.match ? <Check className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
                             <span>Las contraseñas coinciden</span>
-                          </div>
+                </div>
                         )}
-                      </div>
+              </div>
                     </div>
                   )}
                   

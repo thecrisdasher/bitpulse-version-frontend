@@ -1,54 +1,54 @@
 {
   "realPrices": {
     "BTC": {
-      "price": 104249.06,
-      "change24h": -2.995,
-      "volume": 17256.66379
+      "price": 107595.27,
+      "change24h": 2.172,
+      "volume": 14777.90118
     },
     "ETH": {
-      "price": 2497.81,
-      "change24h": -5.145,
-      "volume": 733209.0535
+      "price": 2405.69,
+      "change24h": -1.009,
+      "volume": 434442.6619
     },
     "BNB": {
-      "price": 646.21,
-      "change24h": -1.754,
-      "volume": 184294.246
+      "price": 645.46,
+      "change24h": 0.715,
+      "volume": 172384.27
     },
     "LTC": {
-      "price": 84.06,
-      "change24h": -4.51,
-      "volume": 330517.683
+      "price": 84.51,
+      "change24h": 0.071,
+      "volume": 299291.112
     },
     "ADA": {
-      "price": 0.6108,
-      "change24h": -5.987,
-      "volume": 115139931.4
+      "price": 0.5738,
+      "change24h": -1.814,
+      "volume": 102839094.1
     },
     "XRP": {
-      "price": 2.1788,
-      "change24h": -5.059,
-      "volume": 181754292.1
+      "price": 2.2006,
+      "change24h": 0.751,
+      "volume": 107260862.1
     },
     "TRX": {
-      "price": 0.275,
-      "change24h": -2.517,
-      "volume": 703747267.8
+      "price": 0.2716,
+      "change24h": -0.403,
+      "volume": 239548411.4
     },
     "ETC": {
-      "price": 16.47,
-      "change24h": -4.411,
-      "volume": 399314.42
+      "price": 16.31,
+      "change24h": -0.184,
+      "volume": 278015.86
     },
     "VET": {
-      "price": 0.02155,
-      "change24h": -6.1,
-      "volume": 235691432.2
+      "price": 0.02126,
+      "change24h": -1.528,
+      "volume": 224486473.8
     },
     "LINK": {
-      "price": 13.04,
-      "change24h": -5.576,
-      "volume": 4018491.79
+      "price": 13.11,
+      "change24h": -1.577,
+      "volume": 3035819.07
     },
     "MATIC": {
       "price": 0,
@@ -56,194 +56,194 @@
       "volume": 0
     },
     "ATOM": {
-      "price": 4.036,
-      "change24h": -5.147,
-      "volume": 1379219.38
+      "price": 4.015,
+      "change24h": -1.545,
+      "volume": 1598138.41
     },
     "ALGO": {
-      "price": 0.1705,
-      "change24h": -7.034,
-      "volume": 36117528
+      "price": 0.1795,
+      "change24h": -0.499,
+      "volume": 28247963
     },
     "DOGE": {
-      "price": 0.16769,
-      "change24h": -5.591,
-      "volume": 928377181
+      "price": 0.16413,
+      "change24h": 0.201,
+      "volume": 633599438
     },
     "BCH": {
-      "price": 463.4,
-      "change24h": -0.919,
-      "volume": 85856.509
+      "price": 478.5,
+      "change24h": 4.135,
+      "volume": 114202.365
     },
     "SOL": {
-      "price": 147.54,
-      "change24h": -5.743,
-      "volume": 3437023.539
+      "price": 145.27,
+      "change24h": 0.276,
+      "volume": 2312233.269
     },
     "COMP": {
-      "price": 51.65,
-      "change24h": -8.438,
-      "volume": 162590.203
+      "price": 46.44,
+      "change24h": -2.293,
+      "volume": 203175.282
     },
     "SNX": {
-      "price": 0.588,
-      "change24h": -8.268,
-      "volume": 1851174
+      "price": 0.592,
+      "change24h": 2.778,
+      "volume": 3696624.2
     },
     "MKR": {
-      "price": 2038,
-      "change24h": -9.903,
-      "volume": 10068.3997
+      "price": 1915,
+      "change24h": -5.057,
+      "volume": 4450.7487
     },
     "MANA": {
-      "price": 0.2568,
-      "change24h": -5.658,
-      "volume": 9539765
+      "price": 0.2599,
+      "change24h": 0,
+      "volume": 7950793
     },
     "YFI": {
-      "price": 5051,
-      "change24h": -3.735,
-      "volume": 199.90323
+      "price": 5148,
+      "change24h": -0.097,
+      "volume": 246.16164
     },
     "SAND": {
-      "price": 0.2571,
-      "change24h": -6.509,
-      "volume": 13322593
+      "price": 0.2517,
+      "change24h": -1.487,
+      "volume": 10365296
     },
     "DOT": {
-      "price": 3.724,
-      "change24h": -5.554,
-      "volume": 4792817.56
+      "price": 3.394,
+      "change24h": -2.021,
+      "volume": 3903136.19
     },
     "SUSHI": {
-      "price": 0.622,
-      "change24h": -6.886,
-      "volume": 6484266.8
+      "price": 0.596,
+      "change24h": -2.773,
+      "volume": 4474117.4
     },
     "UNI": {
-      "price": 7.349,
-      "change24h": -6.394,
-      "volume": 13427887.82
+      "price": 6.971,
+      "change24h": 0.158,
+      "volume": 10627184.42
     },
     "AVAX": {
-      "price": 18.64,
-      "change24h": -5.525,
-      "volume": 2282953.84
+      "price": 17.74,
+      "change24h": -2.367,
+      "volume": 1876234.71
     },
     "AAVE": {
-      "price": 266.49,
-      "change24h": -7.818,
-      "volume": 268478.149
+      "price": 258.23,
+      "change24h": -1.507,
+      "volume": 160795.041
     },
     "FIL": {
-      "price": 2.388,
-      "change24h": -5.426,
-      "volume": 4646775.27
+      "price": 2.257,
+      "change24h": -1.784,
+      "volume": 4741438.62
     }
   },
   "analysis": {
-    "timestamp": "2025-06-17T16:01:11.018Z",
+    "timestamp": "2025-06-25T14:32:06.035Z",
     "totalSymbols": 28,
     "comparisons": [
       {
         "symbol": "BTC",
-        "realPrice": 104249.06,
+        "realPrice": 107595.27,
         "simulatorPrice": 65000,
-        "difference": 60.38,
-        "percentageDiff": "+60.38%",
+        "difference": 65.53,
+        "percentageDiff": "+65.53%",
         "isOutdated": true,
-        "change24h": -2.995,
-        "volume": 17256.66379
+        "change24h": 2.172,
+        "volume": 14777.90118
       },
       {
         "symbol": "ETH",
-        "realPrice": 2497.81,
+        "realPrice": 2405.69,
         "simulatorPrice": 3500,
-        "difference": -28.63,
-        "percentageDiff": "-28.63%",
+        "difference": -31.27,
+        "percentageDiff": "-31.27%",
         "isOutdated": true,
-        "change24h": -5.145,
-        "volume": 733209.0535
+        "change24h": -1.009,
+        "volume": 434442.6619
       },
       {
         "symbol": "BNB",
-        "realPrice": 646.21,
+        "realPrice": 645.46,
         "simulatorPrice": 420,
-        "difference": 53.86,
-        "percentageDiff": "+53.86%",
+        "difference": 53.68,
+        "percentageDiff": "+53.68%",
         "isOutdated": true,
-        "change24h": -1.754,
-        "volume": 184294.246
+        "change24h": 0.715,
+        "volume": 172384.27
       },
       {
         "symbol": "LTC",
-        "realPrice": 84.06,
+        "realPrice": 84.51,
         "simulatorPrice": 95,
-        "difference": -11.52,
-        "percentageDiff": "-11.52%",
+        "difference": -11.04,
+        "percentageDiff": "-11.04%",
         "isOutdated": false,
-        "change24h": -4.51,
-        "volume": 330517.683
+        "change24h": 0.071,
+        "volume": 299291.112
       },
       {
         "symbol": "ADA",
-        "realPrice": 0.6108,
+        "realPrice": 0.5738,
         "simulatorPrice": 0.45,
-        "difference": 35.73,
-        "percentageDiff": "+35.73%",
+        "difference": 27.51,
+        "percentageDiff": "+27.51%",
         "isOutdated": true,
-        "change24h": -5.987,
-        "volume": 115139931.4
+        "change24h": -1.814,
+        "volume": 102839094.1
       },
       {
         "symbol": "XRP",
-        "realPrice": 2.1788,
+        "realPrice": 2.2006,
         "simulatorPrice": 0.6,
-        "difference": 263.13,
-        "percentageDiff": "+263.13%",
+        "difference": 266.77,
+        "percentageDiff": "+266.77%",
         "isOutdated": true,
-        "change24h": -5.059,
-        "volume": 181754292.1
+        "change24h": 0.751,
+        "volume": 107260862.1
       },
       {
         "symbol": "TRX",
-        "realPrice": 0.275,
+        "realPrice": 0.2716,
         "simulatorPrice": 0.095,
-        "difference": 189.47,
-        "percentageDiff": "+189.47%",
+        "difference": 185.89,
+        "percentageDiff": "+185.89%",
         "isOutdated": true,
-        "change24h": -2.517,
-        "volume": 703747267.8
+        "change24h": -0.403,
+        "volume": 239548411.4
       },
       {
         "symbol": "ETC",
-        "realPrice": 16.47,
+        "realPrice": 16.31,
         "simulatorPrice": 28,
-        "difference": -41.18,
-        "percentageDiff": "-41.18%",
+        "difference": -41.75,
+        "percentageDiff": "-41.75%",
         "isOutdated": true,
-        "change24h": -4.411,
-        "volume": 399314.42
+        "change24h": -0.184,
+        "volume": 278015.86
       },
       {
         "symbol": "VET",
-        "realPrice": 0.02155,
+        "realPrice": 0.02126,
         "simulatorPrice": 0.032,
-        "difference": -32.66,
-        "percentageDiff": "-32.66%",
+        "difference": -33.56,
+        "percentageDiff": "-33.56%",
         "isOutdated": true,
-        "change24h": -6.1,
-        "volume": 235691432.2
+        "change24h": -1.528,
+        "volume": 224486473.8
       },
       {
         "symbol": "LINK",
-        "realPrice": 13.04,
+        "realPrice": 13.11,
         "simulatorPrice": 15.5,
-        "difference": -15.87,
-        "percentageDiff": "-15.87%",
+        "difference": -15.42,
+        "percentageDiff": "-15.42%",
         "isOutdated": false,
-        "change24h": -5.576,
-        "volume": 4018491.79
+        "change24h": -1.577,
+        "volume": 3035819.07
       },
       {
         "symbol": "MATIC",
@@ -257,211 +257,211 @@
       },
       {
         "symbol": "ATOM",
-        "realPrice": 4.036,
+        "realPrice": 4.015,
         "simulatorPrice": 12.5,
-        "difference": -67.71,
-        "percentageDiff": "-67.71%",
+        "difference": -67.88,
+        "percentageDiff": "-67.88%",
         "isOutdated": true,
-        "change24h": -5.147,
-        "volume": 1379219.38
+        "change24h": -1.545,
+        "volume": 1598138.41
       },
       {
         "symbol": "ALGO",
-        "realPrice": 0.1705,
+        "realPrice": 0.1795,
         "simulatorPrice": 0.25,
-        "difference": -31.8,
-        "percentageDiff": "-31.8%",
+        "difference": -28.2,
+        "percentageDiff": "-28.2%",
         "isOutdated": true,
-        "change24h": -7.034,
-        "volume": 36117528
+        "change24h": -0.499,
+        "volume": 28247963
       },
       {
         "symbol": "DOGE",
-        "realPrice": 0.16769,
+        "realPrice": 0.16413,
         "simulatorPrice": 0.08,
-        "difference": 109.61,
-        "percentageDiff": "+109.61%",
+        "difference": 105.16,
+        "percentageDiff": "+105.16%",
         "isOutdated": true,
-        "change24h": -5.591,
-        "volume": 928377181
+        "change24h": 0.201,
+        "volume": 633599438
       },
       {
         "symbol": "BCH",
-        "realPrice": 463.4,
+        "realPrice": 478.5,
         "simulatorPrice": 250,
-        "difference": 85.36,
-        "percentageDiff": "+85.36%",
+        "difference": 91.4,
+        "percentageDiff": "+91.4%",
         "isOutdated": true,
-        "change24h": -0.919,
-        "volume": 85856.509
+        "change24h": 4.135,
+        "volume": 114202.365
       },
       {
         "symbol": "SOL",
-        "realPrice": 147.54,
+        "realPrice": 145.27,
         "simulatorPrice": 180,
-        "difference": -18.03,
-        "percentageDiff": "-18.03%",
+        "difference": -19.29,
+        "percentageDiff": "-19.29%",
         "isOutdated": false,
-        "change24h": -5.743,
-        "volume": 3437023.539
+        "change24h": 0.276,
+        "volume": 2312233.269
       },
       {
         "symbol": "COMP",
-        "realPrice": 51.65,
+        "realPrice": 46.44,
         "simulatorPrice": 68,
-        "difference": -24.04,
-        "percentageDiff": "-24.04%",
+        "difference": -31.71,
+        "percentageDiff": "-31.71%",
         "isOutdated": true,
-        "change24h": -8.438,
-        "volume": 162590.203
+        "change24h": -2.293,
+        "volume": 203175.282
       },
       {
         "symbol": "SNX",
-        "realPrice": 0.588,
+        "realPrice": 0.592,
         "simulatorPrice": 3.2,
-        "difference": -81.62,
-        "percentageDiff": "-81.62%",
+        "difference": -81.5,
+        "percentageDiff": "-81.5%",
         "isOutdated": true,
-        "change24h": -8.268,
-        "volume": 1851174
+        "change24h": 2.778,
+        "volume": 3696624.2
       },
       {
         "symbol": "MKR",
-        "realPrice": 2038,
+        "realPrice": 1915,
         "simulatorPrice": 1850,
-        "difference": 10.16,
-        "percentageDiff": "+10.16%",
+        "difference": 3.51,
+        "percentageDiff": "+3.51%",
         "isOutdated": false,
-        "change24h": -9.903,
-        "volume": 10068.3997
+        "change24h": -5.057,
+        "volume": 4450.7487
       },
       {
         "symbol": "MANA",
-        "realPrice": 0.2568,
+        "realPrice": 0.2599,
         "simulatorPrice": 0.45,
-        "difference": -42.93,
-        "percentageDiff": "-42.93%",
+        "difference": -42.24,
+        "percentageDiff": "-42.24%",
         "isOutdated": true,
-        "change24h": -5.658,
-        "volume": 9539765
+        "change24h": 0,
+        "volume": 7950793
       },
       {
         "symbol": "YFI",
-        "realPrice": 5051,
+        "realPrice": 5148,
         "simulatorPrice": 8500,
-        "difference": -40.58,
-        "percentageDiff": "-40.58%",
+        "difference": -39.44,
+        "percentageDiff": "-39.44%",
         "isOutdated": true,
-        "change24h": -3.735,
-        "volume": 199.90323
+        "change24h": -0.097,
+        "volume": 246.16164
       },
       {
         "symbol": "SAND",
-        "realPrice": 0.2571,
+        "realPrice": 0.2517,
         "simulatorPrice": 0.55,
-        "difference": -53.25,
-        "percentageDiff": "-53.25%",
+        "difference": -54.24,
+        "percentageDiff": "-54.24%",
         "isOutdated": true,
-        "change24h": -6.509,
-        "volume": 13322593
+        "change24h": -1.487,
+        "volume": 10365296
       },
       {
         "symbol": "DOT",
-        "realPrice": 3.724,
+        "realPrice": 3.394,
         "simulatorPrice": 8.5,
-        "difference": -56.19,
-        "percentageDiff": "-56.19%",
+        "difference": -60.07,
+        "percentageDiff": "-60.07%",
         "isOutdated": true,
-        "change24h": -5.554,
-        "volume": 4792817.56
+        "change24h": -2.021,
+        "volume": 3903136.19
       },
       {
         "symbol": "SUSHI",
-        "realPrice": 0.622,
+        "realPrice": 0.596,
         "simulatorPrice": 1.85,
-        "difference": -66.38,
-        "percentageDiff": "-66.38%",
+        "difference": -67.78,
+        "percentageDiff": "-67.78%",
         "isOutdated": true,
-        "change24h": -6.886,
-        "volume": 6484266.8
+        "change24h": -2.773,
+        "volume": 4474117.4
       },
       {
         "symbol": "UNI",
-        "realPrice": 7.349,
+        "realPrice": 6.971,
         "simulatorPrice": 8.2,
-        "difference": -10.38,
-        "percentageDiff": "-10.38%",
+        "difference": -14.99,
+        "percentageDiff": "-14.99%",
         "isOutdated": false,
-        "change24h": -6.394,
-        "volume": 13427887.82
+        "change24h": 0.158,
+        "volume": 10627184.42
       },
       {
         "symbol": "AVAX",
-        "realPrice": 18.64,
+        "realPrice": 17.74,
         "simulatorPrice": 35,
-        "difference": -46.74,
-        "percentageDiff": "-46.74%",
+        "difference": -49.31,
+        "percentageDiff": "-49.31%",
         "isOutdated": true,
-        "change24h": -5.525,
-        "volume": 2282953.84
+        "change24h": -2.367,
+        "volume": 1876234.71
       },
       {
         "symbol": "AAVE",
-        "realPrice": 266.49,
+        "realPrice": 258.23,
         "simulatorPrice": 125,
-        "difference": 113.19,
-        "percentageDiff": "+113.19%",
+        "difference": 106.58,
+        "percentageDiff": "+106.58%",
         "isOutdated": true,
-        "change24h": -7.818,
-        "volume": 268478.149
+        "change24h": -1.507,
+        "volume": 160795.041
       },
       {
         "symbol": "FIL",
-        "realPrice": 2.388,
+        "realPrice": 2.257,
         "simulatorPrice": 6.8,
-        "difference": -64.88,
-        "percentageDiff": "-64.88%",
+        "difference": -66.81,
+        "percentageDiff": "-66.81%",
         "isOutdated": true,
-        "change24h": -5.426,
-        "volume": 4646775.27
+        "change24h": -1.784,
+        "volume": 4741438.62
       }
     ],
     "suggestions": {
-      "BTC": 104249.06,
-      "ETH": 2497.81,
-      "BNB": 646.21,
-      "LTC": 84.06,
-      "ADA": 0.6108,
-      "XRP": 2.1788,
-      "TRX": 0.275,
-      "ETC": 16.47,
-      "VET": 0.02155,
-      "LINK": 13.04,
+      "BTC": 107595.27,
+      "ETH": 2405.69,
+      "BNB": 645.46,
+      "LTC": 84.51,
+      "ADA": 0.5738,
+      "XRP": 2.2006,
+      "TRX": 0.2716,
+      "ETC": 16.31,
+      "VET": 0.02126,
+      "LINK": 13.11,
       "MATIC": 0,
-      "ATOM": 4.036,
-      "ALGO": 0.1705,
-      "DOGE": 0.16769,
-      "BCH": 463.4,
-      "SOL": 147.54,
-      "COMP": 51.65,
-      "SNX": 0.588,
-      "MKR": 2038,
-      "MANA": 0.2568,
-      "YFI": 5051,
-      "SAND": 0.2571,
-      "DOT": 3.724,
-      "SUSHI": 0.622,
-      "UNI": 7.349,
-      "AVAX": 18.64,
-      "AAVE": 266.49,
-      "FIL": 2.388
+      "ATOM": 4.015,
+      "ALGO": 0.1795,
+      "DOGE": 0.16413,
+      "BCH": 478.5,
+      "SOL": 145.27,
+      "COMP": 46.44,
+      "SNX": 0.592,
+      "MKR": 1915,
+      "MANA": 0.2599,
+      "YFI": 5148,
+      "SAND": 0.2517,
+      "DOT": 3.394,
+      "SUSHI": 0.596,
+      "UNI": 6.971,
+      "AVAX": 17.74,
+      "AAVE": 258.23,
+      "FIL": 2.257
     },
     "statistics": {
-      "avgDifference": 3.09,
-      "maxDifference": 263.13,
+      "avgDifference": 1.77,
+      "maxDifference": 266.77,
       "minDifference": -100,
       "outdatedCount": 23
     }
   },
-  "generatedAt": "2025-06-17T16:01:11.027Z"
+  "generatedAt": "2025-06-25T14:32:06.036Z"
 }

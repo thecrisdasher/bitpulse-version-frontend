@@ -347,31 +347,7 @@ export default function CryptoDashboard() {
           
           <MarketOverviewBanner liveUpdates={liveUpdates} />
           
-          {/* Tabla de Mercados primero */}
-          <Tabs defaultValue="all" className="space-y-4 mt-8 mb-8">
-            <TabsList className="bg-card">
-              <TabsTrigger value="all">All Cryptocurrencies</TabsTrigger>
-              <TabsTrigger value="favorites">Favorites</TabsTrigger>
-              <TabsTrigger value="trending">Trending</TabsTrigger>
-              <TabsTrigger value="gainers">Top Gainers</TabsTrigger>
-              <TabsTrigger value="losers">Top Losers</TabsTrigger>
-            </TabsList>
-            <TabsContent value="all" className="space-y-4">
-              {renderCryptoList(filteredCryptos)}
-            </TabsContent>
-            <TabsContent value="favorites" className="space-y-4">
-              {renderCryptoList(cryptoData.filter((crypto) => favList.includes(crypto.id)))}
-            </TabsContent>
-            <TabsContent value="trending" className="space-y-4">
-              <TrendingPage liveUpdates={liveUpdates} />
-            </TabsContent>
-            <TabsContent value="gainers" className="space-y-4">
-              {renderCryptoList(getTopGainers(cryptoData))}
-            </TabsContent>
-            <TabsContent value="losers" className="space-y-4">
-              {renderCryptoList(getTopLosers(cryptoData))}
-            </TabsContent>
-          </Tabs>
+
 
           <BentoGrid liveUpdates={liveUpdates} cryptoData={displayData} />
 
