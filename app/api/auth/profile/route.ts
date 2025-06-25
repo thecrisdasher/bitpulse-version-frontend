@@ -37,7 +37,9 @@ async function handleGetProfile(request: NextRequest): Promise<NextResponse> {
     isActive: dbUser.isActive,
     profilePicture: dbUser.profilePicture || undefined,
     preferences: dbUser.preferences || undefined,
-    pejecoins: dbUser.pejecoins
+    pejecoins: dbUser.pejecoins,
+    twoFactorEnabled: dbUser.twoFactorEnabled || false,
+    twoFactorSecret: !!dbUser.twoFactorSecret // Solo retorna si existe, no el valor
   };
   return NextResponse.json({ success: true, data: user, timestamp: new Date().toISOString() });
 }
@@ -150,7 +152,9 @@ async function handleUpdateProfile(request: NextRequest): Promise<NextResponse> 
     isActive: updated.isActive,
     profilePicture: updated.profilePicture || undefined,
     preferences: updated.preferences || undefined,
-    pejecoins: updated.pejecoins
+    pejecoins: updated.pejecoins,
+    twoFactorEnabled: updated.twoFactorEnabled || false,
+    twoFactorSecret: !!updated.twoFactorSecret // Solo retorna si existe, no el valor
   };
   // Registrar actividad de usuario
   logger.logUserActivity('profile_updated', session.sub, { updatedFields: Object.keys(updateData) });

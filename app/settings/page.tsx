@@ -22,12 +22,8 @@ import {
   User, 
   Bell, 
   Shield, 
-  Palette, 
-  Database, 
-  Globe, 
   DollarSign,
   Target,
-  Volume2,
   Mail,
   Phone,
   Lock,
@@ -36,7 +32,6 @@ import {
   Save,
   AlertTriangle,
   Check,
-  TrendingUp,
   BarChart3,
   Settings2,
   Users,
@@ -45,7 +40,6 @@ import {
   Clock,
   Calendar
 } from "lucide-react";
-import { useTheme } from "next-themes";
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import TwoFactorSettings from '@/components/auth/TwoFactorSettings';
@@ -59,28 +53,23 @@ interface UserSettings {
   bio: string;
 }
 
-interface TradingSettings {
-  defaultLeverage: number;
-  riskPercentage: number;
-  autoStopLoss: boolean;
-  stopLossPercentage: number;
-  autoTakeProfit: boolean;
-  takeProfitPercentage: number;
-  tradingMode: 'conservative' | 'moderate' | 'aggressive';
-  maxDailyTrades: number;
-  confirmOrders: boolean;
-}
+
 
 interface NotificationSettings {
   emailNotifications: boolean;
-  pushNotifications: boolean;
-  smsNotifications: boolean;
-  priceAlerts: boolean;
-  newsAlerts: boolean;
-  tradingAlerts: boolean;
-  marketOpenClose: boolean;
-  portfolioUpdates: boolean;
+  withdrawalAlerts: boolean;
+  pejeCoinUpdates: boolean;
   mentorMessages: boolean;
+  adminUpdates: boolean;
+}
+
+interface RecentNotification {
+  id: string;
+  title: string;
+  body: string;
+  link: string;
+  isRead: boolean;
+  createdAt: string;
 }
 
 interface SecuritySettings {
@@ -117,13 +106,31 @@ interface ProfileChange {
   ipAddress: string | null;
 }
 
+// Interfaces para cambio de contraseña
+interface PasswordChangeForm {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
+interface PasswordValidation {
+  length: boolean;
+  uppercase: boolean;
+  lowercase: boolean;
+  number: boolean;
+  special: boolean;
+  match: boolean;
+}
+
 const SettingsPage = () => {
-  const { theme, setTheme } = useTheme();
   const [showPassword, setShowPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [savedMessage, setSavedMessage] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const { user, hasRole } = useAuth();
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const { user, hasRole, logout } = useAuth();
   const isAdmin = hasRole('admin');
 
   // Mock users para pruebas
@@ -150,29 +157,20 @@ const SettingsPage = () => {
     bio: '',
   });
 
-  const [tradingSettings, setTradingSettings] = useState<TradingSettings>({
-    defaultLeverage: 10,
-    riskPercentage: 2,
-    autoStopLoss: true,
-    stopLossPercentage: 5,
-    autoTakeProfit: true,
-    takeProfitPercentage: 10,
-    tradingMode: 'moderate',
-    maxDailyTrades: 20,
-    confirmOrders: true
-  });
+
 
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
     emailNotifications: true,
-    pushNotifications: true,
-    smsNotifications: false,
-    priceAlerts: true,
-    newsAlerts: true,
-    tradingAlerts: true,
-    marketOpenClose: false,
-    portfolioUpdates: true,
-    mentorMessages: true
+    withdrawalAlerts: true,
+    pejeCoinUpdates: true,
+    mentorMessages: true,
+    adminUpdates: true,
   });
+
+  // Estado para notificaciones recientes
+  const [recentNotifications, setRecentNotifications] = useState<RecentNotification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
 
   const [securitySettings, setSecuritySettings] = useState<SecuritySettings>({
     twoFactorAuth: true,
@@ -191,6 +189,25 @@ const SettingsPage = () => {
   const [profileHistory, setProfileHistory] = useState<ProfileChange[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
+  // Estado para cambio de contraseña
+  const [passwordForm, setPasswordForm] = useState<PasswordChangeForm>({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+
+  // Validaciones de contraseña
+  const passwordValidations: PasswordValidation = {
+    length: passwordForm.newPassword.length >= 8,
+    uppercase: /[A-Z]/.test(passwordForm.newPassword),
+    lowercase: /[a-z]/.test(passwordForm.newPassword),
+    number: /\d/.test(passwordForm.newPassword),
+    special: /[!@#$%^&*(),.?":{}|<>]/.test(passwordForm.newPassword),
+    match: passwordForm.newPassword === passwordForm.confirmPassword && passwordForm.newPassword !== ''
+  };
+
+  const isPasswordValid = Object.values(passwordValidations).every(Boolean) && passwordForm.currentPassword !== '';
+
   // Cargar datos del usuario actual cuando esté disponible
   useEffect(() => {
     if (user) {
@@ -206,6 +223,7 @@ const SettingsPage = () => {
       setUserBalance((user as any).pejecoins || 0);
       loadWithdrawalHistory();
       loadProfileHistory();
+      loadRecentNotifications();
     }
   }, [user]);
 
@@ -241,6 +259,47 @@ const SettingsPage = () => {
       console.error('Error loading profile history:', error);
     } finally {
       setIsLoadingHistory(false);
+    }
+  };
+
+  // Cargar notificaciones recientes
+  const loadRecentNotifications = async () => {
+    try {
+      setIsLoadingNotifications(true);
+      const response = await fetch('/api/notifications/recent', {
+        credentials: 'include'
+      });
+      const result = await response.json();
+      
+      if (result.success) {
+        setRecentNotifications(result.notifications);
+        setUnreadCount(result.unreadCount);
+      }
+    } catch (error) {
+      console.error('Error loading recent notifications:', error);
+    } finally {
+      setIsLoadingNotifications(false);
+    }
+  };
+
+  // Marcar todas las notificaciones como leídas
+  const markAllAsRead = async () => {
+    try {
+      const response = await fetch('/api/notifications/recent', {
+        method: 'PATCH',
+        credentials: 'include'
+      });
+      
+      if (response.ok) {
+        setRecentNotifications(prev => 
+          prev.map(n => ({ ...n, isRead: true }))
+        );
+        setUnreadCount(0);
+        toast.success('Todas las notificaciones marcadas como leídas');
+      }
+    } catch (error) {
+      console.error('Error marking notifications as read:', error);
+      toast.error('Error al marcar notificaciones como leídas');
     }
   };
 
@@ -305,9 +364,7 @@ const SettingsPage = () => {
     setUserSettings(prev => ({ ...prev, [key]: value }));
   };
 
-  const updateTradingSetting = (key: keyof TradingSettings, value: any) => {
-    setTradingSettings(prev => ({ ...prev, [key]: value }));
-  };
+
 
   const updateNotificationSetting = (key: keyof NotificationSettings, value: boolean) => {
     setNotificationSettings(prev => ({ ...prev, [key]: value }));
@@ -377,24 +434,70 @@ const SettingsPage = () => {
     }
   };
 
-  const getTradingModeColor = (mode: string) => {
-    switch (mode) {
-      case 'conservative': return 'bg-green-500/20 text-green-700 dark:text-green-400';
-      case 'moderate': return 'bg-blue-500/20 text-blue-700 dark:text-blue-400';
-      case 'aggressive': return 'bg-red-500/20 text-red-700 dark:text-red-400';
-      default: return 'bg-gray-500/20 text-gray-700 dark:text-gray-400';
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!isPasswordValid) {
+      toast.error('Por favor corrige los errores en la contraseña');
+      return;
+    }
+
+    setIsChangingPassword(true);
+    
+    try {
+      const response = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          currentPassword: passwordForm.currentPassword,
+          newPassword: passwordForm.newPassword,
+          isFirstTimeChange: false
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        toast.success('Contraseña cambiada exitosamente');
+        
+        // Limpiar formulario
+        setPasswordForm({
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: ''
+        });
+
+        // Si requiere reautenticación
+        if (data.requiresReauth) {
+          toast.info('Por seguridad, debes iniciar sesión nuevamente');
+          setTimeout(async () => {
+            await logout();
+            window.location.href = '/auth?message=password_changed_successfully';
+          }, 2000);
+        }
+      } else {
+        toast.error(data.message || 'Error al cambiar la contraseña');
+      }
+    } catch (error) {
+      console.error('Error changing password:', error);
+      toast.error('Error de conexión. Intenta nuevamente.');
+    } finally {
+      setIsChangingPassword(false);
     }
   };
-  
+
+  const updatePasswordForm = (key: keyof PasswordChangeForm, value: string) => {
+    setPasswordForm(prev => ({ ...prev, [key]: value }));
+  };
+
   // Determinar las pestañas disponibles según el rol
   const tabItems = [
     <TabsTrigger key="profile" value="profile" className="flex items-center gap-2">
       <User className="h-4 w-4" />
       Perfil
-    </TabsTrigger>,
-    <TabsTrigger key="trading" value="trading" className="flex items-center gap-2">
-      <TrendingUp className="h-4 w-4" />
-      Trading
     </TabsTrigger>,
     <TabsTrigger key="notifications" value="notifications" className="flex items-center gap-2">
       <Bell className="h-4 w-4" />
@@ -407,10 +510,6 @@ const SettingsPage = () => {
     <TabsTrigger key="withdrawal" value="withdrawal" className="flex items-center gap-2">
       <CreditCard className="h-4 w-4" />
       Retiro
-    </TabsTrigger>,
-    <TabsTrigger key="appearance" value="appearance" className="flex items-center gap-2">
-      <Palette className="h-4 w-4" />
-      Apariencia
     </TabsTrigger>
   ];
   
@@ -588,153 +687,110 @@ const SettingsPage = () => {
 
         </TabsContent>
 
-        {/* Trading */}
-        <TabsContent value="trading" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
-                Configuración de Trading
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Apalancamiento por defecto</Label>
-                    <Select 
-                      value={tradingSettings.defaultLeverage.toString()} 
-                      onValueChange={(value) => updateTradingSetting('defaultLeverage', parseInt(value))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="1">1:1</SelectItem>
-                        <SelectItem value="5">1:5</SelectItem>
-                        <SelectItem value="10">1:10</SelectItem>
-                        <SelectItem value="20">1:20</SelectItem>
-                        <SelectItem value="50">1:50</SelectItem>
-                        <SelectItem value="100">1:100</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Riesgo por operación (%)</Label>
-                    <Input
-                      type="number"
-                      min="0.1"
-                      max="10"
-                      step="0.1"
-                      value={tradingSettings.riskPercentage}
-                      onChange={(e) => updateTradingSetting('riskPercentage', parseFloat(e.target.value))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Máximo de operaciones diarias</Label>
-                    <Input
-                      type="number"
-                      min="1"
-                      max="100"
-                      value={tradingSettings.maxDailyTrades}
-                      onChange={(e) => updateTradingSetting('maxDailyTrades', parseInt(e.target.value))}
-                    />
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Modo de trading</Label>
-                    <Select 
-                      value={tradingSettings.tradingMode} 
-                      onValueChange={(value) => updateTradingSetting('tradingMode', value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="conservative">Conservador</SelectItem>
-                        <SelectItem value="moderate">Moderado</SelectItem>
-                        <SelectItem value="aggressive">Agresivo</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Badge className={getTradingModeColor(tradingSettings.tradingMode)}>
-                      {tradingSettings.tradingMode === 'conservative' && 'Bajo riesgo, ganancias estables'}
-                      {tradingSettings.tradingMode === 'moderate' && 'Riesgo equilibrado, crecimiento constante'}
-                      {tradingSettings.tradingMode === 'aggressive' && 'Alto riesgo, alto potencial'}
-                    </Badge>
-                  </div>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Gestión Automática de Riesgo</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="autoStopLoss">Stop Loss automático</Label>
-                      <Switch
-                        id="autoStopLoss"
-                        checked={tradingSettings.autoStopLoss}
-                        onCheckedChange={(checked) => updateTradingSetting('autoStopLoss', checked)}
-                      />
-                    </div>
-                    {tradingSettings.autoStopLoss && (
-                      <div className="ml-4 space-y-2">
-                        <Label>Porcentaje de Stop Loss (%)</Label>
-                        <Input
-                          type="number"
-                          min="1"
-                          max="20"
-                          value={tradingSettings.stopLossPercentage}
-                          onChange={(e) => updateTradingSetting('stopLossPercentage', parseFloat(e.target.value))}
-                        />
-                      </div>
-                    )}
-                  </div>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="autoTakeProfit">Take Profit automático</Label>
-                      <Switch
-                        id="autoTakeProfit"
-                        checked={tradingSettings.autoTakeProfit}
-                        onCheckedChange={(checked) => updateTradingSetting('autoTakeProfit', checked)}
-                      />
-                    </div>
-                    {tradingSettings.autoTakeProfit && (
-                      <div className="ml-4 space-y-2">
-                        <Label>Porcentaje de Take Profit (%)</Label>
-                        <Input
-                          type="number"
-                          min="5"
-                          max="50"
-                          value={tradingSettings.takeProfitPercentage}
-                          onChange={(e) => updateTradingSetting('takeProfitPercentage', parseFloat(e.target.value))}
-                        />
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="confirmOrders">Confirmar órdenes antes de ejecutar</Label>
-                  <Switch
-                    id="confirmOrders"
-                    checked={tradingSettings.confirmOrders}
-                    onCheckedChange={(checked) => updateTradingSetting('confirmOrders', checked)}
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
         {/* Notificaciones */}
         <TabsContent value="notifications" className="space-y-6">
+          {/* Notificaciones Recientes */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Bell className="h-5 w-5" />
+                  Notificaciones Recientes
+                </div>
+                {unreadCount > 0 && (
+                  <div className="flex items-center gap-2">
+                    <Badge variant="default" className="rounded-full">
+                      {unreadCount} sin leer
+                    </Badge>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={markAllAsRead}
+                    >
+                      Marcar todas como leídas
+                    </Button>
+                  </div>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoadingNotifications ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                  <span className="ml-3 text-muted-foreground">Cargando notificaciones...</span>
+                </div>
+              ) : recentNotifications.length > 0 ? (
+                <div className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Últimas alertas y actualizaciones de tu cuenta
+                  </p>
+                  <div className="space-y-3">
+                    {recentNotifications.map((notification) => (
+                      <div 
+                        key={notification.id} 
+                        className={`p-4 rounded-lg border transition-colors hover:bg-muted/50 cursor-pointer ${
+                          !notification.isRead ? 'bg-primary/5 border-primary/20' : 'bg-background'
+                        }`}
+                        onClick={() => {
+                          // Aquí podrías navegar al link si fuera necesario
+                          window.location.href = notification.link;
+                        }}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <h4 className={`font-medium ${!notification.isRead ? 'text-primary' : ''}`}>
+                                {notification.title}
+                              </h4>
+                              {!notification.isRead && (
+                                <div className="h-2 w-2 bg-primary rounded-full"></div>
+                              )}
+                            </div>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              {notification.body}
+                            </p>
+                            <div className="flex items-center gap-1 mt-2">
+                              <Calendar className="h-3 w-3 text-muted-foreground" />
+                              <span className="text-xs text-muted-foreground">
+                                {new Date(notification.createdAt).toLocaleDateString('es-CO', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {recentNotifications.length >= 20 && (
+                    <p className="text-xs text-muted-foreground text-center">
+                      Mostrando las últimas 20 notificaciones
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Bell className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">
+                    No tienes notificaciones aún
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Aquí aparecerán las actualizaciones de tu cuenta
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Preferencias de Notificaciones */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Bell className="h-5 w-5" />
+                <Settings2 className="h-5 w-5" />
                 Preferencias de Notificaciones
               </CardTitle>
             </CardHeader>
@@ -745,34 +801,15 @@ const SettingsPage = () => {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Mail className="h-4 w-4" />
-                      <Label htmlFor="emailNotifications">Notificaciones por email</Label>
+                      <div>
+                        <Label htmlFor="emailNotifications">Notificaciones por email</Label>
+                        <p className="text-sm text-muted-foreground">Recibe notificaciones en tu correo electrónico</p>
+                      </div>
                     </div>
                     <Switch
                       id="emailNotifications"
                       checked={notificationSettings.emailNotifications}
                       onCheckedChange={(checked) => updateNotificationSetting('emailNotifications', checked)}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Bell className="h-4 w-4" />
-                      <Label htmlFor="pushNotifications">Notificaciones push</Label>
-                    </div>
-                    <Switch
-                      id="pushNotifications"
-                      checked={notificationSettings.pushNotifications}
-                      onCheckedChange={(checked) => updateNotificationSetting('pushNotifications', checked)}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Phone className="h-4 w-4" />
-                      <Label htmlFor="smsNotifications">Notificaciones por SMS</Label>
-                    </div>
-                    <Switch
-                      id="smsNotifications"
-                      checked={notificationSettings.smsNotifications}
-                      onCheckedChange={(checked) => updateNotificationSetting('smsNotifications', checked)}
                     />
                   </div>
                 </div>
@@ -782,58 +819,62 @@ const SettingsPage = () => {
 
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold">Tipos de notificaciones</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="priceAlerts">Alertas de precio</Label>
-                      <Switch
-                        id="priceAlerts"
-                        checked={notificationSettings.priceAlerts}
-                        onCheckedChange={(checked) => updateNotificationSetting('priceAlerts', checked)}
-                      />
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <CreditCard className="h-4 w-4" />
+                      <div>
+                        <Label htmlFor="withdrawalAlerts">Alertas de retiros</Label>
+                        <p className="text-sm text-muted-foreground">Notificaciones sobre tus solicitudes de retiro</p>
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="tradingAlerts">Alertas de trading</Label>
-                      <Switch
-                        id="tradingAlerts"
-                        checked={notificationSettings.tradingAlerts}
-                        onCheckedChange={(checked) => updateNotificationSetting('tradingAlerts', checked)}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="portfolioUpdates">Actualizaciones de portfolio</Label>
-                      <Switch
-                        id="portfolioUpdates"
-                        checked={notificationSettings.portfolioUpdates}
-                        onCheckedChange={(checked) => updateNotificationSetting('portfolioUpdates', checked)}
-                      />
-                    </div>
+                    <Switch
+                      id="withdrawalAlerts"
+                      checked={notificationSettings.withdrawalAlerts}
+                      onCheckedChange={(checked) => updateNotificationSetting('withdrawalAlerts', checked)}
+                    />
                   </div>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="newsAlerts">Alertas de noticias</Label>
-                      <Switch
-                        id="newsAlerts"
-                        checked={notificationSettings.newsAlerts}
-                        onCheckedChange={(checked) => updateNotificationSetting('newsAlerts', checked)}
-                      />
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Coins className="h-4 w-4" />
+                      <div>
+                        <Label htmlFor="pejeCoinUpdates">Actualizaciones de saldo</Label>
+                        <p className="text-sm text-muted-foreground">Notificaciones cuando se actualice tu saldo</p>
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="marketOpenClose">Apertura/cierre de mercados</Label>
-                      <Switch
-                        id="marketOpenClose"
-                        checked={notificationSettings.marketOpenClose}
-                        onCheckedChange={(checked) => updateNotificationSetting('marketOpenClose', checked)}
-                      />
+                    <Switch
+                      id="pejeCoinUpdates"
+                      checked={notificationSettings.pejeCoinUpdates}
+                      onCheckedChange={(checked) => updateNotificationSetting('pejeCoinUpdates', checked)}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4" />
+                      <div>
+                        <Label htmlFor="mentorMessages">Mensajes de mentores</Label>
+                        <p className="text-sm text-muted-foreground">Notificaciones de mensajes de tus mentores</p>
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="mentorMessages">Mensajes de mentores</Label>
-                      <Switch
-                        id="mentorMessages"
-                        checked={notificationSettings.mentorMessages}
-                        onCheckedChange={(checked) => updateNotificationSetting('mentorMessages', checked)}
-                      />
+                    <Switch
+                      id="mentorMessages"
+                      checked={notificationSettings.mentorMessages}
+                      onCheckedChange={(checked) => updateNotificationSetting('mentorMessages', checked)}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Shield className="h-4 w-4" />
+                      <div>
+                        <Label htmlFor="adminUpdates">Notificaciones administrativas</Label>
+                        <p className="text-sm text-muted-foreground">Actualizaciones importantes del sistema</p>
+                      </div>
                     </div>
+                    <Switch
+                      id="adminUpdates"
+                      checked={notificationSettings.adminUpdates}
+                      onCheckedChange={(checked) => updateNotificationSetting('adminUpdates', checked)}
+                    />
                   </div>
                 </div>
               </div>
@@ -932,153 +973,144 @@ const SettingsPage = () => {
 
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold">Cambiar contraseña</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="currentPassword">Contraseña actual</Label>
-                    <div className="relative">
-                      <Input
-                        id="currentPassword"
-                        type={showPassword ? "text" : "password"}
-                        placeholder="••••••••"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                        onClick={() => setShowPassword(!showPassword)}
-                      >
-                        {showPassword ? (
-                          <EyeOff className="h-4 w-4" />
-                        ) : (
-                          <Eye className="h-4 w-4" />
+                <form onSubmit={handlePasswordChange} className="space-y-4">
+                  <div className="grid grid-cols-1 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="currentPassword">Contraseña actual</Label>
+                      <div className="relative">
+                        <Input
+                          id="currentPassword"
+                          type={showPassword ? "text" : "password"}
+                          value={passwordForm.currentPassword}
+                          onChange={(e) => updatePasswordForm('currentPassword', e.target.value)}
+                          placeholder="Ingresa tu contraseña actual"
+                          required
+                          disabled={isChangingPassword}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                          onClick={() => setShowPassword(!showPassword)}
+                        >
+                          {showPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="newPassword">Nueva contraseña</Label>
+                      <div className="relative">
+                        <Input
+                          id="newPassword"
+                          type={showNewPassword ? "text" : "password"}
+                          value={passwordForm.newPassword}
+                          onChange={(e) => updatePasswordForm('newPassword', e.target.value)}
+                          placeholder="Crea una nueva contraseña segura"
+                          required
+                          disabled={isChangingPassword}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                          onClick={() => setShowNewPassword(!showNewPassword)}
+                        >
+                          {showNewPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="confirmPassword">Confirmar nueva contraseña</Label>
+                      <div className="relative">
+                        <Input
+                          id="confirmPassword"
+                          type={showConfirmPassword ? "text" : "password"}
+                          value={passwordForm.confirmPassword}
+                          onChange={(e) => updatePasswordForm('confirmPassword', e.target.value)}
+                          placeholder="Confirma tu nueva contraseña"
+                          required
+                          disabled={isChangingPassword}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        >
+                          {showConfirmPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Validaciones visuales */}
+                  {passwordForm.newPassword && (
+                    <div className="space-y-2 text-sm">
+                      <p className="font-medium">Requisitos de la contraseña:</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                        <div className={`flex items-center gap-2 ${passwordValidations.length ? 'text-green-600' : 'text-red-600'}`}>
+                          {passwordValidations.length ? <Check className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
+                          <span>Mínimo 8 caracteres</span>
+                        </div>
+                        <div className={`flex items-center gap-2 ${passwordValidations.uppercase ? 'text-green-600' : 'text-red-600'}`}>
+                          {passwordValidations.uppercase ? <Check className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
+                          <span>Al menos una mayúscula</span>
+                        </div>
+                        <div className={`flex items-center gap-2 ${passwordValidations.lowercase ? 'text-green-600' : 'text-red-600'}`}>
+                          {passwordValidations.lowercase ? <Check className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
+                          <span>Al menos una minúscula</span>
+                        </div>
+                        <div className={`flex items-center gap-2 ${passwordValidations.number ? 'text-green-600' : 'text-red-600'}`}>
+                          {passwordValidations.number ? <Check className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
+                          <span>Al menos un número</span>
+                        </div>
+                        <div className={`flex items-center gap-2 ${passwordValidations.special ? 'text-green-600' : 'text-red-600'}`}>
+                          {passwordValidations.special ? <Check className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
+                          <span>Al menos un símbolo especial</span>
+                        </div>
+                        {passwordForm.confirmPassword && (
+                          <div className={`flex items-center gap-2 ${passwordValidations.match ? 'text-green-600' : 'text-red-600'}`}>
+                            {passwordValidations.match ? <Check className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
+                            <span>Las contraseñas coinciden</span>
+                          </div>
                         )}
-                      </Button>
+                      </div>
                     </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="newPassword">Nueva contraseña</Label>
-                    <Input
-                      id="newPassword"
-                      type="password"
-                      placeholder="••••••••"
-                    />
-                  </div>
-                </div>
-                <Button variant="outline" className="w-full">
-                  <Lock className="h-4 w-4 mr-2" />
-                  Cambiar contraseña
-                </Button>
+                  )}
+                  
+                  <Button 
+                    type="submit" 
+                    variant="outline" 
+                    className="w-full"
+                    disabled={!isPasswordValid || isChangingPassword}
+                  >
+                    <Lock className="h-4 w-4 mr-2" />
+                    {isChangingPassword ? 'Cambiando contraseña...' : 'Cambiar contraseña'}
+                  </Button>
+                </form>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Apariencia */}
-        <TabsContent value="appearance" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Palette className="h-5 w-5" />
-                Personalización visual
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Tema</h3>
-                <div className="grid grid-cols-3 gap-4">
-                  <Button
-                    variant={theme === "light" ? "default" : "outline"}
-                    className="h-16"
-                    onClick={() => setTheme("light")}
-                  >
-                    <div className="text-center">
-                      <div className="w-8 h-8 mx-auto mb-2 bg-white border rounded"></div>
-                      <span className="text-sm">Claro</span>
-                    </div>
-                  </Button>
-                  <Button
-                    variant={theme === "dark" ? "default" : "outline"}
-                    className="h-16"
-                    onClick={() => setTheme("dark")}
-                  >
-                    <div className="text-center">
-                      <div className="w-8 h-8 mx-auto mb-2 bg-gray-900 border rounded"></div>
-                      <span className="text-sm">Oscuro</span>
-                    </div>
-                  </Button>
-                  <Button
-                    variant={theme === "system" ? "default" : "outline"}
-                    className="h-16"
-                    onClick={() => setTheme("system")}
-                  >
-                    <div className="text-center">
-                      <div className="w-8 h-8 mx-auto mb-2 bg-gradient-to-r from-white to-gray-900 border rounded"></div>
-                      <span className="text-sm">Sistema</span>
-                    </div>
-                  </Button>
-                </div>
-              </div>
 
-              <Separator />
-
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Gráficos</h3>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Estilo de gráfico predeterminado</Label>
-                    <Select defaultValue="candlestick">
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="candlestick">Velas japonesas</SelectItem>
-                        <SelectItem value="line">Línea</SelectItem>
-                        <SelectItem value="area">Área</SelectItem>
-                        <SelectItem value="bar">Barras</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Color de velas alcistas</Label>
-                    <div className="flex gap-2">
-                      <div className="w-8 h-8 bg-green-500 rounded border cursor-pointer"></div>
-                      <div className="w-8 h-8 bg-blue-500 rounded border cursor-pointer"></div>
-                      <div className="w-8 h-8 bg-emerald-500 rounded border cursor-pointer"></div>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Color de velas bajistas</Label>
-                    <div className="flex gap-2">
-                      <div className="w-8 h-8 bg-red-500 rounded border cursor-pointer"></div>
-                      <div className="w-8 h-8 bg-orange-500 rounded border cursor-pointer"></div>
-                      <div className="w-8 h-8 bg-pink-500 rounded border cursor-pointer"></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Sonidos</h3>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Volume2 className="h-4 w-4" />
-                      <Label htmlFor="soundNotifications">Notificaciones de sonido</Label>
-                    </div>
-                    <Switch id="soundNotifications" defaultChecked />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Volumen</Label>
-                    <Input type="range" min="0" max="100" defaultValue="70" className="w-full" />
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
 
         {/* Retiro */}
         <TabsContent value="withdrawal" className="space-y-6">
