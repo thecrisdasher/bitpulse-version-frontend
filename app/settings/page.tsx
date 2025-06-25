@@ -41,7 +41,9 @@ import {
   Settings2,
   Users,
   Coins,
-  CreditCard
+  CreditCard,
+  Clock,
+  Calendar
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useAuth } from '@/contexts/AuthContext';
@@ -55,9 +57,6 @@ interface UserSettings {
   email: string;
   phone: string;
   bio: string;
-  timezone: string;
-  language: string;
-  currency: string;
 }
 
 interface TradingSettings {
@@ -108,10 +107,22 @@ interface UserListItem {
   pejecoins: number;
 }
 
+interface ProfileChange {
+  id: string;
+  field: string;
+  fieldName: string;
+  oldValue: string | null;
+  newValue: string | null;
+  changedAt: string;
+  ipAddress: string | null;
+}
+
 const SettingsPage = () => {
   const { theme, setTheme } = useTheme();
   const [showPassword, setShowPassword] = useState(false);
   const [savedMessage, setSavedMessage] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const { user, hasRole } = useAuth();
   const isAdmin = hasRole('admin');
 
@@ -133,13 +144,10 @@ const SettingsPage = () => {
 
   // Estados para las diferentes configuraciones
   const [userSettings, setUserSettings] = useState<UserSettings>({
-    displayName: 'Usuario BitPulse',
-    email: 'usuario@bitpulse.com',
-    phone: '+57 300 123 4567',
-    bio: 'Trader apasionado por los mercados financieros',
-    timezone: 'America/Bogota',
-    language: 'es',
-    currency: 'COP'
+    displayName: '',
+    email: '',
+    phone: '',
+    bio: '',
   });
 
   const [tradingSettings, setTradingSettings] = useState<TradingSettings>({
@@ -179,18 +187,25 @@ const SettingsPage = () => {
   const [showWithdrawalForm, setShowWithdrawalForm] = useState(false);
   const [withdrawalHistory, setWithdrawalHistory] = useState<any[]>([]);
 
+  // Estado para historial de cambios
+  const [profileHistory, setProfileHistory] = useState<ProfileChange[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
   // Cargar datos del usuario actual cuando esté disponible
   useEffect(() => {
     if (user) {
       setUserSettings(prev => ({
         ...prev,
-        displayName: `${user.firstName} ${user.lastName}` || prev.displayName,
-        email: user.email || prev.email,
+        displayName: `${user.firstName} ${user.lastName}` || '',
+        email: user.email || '',
+        phone: user.phone || '',
+        bio: user.bio || '',
       }));
       
       // Cargar balance del usuario (pejecoins)
       setUserBalance((user as any).pejecoins || 0);
       loadWithdrawalHistory();
+      loadProfileHistory();
     }
   }, [user]);
 
@@ -210,10 +225,80 @@ const SettingsPage = () => {
     }
   };
 
-  const handleSave = () => {
-    // Simular guardado
-    setSavedMessage(true);
-    setTimeout(() => setSavedMessage(false), 3000);
+  // Cargar historial de cambios del perfil
+  const loadProfileHistory = async () => {
+    try {
+      setIsLoadingHistory(true);
+      const response = await fetch('/api/auth/profile/history', {
+        credentials: 'include'
+      });
+      const result = await response.json();
+      
+      if (result.success) {
+        setProfileHistory(result.data);
+      }
+    } catch (error) {
+      console.error('Error loading profile history:', error);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!user) return;
+    
+    setIsSaving(true);
+    try {
+      // Validaciones básicas
+      if (!userSettings.displayName.trim()) {
+        toast.error('El nombre para mostrar es requerido');
+        setIsSaving(false);
+        return;
+      }
+
+      // Preparar datos para actualizar
+      const nameParts = userSettings.displayName.trim().split(' ');
+      const firstName = nameParts[0] || user.firstName;
+      const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : user.lastName;
+      
+      const updateData = {
+        firstName,
+        lastName,
+        phone: userSettings.phone,
+        bio: userSettings.bio,
+      };
+
+      const response = await fetch('/api/auth/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(updateData),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Error al actualizar perfil');
+      }
+
+            // Mostrar mensaje de éxito
+      setSavedMessage(true);
+      setTimeout(() => setSavedMessage(false), 3000);
+      
+      // Recargar historial para mostrar los cambios
+      loadProfileHistory();
+      
+      // Opcional: actualizar contexto de usuario si es necesario
+      toast.success('Perfil actualizado correctamente');
+      
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      toast.error(error instanceof Error ? error.message : 'Error al actualizar perfil');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const updateUserSetting = (key: keyof UserSettings, value: string) => {
@@ -387,8 +472,13 @@ const SettingsPage = () => {
                     id="email"
                     type="email"
                     value={userSettings.email}
-                    onChange={(e) => updateUserSetting('email', e.target.value)}
+                    readOnly
+                    disabled
+                    className="bg-muted cursor-not-allowed"
                   />
+                  <p className="text-xs text-muted-foreground">
+                    El correo electrónico no puede editarse desde aquí
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="phone">Teléfono</Label>
@@ -396,22 +486,8 @@ const SettingsPage = () => {
                     id="phone"
                     value={userSettings.phone}
                     onChange={(e) => updateUserSetting('phone', e.target.value)}
+                    placeholder="+57 300 123 4567"
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="timezone">Zona horaria</Label>
-                  <Select value={userSettings.timezone} onValueChange={(value) => updateUserSetting('timezone', value)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="America/Bogota">Bogotá (GMT-5)</SelectItem>
-                      <SelectItem value="America/Mexico_City">México (GMT-6)</SelectItem>
-                      <SelectItem value="America/New_York">Nueva York (GMT-5)</SelectItem>
-                      <SelectItem value="Europe/London">Londres (GMT+0)</SelectItem>
-                      <SelectItem value="Asia/Tokyo">Tokio (GMT+9)</SelectItem>
-                    </SelectContent>
-                  </Select>
                 </div>
               </div>
               <div className="space-y-2">
@@ -426,45 +502,90 @@ const SettingsPage = () => {
             </CardContent>
           </Card>
 
+          {/* Historial de Cambios */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Globe className="h-5 w-5" />
-                Preferencias Regionales
+                <Clock className="h-5 w-5" />
+                Historial de Cambios
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Idioma</Label>
-                  <Select value={userSettings.language} onValueChange={(value) => updateUserSetting('language', value)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="es">Español</SelectItem>
-                      <SelectItem value="en">English</SelectItem>
-                      <SelectItem value="pt">Português</SelectItem>
-                    </SelectContent>
-                  </Select>
+            <CardContent>
+              {isLoadingHistory ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                  <span className="ml-3 text-muted-foreground">Cargando historial...</span>
                 </div>
-                <div className="space-y-2">
-                  <Label>Moneda principal</Label>
-                  <Select value={userSettings.currency} onValueChange={(value) => updateUserSetting('currency', value)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="COP">COP - Peso Colombiano</SelectItem>
-                      <SelectItem value="USD">USD - Dólar Americano</SelectItem>
-                      <SelectItem value="EUR">EUR - Euro</SelectItem>
-                      <SelectItem value="MXN">MXN - Peso Mexicano</SelectItem>
-                    </SelectContent>
-                  </Select>
+              ) : profileHistory.length > 0 ? (
+                <div className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Últimas modificaciones realizadas en tu perfil
+                  </p>
+                  <div className="border rounded-lg overflow-hidden">
+                    <table className="min-w-full divide-y divide-border">
+                      <thead className="bg-muted">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Campo</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Valor Anterior</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Valor Nuevo</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Fecha</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-card divide-y divide-border">
+                        {profileHistory.slice(0, 10).map((change) => (
+                          <tr key={change.id} className="hover:bg-muted/50">
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              <Badge variant="outline" className="font-medium">
+                                {change.fieldName}
+                              </Badge>
+                            </td>
+                            <td className="px-4 py-3 max-w-xs truncate">
+                              <span className="text-muted-foreground">
+                                {change.oldValue || <em className="text-xs">Sin valor</em>}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 max-w-xs truncate">
+                              <span className="font-medium">
+                                {change.newValue || <em className="text-xs">Sin valor</em>}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-muted-foreground">
+                              <div className="flex items-center gap-1">
+                                <Calendar className="h-3 w-3" />
+                                {new Date(change.changedAt).toLocaleDateString('es-CO', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {profileHistory.length > 10 && (
+                    <p className="text-xs text-muted-foreground text-center">
+                      Mostrando los últimos 10 cambios de {profileHistory.length} total
+                    </p>
+                  )}
                 </div>
-              </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Clock className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">
+                    No hay cambios registrados aún
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Los cambios que realices en tu perfil aparecerán aquí
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
+
         </TabsContent>
 
         {/* Trading */}
@@ -1181,9 +1302,9 @@ const SettingsPage = () => {
 
       {/* Botón de guardar */}
       <div className="flex justify-end pt-6">
-        <Button onClick={handleSave} className="min-w-32">
+        <Button onClick={handleSave} className="min-w-32" disabled={isSaving}>
           <Save className="h-4 w-4 mr-2" />
-          Guardar cambios
+          {isSaving ? 'Guardando...' : 'Guardar cambios'}
         </Button>
       </div>
     </div>

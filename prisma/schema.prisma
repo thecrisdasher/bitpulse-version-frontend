@@ -58,6 +58,8 @@ model User {
   password                  String
   firstName                 String
   lastName                  String
+  phone                     String?
+  bio                       String?
   role                      UserRole                @default(cliente)
   emailConfirmed            Boolean                 @default(false)
   emailConfirmationToken    String?
@@ -94,6 +96,7 @@ model User {
   clientComments            ClientComment[]           @relation("ClientComments")
   authoredComments          ClientComment[]           @relation("AuthorComments")
   withdrawals               Withdrawal[]              @relation("UserWithdrawals")
+  profileChanges            ProfileChangeHistory[]    @relation("UserProfileChanges")
   @@map("users")
 }
 
@@ -306,4 +309,22 @@ model Withdrawal {
   adminNotes      String?          // Notas del administrador
   
   @@map("withdrawals")
+}
+
+// ---------------------------
+// 🚀 Módulo de Historial de Cambios de Perfil
+// ---------------------------
+
+model ProfileChangeHistory {
+  id          String   @id @default(uuid())
+  user        User     @relation("UserProfileChanges", fields: [userId], references: [id])
+  userId      String
+  field       String   // Campo modificado: 'firstName', 'lastName', 'phone', 'bio'
+  oldValue    String?  // Valor anterior
+  newValue    String?  // Valor nuevo
+  changedAt   DateTime @default(now())
+  ipAddress   String?  // IP desde donde se hizo el cambio
+  userAgent   String?  // User agent del navegador
+  
+  @@map("profile_change_history")
 }

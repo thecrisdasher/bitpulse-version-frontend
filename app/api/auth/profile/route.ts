@@ -28,6 +28,8 @@ async function handleGetProfile(request: NextRequest): Promise<NextResponse> {
     email: dbUser.email,
     firstName: dbUser.firstName,
     lastName: dbUser.lastName,
+    phone: dbUser.phone,
+    bio: dbUser.bio,
     role: dbUser.role,
     createdAt: dbUser.createdAt.toISOString(),
     updatedAt: dbUser.updatedAt.toISOString(),
@@ -49,7 +51,7 @@ async function handleUpdateProfile(request: NextRequest): Promise<NextResponse> 
     const body = await request.json();
 
     // Sanitizar inputs permitidos
-    const allowedFields = ['firstName', 'lastName', 'username'];
+    const allowedFields = ['firstName', 'lastName', 'username', 'phone', 'bio'];
     const updateData: any = {};
 
     for (const field of allowedFields) {
@@ -95,14 +97,52 @@ async function handleUpdateProfile(request: NextRequest): Promise<NextResponse> 
       }
     }
 
+  // Obtener datos actuales del usuario para comparar cambios
+  const currentUser = await prisma.user.findUnique({ where: { id: session.sub } });
+  if (!currentUser) {
+    return NextResponse.json({ success: false, message: 'Usuario no encontrado', timestamp: new Date().toISOString() }, { status: 404 });
+    }
+
   // Actualizar usuario en DB
   const updated = await prisma.user.update({ where: { id: session.sub }, data: updateData });
+
+  // Registrar cambios en el historial
+  const ipAddress = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
+  const userAgent = request.headers.get('user-agent') || 'unknown';
+  
+  const changePromises = [];
+  
+  // Registrar cada campo que cambió
+  for (const [field, newValue] of Object.entries(updateData)) {
+    const oldValue = (currentUser as any)[field];
+    if (oldValue !== newValue) {
+      changePromises.push(
+        prisma.profileChangeHistory.create({
+          data: {
+            userId: session.sub,
+            field,
+            oldValue: oldValue?.toString() || null,
+            newValue: newValue?.toString() || null,
+            ipAddress,
+            userAgent,
+          }
+        })
+      );
+    }
+  }
+
+  // Ejecutar todas las inserciones del historial
+  if (changePromises.length > 0) {
+    await Promise.all(changePromises);
+  }
   // Mapear usuario actualizado para la respuesta
   const user = {
     id: updated.id,
     email: updated.email,
     firstName: updated.firstName,
     lastName: updated.lastName,
+    phone: updated.phone,
+    bio: updated.bio,
     role: updated.role,
     createdAt: updated.createdAt.toISOString(),
     updatedAt: updated.updatedAt.toISOString(),
