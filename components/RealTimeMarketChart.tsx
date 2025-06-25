@@ -83,7 +83,7 @@ const RealTimeMarketChartClient = dynamic(
 type MarketCategory = "volatility" | "boom" | "crash" | "cripto" | "forex" | "materias-primas" | "indices" | "stocks";
 type TimeRange = "1h" | "24h" | "7d" | "30d";
 type ChartType = "area" | "candle" | "line" | "bar";
-type DataSource = "SIMULADO" | "BITSTAMP" | "COINGECKO" | "BINANCE" | "AUTO";
+type DataSource = "SIMULADO" | "BINANCE" | "AUTO";
 
 // Tipos adicionales para los niveles
 interface ChartLevel {
@@ -250,27 +250,11 @@ const DATA_SOURCES = [
     priority: 1
   },
   { 
-    id: "BITSTAMP" as DataSource, 
-    label: "Bitstamp", 
-    description: "Datos reales de Bitstamp (solo criptomonedas)",
-    icon: "₿",
-    priority: 2,
-    supportedCategories: ["cripto"]
-  },
-  { 
-    id: "COINGECKO" as DataSource, 
-    label: "CoinGecko", 
-    description: "Datos de CoinGecko API",
-    icon: "🦎",
-    priority: 3,
-    supportedCategories: ["cripto"]
-  },
-  { 
     id: "BINANCE" as DataSource, 
     label: "Binance", 
     description: "Datos de Binance API",
     icon: "🟡",
-    priority: 4,
+    priority: 2,
     supportedCategories: ["cripto"]
   },
   { 
@@ -278,7 +262,7 @@ const DATA_SOURCES = [
     label: "Simulado", 
     description: "Datos generados para demostración",
     icon: "🎲",
-    priority: 5
+    priority: 3
   }
 ];
 
@@ -552,9 +536,9 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
   // Determinar la fuente de datos efectiva
   const effectiveDataSource = useMemo(() => {
     if (dataSource === "AUTO") {
-      // Lógica automática: usar Bitstamp para criptos soportadas, simulado para el resto
+      // Lógica automática: usar Binance para criptos soportadas, simulado para el resto
       if (currentMarketConfig.category === "cripto") {
-        return "BITSTAMP";
+        return "BINANCE";
       }
       return "SIMULADO";
     }
@@ -570,16 +554,18 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
     return dataSource;
   }, [dataSource, currentMarketConfig.category]);
 
-  // Hook de Bitstamp (solo se usa cuando la fuente efectiva es Bitstamp)
-  const shouldUseBitstamp = effectiveDataSource === "BITSTAMP";
-  const bitstampData = useBitstampData({
-    symbol: shouldUseBitstamp ? currentMarket : "bitcoin", // Usar un valor por defecto cuando no se necesita
-    timeRange,
-    chartType,
-    realTimeEnabled: shouldUseBitstamp && realTimeEnabled && !isHistoricalMode,
-    timeOffset,
-    isHistoricalMode
-  });
+  // Hook de Bitstamp - ya no se usa, reemplazado por Binance
+  const shouldUseBitstamp = false;
+  const bitstampData = {
+    data: [],
+    candlestickData: [],
+    currentPrice: 0,
+    isLoading: false,
+    error: null,
+    isSupported: false,
+    lastUpdate: null,
+    refreshData: () => {}
+  };
 
   // Prepare Binance data when selected
   const cryptoSymbolMatch = currentMarketConfig.name.match(/\((\w+)\/USD\)/);
@@ -601,10 +587,8 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
 
   // Determine if we should fallback to simulated
   const shouldFallbackToSimulated = useMemo(() => {
-    return effectiveDataSource === "BITSTAMP" && 
-           bitstampData.error && 
-           !bitstampData.isLoading;
-  }, [effectiveDataSource, bitstampData.error, bitstampData.isLoading]);
+    return false; // Ya no hay fallback desde Bitstamp
+  }, []);
   
   // Replace random price generation with stable initial value
   const [currentPrice, setCurrentPrice] = useState(0);
@@ -710,16 +694,7 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
       }
       return;
     }
-    if (shouldUseBitstamp && bitstampData.isSupported && !shouldFallbackToSimulated) {
-      // Use Bitstamp data
-      if (!bitstampData.isLoading && !bitstampData.error && bitstampData.data.length > 0) {
-        setChartData(bitstampData.data);
-        setCandlestickData(bitstampData.candlestickData);
-        if (bitstampData.currentPrice > 0) {
-          setCurrentPrice(bitstampData.currentPrice);
-        }
-      }
-    } else {
+    if (effectiveDataSource === 'SIMULADO') {
       // Simulated data
       const newData = generateMarketData(currentMarketConfig, timeRange, timeOffset);
       setChartData(newData);
@@ -734,12 +709,6 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
     currentMarketConfig.id, 
     timeRange, 
     timeOffset, 
-    shouldUseBitstamp,
-    shouldFallbackToSimulated,
-    bitstampData.isLoading, 
-    bitstampData.error, 
-    bitstampData.data.length,
-    bitstampData.currentPrice,
     effectiveDataSource,
     binanceData,
     binanceCandles,
@@ -749,7 +718,7 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
   // Update data in real-time if enabled with more fluid updates (solo para datos simulados)
   useEffect(() => {
     // Only simulate updates when using simulated data
-    if (!realTimeEnabled || !isClient || !currentMarketConfig || isHistoricalMode || shouldUseBitstamp || !isSimulatedData) return;
+    if (!realTimeEnabled || !isClient || !currentMarketConfig || isHistoricalMode || effectiveDataSource !== 'SIMULADO') return;
     
     // Clear any existing interval for chart updates
     if (updateIntervalRef.current) {
@@ -859,7 +828,7 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
         updateIntervalRef.current = null;
       }
     };
-  }, [realTimeEnabled, isClient, currentMarketConfig, chartType, chartData, candlestickData, isHistoricalMode, shouldUseBitstamp, isSimulatedData]);
+  }, [realTimeEnabled, isClient, currentMarketConfig, chartType, chartData, candlestickData, isHistoricalMode, effectiveDataSource]);
   
   // Filtered markets by search (memoized)
   const filteredMarkets = useMemo(() => 
@@ -1242,7 +1211,7 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
                     "px-1.5 py-0 text-[10px] font-medium",
                     isSimulatedData
                       ? "bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-500/20" 
-                      : effectiveDataSource === "BITSTAMP"
+                      : effectiveDataSource === "BINANCE"
                       ? "bg-blue-500/20 text-blue-700 dark:text-blue-400 hover:bg-blue-500/20"
                       : "bg-green-500/20 text-green-700 dark:text-green-400 hover:bg-green-500/20"
                   )}
@@ -1258,16 +1227,12 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
                 <span className="text-xs px-1 py-0.5 rounded bg-red-500 text-white w-fit">1s</span>
               )}
                 <span className="text-xs text-muted-foreground">
-                  {shouldFallbackToSimulated
-                    ? "(Fallback a datos simulados - Error en Bitstamp)"
-                    : isSimulatedData 
+                  {isSimulatedData 
                     ? "(Precios generados para fines de demostración)"
-                    : effectiveDataSource === "BITSTAMP"
-                    ? "(Datos reales de Bitstamp Exchange)"
+                    : effectiveDataSource === "BINANCE"
+                    ? "(Datos reales de Binance Exchange)"
                     : "(Datos de mercado en tiempo real)"
                   }
-                  {effectiveDataSource === "BITSTAMP" && bitstampData.isLoading && " - Cargando..."}
-                  {effectiveDataSource === "BITSTAMP" && bitstampData.error && !shouldFallbackToSimulated && " - Error de conexión"}
                 </span>
             </div>
           </div>
@@ -1420,16 +1385,7 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
                       <span className="font-medium">Fuente actual:</span>
                       <span>{DATA_SOURCES.find(s => s.id === effectiveDataSource)?.label}</span>
                     </div>
-                    {effectiveDataSource === "BITSTAMP" && bitstampData.lastUpdate && (
-                      <div className="text-xs text-green-600">
-                        Última actualización: {bitstampData.lastUpdate?.toLocaleTimeString()}
-                      </div>
-                    )}
-                    {effectiveDataSource === "BITSTAMP" && bitstampData.error && (
-                      <div className="text-xs text-red-500">
-                        Error: {bitstampData.error}
-                      </div>
-                    )}
+
                   </div>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -1699,29 +1655,16 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
               </PopoverContent>
             </Popover>
 
-            {/* Botón para actualizar datos (Bitstamp) o resetear zoom */}
-            {effectiveDataSource === "BITSTAMP" ? (
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8"
-                onClick={bitstampData.refreshData}
-                title="Actualizar datos de Bitstamp"
-                disabled={bitstampData.isLoading}
-              >
-                <RefreshCw className={cn("h-4 w-4", bitstampData.isLoading && "animate-spin")} />
-              </Button>
-            ) : (
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8"
-                onClick={handleResetZoom}
-                title="Resetear zoom"
-              >
-                <RefreshCw className="h-4 w-4" />
-              </Button>
-            )}
+            {/* Botón para resetear zoom */}
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              onClick={handleResetZoom}
+              title="Resetear zoom"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </Button>
           </div>
         </div>
 
@@ -1731,49 +1674,17 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
             style={{ height: `${chartContainerHeight}px` }}
           >
           {isClient ? (
-            effectiveDataSource === "BITSTAMP" && bitstampData.isLoading ? (
-              <div className="w-full h-full bg-muted/30 animate-pulse rounded-md flex flex-col items-center justify-center">
-                <div className="text-center p-6 max-w-md">
-                  <div className="text-xl font-semibold mb-2">Conectando con Bitstamp...</div>
-                  <div className="text-sm text-muted-foreground mb-4">
-                    Obteniendo datos reales de {currentMarketConfig.name}
-                  </div>
-                  <div className="w-full h-2 bg-muted/50 rounded overflow-hidden">
-                    <div className="h-full bg-blue-500/60 animate-[grow_2s_ease-in-out_infinite]" style={{width: '70%'}}/>
-                  </div>
-                </div>
-              </div>
-            ) : effectiveDataSource === "BITSTAMP" && bitstampData.error ? (
-              <div className="w-full h-full bg-muted/30 rounded-md flex flex-col items-center justify-center">
-                <div className="text-center p-6 max-w-md">
-                  <div className="text-xl font-semibold mb-2 text-red-500">Error de conexión</div>
-                  <div className="text-sm text-muted-foreground mb-4">
-                    {bitstampData.error}
-                  </div>
-                  <Button 
-                    onClick={bitstampData.refreshData}
-                    variant="outline"
-                    size="sm"
-                    className="gap-2"
-                  >
-                    <RefreshCw className="h-4 w-4" />
-                    Reintentar
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <RealTimeMarketChartClient 
-                data={chartType === 'candle' || chartType === 'bar' ? candlestickData : chartData}
-                chartType={chartType}
-                colors={chartColors}
-                height={chartContainerHeight}
-                isSimulatedData={isSimulatedData}
-                levels={levels}
-                showLevels={showLevels}
-                positionMarkers={effectiveDataSource === 'BINANCE' ? positionMarkers : []}
-                onReady={handleChartReady}
-              />
-            )
+            <RealTimeMarketChartClient 
+              data={chartType === 'candle' || chartType === 'bar' ? candlestickData : chartData}
+              chartType={chartType}
+              colors={chartColors}
+              height={chartContainerHeight}
+              isSimulatedData={isSimulatedData}
+              levels={levels}
+              showLevels={showLevels}
+              positionMarkers={effectiveDataSource === 'BINANCE' ? positionMarkers : []}
+              onReady={handleChartReady}
+            />
           ) : (
             <ChartPlaceholder />
           )}
