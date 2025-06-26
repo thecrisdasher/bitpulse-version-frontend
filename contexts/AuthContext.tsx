@@ -379,6 +379,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const updateUser = async (data: Partial<User>) => {
     try {
       if (!state.tokens?.accessToken) {
+        console.warn('AuthContext: No hay token de acceso válido para actualizar usuario');
         throw new Error('No autenticado');
       }
 
@@ -400,7 +401,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
 
       dispatch({ type: 'UPDATE_USER', payload: result.data });
-      toast.success('Perfil actualizado exitosamente');
+      
+      // Solo mostrar toast de éxito si es una actualización manual del perfil
+      // No para actualizaciones automáticas de balance
+      if (!data.pejecoins || Object.keys(data).length > 1) {
+        toast.success('Perfil actualizado exitosamente');
+      }
 
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error desconocido';
@@ -411,7 +417,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
         updateData: data
       });
       
-      toast.error(message);
+      // Solo mostrar toast de error si no es un problema de autenticación
+      if (message !== 'No autenticado') {
+        toast.error(message);
+      }
+      
       throw error;
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false });
@@ -445,6 +455,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
     
     return hasUserRole;
+  };
+
+  // Verificar si el usuario está autenticado y tiene token válido
+  const isValidAuth = (): boolean => {
+    return !!(state.isAuthenticated && state.tokens?.accessToken && state.user);
   };
 
   // Configurar interceptor para refresh automático del token
@@ -515,7 +530,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     refreshToken,
     updateUser,
     checkPermission,
-    hasRole
+    hasRole,
+    isValidAuth
   };
 
   return (

@@ -73,6 +73,7 @@ export interface AuthContextType {
   updateUser: (data: Partial<User>) => Promise<void>;
   checkPermission: (permission: Permission) => boolean;
   hasRole: (role: UserRole) => boolean;
+  isValidAuth: () => boolean;
 }
 
 export interface JWTPayload {

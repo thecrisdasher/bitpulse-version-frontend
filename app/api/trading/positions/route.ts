@@ -57,8 +57,27 @@ export async function POST(request: Request) {
     // TODO: Reemplazar con guardado en base de datos (Prisma)
     const newPosition = await createPosition(positionData);
 
+    // 6. Obtener el usuario actualizado con el nuevo balance
+    const updatedUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { 
+        id: true, 
+        firstName: true, 
+        lastName: true, 
+        email: true, 
+        role: true, 
+        pejecoins: true 
+      }
+    });
+
     return NextResponse.json(
-      { success: true, data: newPosition, message: 'Posición creada exitosamente' },
+      { 
+        success: true, 
+        data: newPosition, 
+        message: 'Posición creada exitosamente',
+        newBalance: updatedUser?.pejecoins || user.pejecoins,
+        user: updatedUser || user
+      },
       { status: 201 }
     );
 

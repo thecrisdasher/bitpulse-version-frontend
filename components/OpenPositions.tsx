@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { useRealTimePositions } from "@/hooks/useRealTimePositions";
+import { useRealTimeCrypto } from '@/hooks/useRealTimeCrypto';
 
 // Tipos de posición
 export type TradePosition = {
@@ -59,6 +60,146 @@ const OpenPositions: React.FC<OpenPositionsProps> = ({ positions, onClosePositio
   // Initialize real-time position updates
   const { activeConnections, isConnected } = useRealTimePositions();
   
+  // Get crypto symbols from positions for real-time prices
+  const cryptoSymbols = positions
+    .filter(pos => {
+      const name = pos.marketName.toLowerCase();
+      return name.includes('btc') || name.includes('eth') || name.includes('sol') ||
+             name.includes('ada') || name.includes('dot') || name.includes('xrp') ||
+             name.includes('link') || name.includes('ltc') || name.includes('bch') ||
+             name.includes('avax') || name.includes('bitcoin') || name.includes('ethereum') ||
+             name.includes('solana') || name.includes('cardano') || name.includes('polkadot') ||
+             name.includes('ripple') || name.includes('chainlink') || name.includes('litecoin') ||
+             name.includes('avalanche');
+    })
+    .map(pos => {
+      const name = pos.marketName.toLowerCase();
+      // Use the same robust logic as getRealTimePrice
+      if (name.includes('bitcoin') || name.includes('btc')) return 'BTC';
+      if (name.includes('ethereum') || name.includes('eth')) return 'ETH';
+      if (name.includes('solana') || name.includes('sol')) return 'SOL';
+      if (name.includes('cardano') || name.includes('ada')) return 'ADA';
+      if (name.includes('polkadot') || name.includes('dot')) return 'DOT';
+      if (name.includes('ripple') || name.includes('xrp')) return 'XRP';
+      if (name.includes('chainlink') || name.includes('link')) return 'LINK';
+      if (name.includes('litecoin') || name.includes('ltc')) return 'LTC';
+      if (name.includes('bitcoin cash') || name.includes('bch')) return 'BCH';
+      if (name.includes('avalanche') || name.includes('avax')) return 'AVAX';
+      // Fallback
+      const symbol = pos.marketName.split('(')[1]?.split('/')[0] || pos.marketName.split(' ')[0];
+      return symbol.replace(/[^A-Z]/g, '');
+    })
+    .filter(Boolean);
+    
+  const { getTicker, isConnected: cryptoConnected } = useRealTimeCrypto(cryptoSymbols);
+  
+  // Function to get real-time price for a position
+  const getRealTimePrice = (position: TradePosition): number => {
+    const name = position.marketName.toLowerCase();
+    const isCrypto = name.includes('btc') || name.includes('eth') || name.includes('sol') ||
+                     name.includes('ada') || name.includes('dot') || name.includes('xrp') ||
+                     name.includes('link') || name.includes('ltc') || name.includes('bch') ||
+                     name.includes('avax') || name.includes('bitcoin') || name.includes('ethereum') ||
+                     name.includes('solana') || name.includes('cardano') || name.includes('polkadot') ||
+                     name.includes('ripple') || name.includes('chainlink') || name.includes('litecoin') ||
+                     name.includes('avalanche');
+                     
+    if (isCrypto && cryptoConnected) {
+      // ARREGLADO: Lógica más robusta para extraer el símbolo crypto
+      let cleanSymbol = '';
+      
+      if (name.includes('bitcoin') || name.includes('btc')) {
+        cleanSymbol = 'BTC';
+      } else if (name.includes('ethereum') || name.includes('eth')) {
+        cleanSymbol = 'ETH';
+      } else if (name.includes('solana') || name.includes('sol')) {
+        cleanSymbol = 'SOL';
+      } else if (name.includes('cardano') || name.includes('ada')) {
+        cleanSymbol = 'ADA';
+      } else if (name.includes('polkadot') || name.includes('dot')) {
+        cleanSymbol = 'DOT';
+      } else if (name.includes('ripple') || name.includes('xrp')) {
+        cleanSymbol = 'XRP';
+      } else if (name.includes('chainlink') || name.includes('link')) {
+        cleanSymbol = 'LINK';
+      } else if (name.includes('litecoin') || name.includes('ltc')) {
+        cleanSymbol = 'LTC';
+      } else if (name.includes('bitcoin cash') || name.includes('bch')) {
+        cleanSymbol = 'BCH';
+      } else if (name.includes('avalanche') || name.includes('avax')) {
+        cleanSymbol = 'AVAX';
+      } else {
+        // Fallback: intentar extraer de diferentes formatos
+        const symbolFromParens = position.marketName.split('(')[1]?.split('/')[0];
+        const symbolFromSpace = position.marketName.split(' ')[0];
+        cleanSymbol = (symbolFromParens || symbolFromSpace || '').replace(/[^A-Z]/g, '');
+      }
+      
+      const ticker = getTicker(cleanSymbol);
+      const realTimePrice = ticker?.price || position.currentPrice;
+      
+      return realTimePrice;
+    }
+    
+    return position.currentPrice;
+  };
+  
+  // NUEVO: Función para calcular profit en tiempo real
+  const calculateRealTimeProfit = (position: TradePosition): { profit: number; profitPercentage: number } => {
+    const currentPrice = getRealTimePrice(position);
+    
+    // Calcular profit basado en la dirección
+    let priceDifference = currentPrice - position.openPrice;
+    if (position.direction === 'down') {
+      priceDifference = -priceDifference; // Invertir para posiciones cortas
+    }
+    
+    const profit = (priceDifference / position.openPrice) * position.stake;
+    const profitPercentage = (priceDifference / position.openPrice) * 100;
+    
+    return { profit, profitPercentage };
+  };
+  
+  // NUEVO: Estado para los profits actualizados en tiempo real
+  const [realTimeProfits, setRealTimeProfits] = useState<{[key: string]: { profit: number; profitPercentage: number }}>({});
+  
+  // NUEVO: Actualizar profits en tiempo real
+  useEffect(() => {
+    if (!cryptoConnected || cryptoSymbols.length === 0) return;
+    
+    const interval = setInterval(() => {
+      const updatedProfits: {[key: string]: { profit: number; profitPercentage: number }} = {};
+      
+      positions.forEach(position => {
+        const name = position.marketName.toLowerCase();
+        const isCrypto = name.includes('btc') || name.includes('eth') || name.includes('sol') ||
+                         name.includes('ada') || name.includes('dot') || name.includes('xrp') ||
+                         name.includes('link') || name.includes('ltc') || name.includes('bch') ||
+                         name.includes('avax') || name.includes('bitcoin') || name.includes('ethereum') ||
+                         name.includes('solana') || name.includes('cardano') || name.includes('polkadot') ||
+                         name.includes('ripple') || name.includes('chainlink') || name.includes('litecoin') ||
+                         name.includes('avalanche');
+                         
+        if (isCrypto) {
+          const realTimeProfit = calculateRealTimeProfit(position);
+          updatedProfits[position.id] = realTimeProfit;
+        } else {
+          updatedProfits[position.id] = { profit: position.profit, profitPercentage: position.profitPercentage };
+        }
+      });
+      
+      setRealTimeProfits(updatedProfits);
+    }, 1000); // Actualizar cada segundo
+    
+    return () => clearInterval(interval);
+  }, [positions, cryptoConnected, cryptoSymbols.length, getTicker]);
+  
+  // Función para obtener el profit actual (tiempo real o almacenado)
+  const getCurrentProfit = (position: TradePosition) => {
+    const result = realTimeProfits[position.id] || { profit: position.profit, profitPercentage: position.profitPercentage };
+    return result;
+  };
+  
   // Update current time every second for accurate time remaining calculation
   useEffect(() => {
     const timer = setInterval(() => {
@@ -75,8 +216,19 @@ const OpenPositions: React.FC<OpenPositionsProps> = ({ positions, onClosePositio
     );
   };
   
-  // Format currency
+  // Format currency - MEJORADO para mostrar decimales cuando sea necesario
   const formatCurrency = (amount: number): string => {
+    // Si el monto es muy pequeño pero no cero, mostrar con 2 decimales
+    if (Math.abs(amount) < 100 && amount !== 0) {
+      return new Intl.NumberFormat('es-CO', {
+        style: 'currency',
+        currency: 'COP',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).format(amount);
+    }
+    
+    // Para montos grandes, sin decimales
     return new Intl.NumberFormat('es-CO', {
       style: 'currency',
       currency: 'COP',
@@ -252,7 +404,7 @@ const OpenPositions: React.FC<OpenPositionsProps> = ({ positions, onClosePositio
               <Tooltip>
                 <TooltipTrigger>
                   <div className="flex items-center gap-1 text-xs">
-                    {isConnected ? (
+                    {(isConnected || cryptoConnected) ? (
                       <>
                         <Wifi className="h-3 w-3 text-green-500" />
                         <span className="text-green-500 font-medium">Tiempo real</span>
@@ -267,8 +419,8 @@ const OpenPositions: React.FC<OpenPositionsProps> = ({ positions, onClosePositio
                 </TooltipTrigger>
                 <TooltipContent>
                   <p>
-                    {isConnected 
-                      ? `${activeConnections} conexión(es) activa(s) para actualización en tiempo real`
+                    {(isConnected || cryptoConnected)
+                      ? `${activeConnections} conexión(es) de posiciones + ${cryptoSymbols.length} cripto en tiempo real`
                       : 'Las posiciones no se actualizan en tiempo real'
                     }
                   </p>
@@ -302,6 +454,7 @@ const OpenPositions: React.FC<OpenPositionsProps> = ({ positions, onClosePositio
                 const timeInfo = getTimeRemaining(position);
                 const isExpanded = expandedPositions.includes(position.id);
                 const riskMetrics = showRiskMetrics ? calculatePositionRiskMetrics(position) : null;
+                const currentProfit = getCurrentProfit(position); // USAR PROFIT EN TIEMPO REAL
                 // Calculate expiration date/time
                 const expirationDate = new Date(position.openTime.getTime() + getDurationInMs(position.duration));
                 
@@ -366,15 +519,15 @@ const OpenPositions: React.FC<OpenPositionsProps> = ({ positions, onClosePositio
                         <div className="flex flex-col">
                           <span suppressHydrationWarning className={cn(
                             "font-bold",
-                            position.profit >= 0 ? "text-green-500" : "text-red-500"
+                            currentProfit.profit >= 0 ? "text-green-500" : "text-red-500"
                           )}>
-                            {position.profit >= 0 ? "+" : ""}{formatCurrency(position.profit)}
+                            {currentProfit.profit >= 0 ? "+" : ""}{formatCurrency(currentProfit.profit)}
                           </span>
                           <span suppressHydrationWarning className={cn(
                             "text-xs",
-                            position.profitPercentage >= 0 ? "text-green-500" : "text-red-500"
+                            currentProfit.profitPercentage >= 0 ? "text-green-500" : "text-red-500"
                           )}>
-                            {position.profitPercentage >= 0 ? "+" : ""}{position.profitPercentage.toFixed(2)}%
+                            {currentProfit.profitPercentage >= 0 ? "+" : ""}{currentProfit.profitPercentage.toFixed(2)}%
                           </span>
                         </div>
                       </TableCell>
@@ -415,7 +568,7 @@ const OpenPositions: React.FC<OpenPositionsProps> = ({ positions, onClosePositio
                               onClosePosition(position.id);
                               toast({
                                 title: "🚪 Posición cerrada",
-                                description: `La posición en ${position.marketName} se cerró con ${position.profit >= 0 ? '+' : ''}${formatCurrency(position.profit)} (${position.profitPercentage.toFixed(2)}%)`,
+                                description: `La posición en ${position.marketName} se cerró con ${currentProfit.profit >= 0 ? '+' : ''}${formatCurrency(currentProfit.profit)} (${currentProfit.profitPercentage.toFixed(2)}%)`,
                               });
                             }}
                             className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
@@ -442,7 +595,22 @@ const OpenPositions: React.FC<OpenPositionsProps> = ({ positions, onClosePositio
                                   </div>
                                   <div className="flex justify-between">
                                     <span>Precio actual:</span>
-                                    <span className="font-medium">{formatCurrency(position.currentPrice)}</span>
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-medium">{formatCurrency(getRealTimePrice(position))}</span>
+                                      {cryptoConnected && cryptoSymbols.length > 0 && (() => {
+                                        const name = position.marketName.toLowerCase();
+                                        const isCrypto = name.includes('btc') || name.includes('eth') || name.includes('sol') ||
+                                                         name.includes('ada') || name.includes('dot') || name.includes('xrp') ||
+                                                         name.includes('link') || name.includes('ltc') || name.includes('bch') ||
+                                                         name.includes('avax') || name.includes('bitcoin') || name.includes('ethereum') ||
+                                                         name.includes('solana') || name.includes('cardano') || name.includes('polkadot') ||
+                                                         name.includes('ripple') || name.includes('chainlink') || name.includes('litecoin') ||
+                                                         name.includes('avalanche');
+                                        return isCrypto && (
+                                          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                                        );
+                                      })()}
+                                    </div>
                                   </div>
                                   <div className="flex justify-between">
                                     <span>Apertura:</span>
@@ -538,16 +706,16 @@ const OpenPositions: React.FC<OpenPositionsProps> = ({ positions, onClosePositio
                                       <span>Performance:</span>
                                       <span className={cn(
                                         "font-medium",
-                                        position.profitPercentage >= 0 ? "text-green-500" : "text-red-500"
+                                        currentProfit.profitPercentage >= 0 ? "text-green-500" : "text-red-500"
                                       )}>
-                                        {position.profitPercentage >= 0 ? "+" : ""}{position.profitPercentage.toFixed(2)}%
+                                        {currentProfit.profitPercentage >= 0 ? "+" : ""}{currentProfit.profitPercentage.toFixed(2)}%
                                       </span>
                                     </div>
                                     <Progress 
-                                      value={Math.min(Math.abs(position.profitPercentage), 100)} 
+                                      value={Math.min(Math.abs(currentProfit.profitPercentage), 100)} 
                                       className={cn(
                                         "h-2",
-                                        position.profitPercentage >= 0 ? "bg-green-100" : "bg-red-100"
+                                        currentProfit.profitPercentage >= 0 ? "bg-green-100" : "bg-red-100"
                                       )}
                                     />
                                   </div>
@@ -564,10 +732,10 @@ const OpenPositions: React.FC<OpenPositionsProps> = ({ positions, onClosePositio
                                   <div className="flex items-center gap-2 text-xs">
                                     <div className={cn(
                                       "w-2 h-2 rounded-full",
-                                      position.profit >= 0 ? "bg-green-500" : "bg-red-500"
+                                      currentProfit.profit >= 0 ? "bg-green-500" : "bg-red-500"
                                     )} />
                                     <span className="text-muted-foreground">
-                                      {position.profit >= 0 ? "En beneficio" : "En pérdida"}
+                                      {currentProfit.profit >= 0 ? "En beneficio" : "En pérdida"}
                                     </span>
                                   </div>
                                 </div>

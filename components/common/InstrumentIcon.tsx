@@ -28,9 +28,6 @@ export type InstrumentCategory =
   'forex' | 
   'indices' | 
   'materias-primas' | 
-  'derivados' | 
-  'sinteticos' | 
-  'baskets' | 
   'acciones';
 
 interface InstrumentIconProps {
@@ -74,18 +71,8 @@ const InstrumentIcon: React.FC<InstrumentIconProps> = ({
       colorClass = 'text-yellow-600';
       bgColorClass = 'bg-yellow-100';
       break;
-    case 'derivados':
-      colorClass = 'text-purple-600';
-      bgColorClass = 'bg-purple-100';
-      break;
-    case 'sinteticos':
-      colorClass = 'text-cyan-600';
-      bgColorClass = 'bg-cyan-100';
-      break;
-    case 'baskets':
-      colorClass = 'text-pink-600';
-      bgColorClass = 'bg-pink-100';
-      break;
+
+
     case 'acciones':
       colorClass = 'text-teal-600';
       bgColorClass = 'bg-teal-100';
@@ -151,23 +138,9 @@ const InstrumentIcon: React.FC<InstrumentIconProps> = ({
       return <GiGrain size={size} />; // Default commodity icon
     }
     
-    // Derivatives
-    if (category === 'derivados') {
-      return <CircleStackIcon width={size} height={size} />;
-    }
+
     
-    // Synthetic
-    if (category === 'sinteticos') {
-      if (normalizedSymbol.includes('VOLATILITY')) return <BoltIcon width={size} height={size} />;
-      if (normalizedSymbol.includes('BOOM')) return <FireIcon width={size} height={size} />;
-      if (normalizedSymbol.includes('CRASH')) return <BsGraphDown size={size} />;
-      return <BsArrowRepeat size={size} />;
-    }
-    
-    // Baskets
-    if (category === 'baskets') {
-      return <CubeIcon width={size} height={size} />;
-    }
+
     
     // Stocks
     if (category === 'acciones') {

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { useRealTimeCrypto } from '@/hooks/useRealTimeCrypto';
 import { Card, CardContent } from "@/components/ui/card";
 import { CompatButton as Button } from "@/components/ui/compat-button";
 import { Input } from "@/components/ui/input";
@@ -48,7 +49,7 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
   onPlaceTrade
 }) => {
   // Get user data for pejecoins
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   
   // Trading state
   const [tradeDirection, setTradeDirection] = useState<'up' | 'down'>('up');
@@ -78,6 +79,49 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
   
   // Get trading positions context
   const { addPosition } = useTradePositions();
+  
+  // Hook para obtener precios en tiempo real (solo para crypto)
+  const isCrypto = marketName.toLowerCase().includes('btc') || 
+                   marketName.toLowerCase().includes('eth') || 
+                   marketName.toLowerCase().includes('sol') ||
+                   marketName.toLowerCase().includes('ada') ||
+                   marketName.toLowerCase().includes('dot') ||
+                   marketName.toLowerCase().includes('xrp') ||
+                   marketName.toLowerCase().includes('link') ||
+                   marketName.toLowerCase().includes('ltc') ||
+                   marketName.toLowerCase().includes('bch') ||
+                   marketName.toLowerCase().includes('avax');
+                   
+  const cryptoSymbol = isCrypto ? marketName.split('(')[1]?.split('/')[0] || marketName.split(' ')[0] : '';
+  const { getTicker, isConnected: cryptoConnected } = useRealTimeCrypto(isCrypto ? [cryptoSymbol] : []);
+  
+  // Precio en tiempo real para crypto, marketPrice para otros
+  const realTimePrice = isCrypto && cryptoConnected ? 
+    (getTicker(cryptoSymbol)?.price || marketPrice) : 
+    marketPrice;
+    
+  // Estado para mostrar indicador de tiempo real
+  const [displayPrice, setDisplayPrice] = useState(marketPrice);
+  
+  // Actualizar precio mostrado cuando cambie el precio en tiempo real
+  useEffect(() => {
+    setDisplayPrice(realTimePrice);
+  }, [realTimePrice]);
+  
+  // NUEVO: Actualización automática cada segundo para crypto
+  useEffect(() => {
+    if (!isCrypto || !cryptoConnected) return;
+    
+    const interval = setInterval(() => {
+      const latestTicker = getTicker(cryptoSymbol);
+      if (latestTicker?.price && latestTicker.price !== displayPrice) {
+        console.log(`[TradeControlPanel] Actualizando precio ${cryptoSymbol}: ${latestTicker.price}`);
+        setDisplayPrice(latestTicker.price);
+      }
+    }, 500); // Actualizar cada 500ms para crypto
+    
+    return () => clearInterval(interval);
+  }, [isCrypto, cryptoConnected, cryptoSymbol, getTicker, displayPrice]);
   
   // Actualizar el monto de inversión cuando el usuario cambie
   useEffect(() => {
@@ -111,7 +155,7 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
       contractSize = 100; // Para oro, 1 lote = 100 onzas
     }
     
-    const positionValue = marketPrice * contractSize * lotSize;
+    const positionValue = displayPrice * contractSize * lotSize;
     const marginRequired = positionValue / leverage;
     const effectiveMarginUsed = Math.min(marginRequired, capitalToUse);
     const freeMargin = investmentAmount - effectiveMarginUsed;
@@ -125,7 +169,7 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
       positionValue,
       capitalUsed: capitalToUse
     });
-  }, [investmentAmount, capitalFraction, leverage, lotSize, marketPrice, marketName]);
+  }, [investmentAmount, capitalFraction, leverage, lotSize, displayPrice, marketName]);
 
   // Format currency in 'dolarizado' style
   const formatCurrency = (amount: number): string => {
@@ -152,8 +196,15 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
     setIsSubmitting(true);
     
     try {
-      // Use the marketPrice prop (passed from parent) as the open price
-      const priceToUse = marketPrice;
+      // Use the real-time price for crypto, or marketPrice for others
+      const priceToUse = displayPrice;
+      console.log(`[TradeControlPanel] Abriendo posición para ${marketName}:`);
+      console.log(`  - Precio a usar: ${priceToUse}`);
+      console.log(`  - Es crypto: ${isCrypto}`);
+      console.log(`  - Conectado: ${cryptoConnected}`);
+      console.log(`  - marketPrice original: ${marketPrice}`);
+      console.log(`  - displayPrice calculado: ${displayPrice}`);
+      
       // Llamar addPosition del contexto API-driven
       const id = await addPosition({
         instrumentId: marketName,
@@ -170,11 +221,28 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
       });
       if (!id) throw new Error('No se recibió ID de posición');
 
-        toast.success("🚀 Operación ejecutada", {
-        description: `Posición #${id.slice(-6)} en ${marketName} creada exitosamente.`,
-        });
+      console.log(`[TradeControlPanel] Posición creada exitosamente con ID: ${id}`);
 
-        // Cerrar panel después de una operación exitosa
+      // Obtener el usuario actualizado para sincronizar el balance
+      try {
+        const response = await fetch('/api/auth/profile', { 
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        const profileData = await response.json();
+        if (profileData.success && profileData.data) {
+          updateUser(profileData.data);
+          console.log(`[TradeControlPanel] Balance actualizado: ${profileData.data.pejecoins}`);
+        }
+      } catch (err) {
+        console.warn('No se pudo actualizar el perfil del usuario después de crear posición:', err);
+      }
+
+      toast.success("🚀 Operación ejecutada", {
+        description: `Posición #${id.slice(-6)} en ${marketName} creada exitosamente.`,
+      });
+
+      // Cerrar panel después de una operación exitosa
       setTimeout(onClose, 500);
 
     } catch (error: any) {
@@ -220,9 +288,17 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
                 className="w-4 h-4 rounded-full" 
                 style={{ backgroundColor: marketColor }}
               />
-              <div>
-                <span className="font-bold text-lg">{marketName}</span>
-                <span className="text-2xl font-bold ml-4">{formatCurrency(marketPrice)}</span>
+              <div className="flex flex-col">
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-lg">{marketName}</span>
+                  {isCrypto && cryptoConnected && (
+                    <div className="flex items-center gap-1 text-xs bg-green-100 text-green-600 px-2 py-1 rounded-full">
+                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                      Tiempo real
+                    </div>
+                  )}
+                </div>
+                <span className="text-2xl font-bold">{formatCurrency(displayPrice)}</span>
               </div>
             </div>
             <div className="flex items-center gap-2">

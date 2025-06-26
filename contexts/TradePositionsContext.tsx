@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { useAuth } from './AuthContext';
+import { useRealTimeCrypto } from '@/hooks/useRealTimeCrypto';
 
 // Tipo de posición de trading
 export interface TradePosition {
@@ -71,7 +72,83 @@ interface TradePositionsProviderProps {
 
 export const TradePositionsProvider: React.FC<TradePositionsProviderProps> = ({ children }) => {
   const [positions, setPositions] = useState<TradePosition[]>([]);
-  const { updateUser } = useAuth();
+  const { updateUser, isValidAuth } = useAuth();
+  
+  // Get crypto symbols from positions for real-time price updates
+  const cryptoSymbols = positions
+    .filter(pos => {
+      const name = pos.marketName.toLowerCase();
+      return name.includes('btc') || name.includes('eth') || name.includes('sol') ||
+             name.includes('ada') || name.includes('dot') || name.includes('xrp') ||
+             name.includes('link') || name.includes('ltc') || name.includes('bch') ||
+             name.includes('avax');
+    })
+    .map(pos => {
+      const symbol = pos.marketName.split('(')[1]?.split('/')[0] || pos.marketName.split(' ')[0];
+      return symbol.replace(/[^A-Z]/g, '');
+    })
+    .filter(Boolean);
+    
+  const { getTicker, isConnected: cryptoConnected } = useRealTimeCrypto(cryptoSymbols);
+  
+  // Effect para actualizar precios de crypto en tiempo real
+  useEffect(() => {
+    if (!cryptoConnected || cryptoSymbols.length === 0) return;
+    
+    const interval = setInterval(() => {
+      setPositions(prev => prev.map(pos => {
+        const name = pos.marketName.toLowerCase();
+        const isCrypto = name.includes('btc') || name.includes('eth') || name.includes('sol') ||
+                         name.includes('ada') || name.includes('dot') || name.includes('xrp') ||
+                         name.includes('link') || name.includes('ltc') || name.includes('bch') ||
+                         name.includes('avax');
+                         
+        if (isCrypto) {
+          const symbol = pos.marketName.split('(')[1]?.split('/')[0] || pos.marketName.split(' ')[0];
+          const cleanSymbol = symbol.replace(/[^A-Z]/g, '');
+          const ticker = getTicker(cleanSymbol);
+          
+          if (ticker?.price && ticker.price !== pos.currentPrice) {
+            console.log(`[TradePositionsContext] Actualizando posición ${pos.id}: ${ticker.price}`);
+            
+            // Calcular expiración
+            const multipliers: Record<string, number> = {
+              minute: 60 * 1000,
+              hour: 60 * 60 * 1000,
+              day: 24 * 60 * 60 * 1000
+            };
+
+            const durationMs = pos.duration ? (multipliers[pos.duration.unit] || 0) * pos.duration.value : 0;
+            const isExpired = durationMs > 0 && Date.now() - new Date(pos.openTime).getTime() >= durationMs;
+
+            if (isExpired) {
+              return pos; // No actualizar precios ni profit tras expiración
+            }
+            
+            // Calcular profit basado en la dirección y nuevo precio
+            let priceDifference = ticker.price - pos.openPrice;
+            if (pos.direction === 'down') {
+              priceDifference = -priceDifference;
+            }
+            
+            const profit = (priceDifference / pos.openPrice) * pos.stake;
+            const profitPercentage = (priceDifference / pos.openPrice) * 100;
+            
+            return {
+              ...pos,
+              currentPrice: ticker.price,
+              profit,
+              profitPercentage
+            };
+          }
+        }
+        
+        return pos;
+      }));
+    }, 1000); // Actualizar cada 1 segundo para ser más responsivo
+    
+    return () => clearInterval(interval);
+  }, [cryptoConnected, cryptoSymbols.join(','), getTicker]);
 
   // Hydrate positions from backend on mount
   useEffect(() => {
@@ -132,35 +209,78 @@ export const TradePositionsProvider: React.FC<TradePositionsProviderProps> = ({ 
         return '';
       }
       const created = json.data;
+      
       // Mapear datos de API y parámetros de cliente a TradePosition
-    const newPosition: TradePosition = {
+      const newPosition: TradePosition = {
         id: created.id,
         marketId: tradeParams.instrumentId || created.instrument,
         marketName: tradeParams.instrumentName || created.instrument,
         marketColor: tradeParams.marketColor || '',
         direction: tradeParams.direction,
         type: tradeParams.direction === 'up' ? 'buy' : 'sell',
-        openPrice: created.openPrice,
-        currentPrice: created.currentPrice ?? created.openPrice,
+        openPrice: tradeParams.openPrice || created.openPrice,
+        currentPrice: tradeParams.openPrice || created.openPrice, // Iniciar con precio de apertura
         amount: tradeParams.amount,
         stake: tradeParams.stake,
         openTime: new Date(created.openTime),
         duration: tradeParams.duration,
-      profit: 0,
-      profitPercentage: 0,
+        profit: 0,
+        profitPercentage: 0,
         capitalFraction: tradeParams.capitalFraction ?? 0,
         lotSize: tradeParams.lotSize ?? 0,
         leverage: tradeParams.leverage ?? 0,
         marginRequired: tradeParams.marginRequired ?? 0,
         positionValue: tradeParams.positionValue ?? 0,
-    };
-    setPositions(prev => [...prev, newPosition]);
-    return newPosition.id;
+      };
+      
+      // MEJORADO: Verificar si es crypto y obtener precio actual inmediatamente
+      const name = newPosition.marketName.toLowerCase();
+      const isCrypto = name.includes('btc') || name.includes('eth') || name.includes('sol') ||
+                       name.includes('ada') || name.includes('dot') || name.includes('xrp') ||
+                       name.includes('link') || name.includes('ltc') || name.includes('bch') ||
+                       name.includes('avax');
+                       
+      if (isCrypto) {
+        const symbol = newPosition.marketName.split('(')[1]?.split('/')[0] || newPosition.marketName.split(' ')[0];
+        const cleanSymbol = symbol.replace(/[^A-Z]/g, '');
+        const currentTicker = getTicker(cleanSymbol);
+        
+        if (currentTicker?.price) {
+          console.log(`[TradePositionsContext] Nueva posición crypto usando precio actual: ${currentTicker.price}`);
+          newPosition.currentPrice = currentTicker.price;
+          
+          // Calcular profit inicial basado en el precio actual vs precio de apertura
+          let priceDifference = currentTicker.price - newPosition.openPrice;
+          if (newPosition.direction === 'down') {
+            priceDifference = -priceDifference;
+          }
+          
+          newPosition.profit = (priceDifference / newPosition.openPrice) * newPosition.stake;
+          newPosition.profitPercentage = (priceDifference / newPosition.openPrice) * 100;
+        }
+      }
+      
+      console.log(`[TradePositionsContext] Agregando nueva posición:`, newPosition);
+      
+      // Agregar la nueva posición al estado local
+      setPositions(prev => [...prev, newPosition]);
+      
+      // Actualizar el balance del usuario en el contexto de autenticación si está disponible
+      if (json.newBalance !== undefined && json.user && isValidAuth()) {
+        try {
+          await updateUser({ ...json.user, pejecoins: json.newBalance } as any);
+        } catch (err) {
+          console.warn('No se pudo actualizar usuario en contexto después de crear posición:', err);
+          // No relanzar el error para evitar romper el flujo de creación de posición
+        }
+      }
+      
+      return newPosition.id;
     } catch (err) {
       console.error('OpenPositions: error creando posición', err);
       return '';
     }
-  }, []);
+  }, [updateUser, isValidAuth]);
 
   // Cerrar posición (liquidar PnL y devolver capital)
   const removePosition = useCallback(async (id: string): Promise<void> => {
@@ -186,11 +306,12 @@ export const TradePositionsProvider: React.FC<TradePositionsProviderProps> = ({ 
         setPositions(prev => prev.filter(pos => pos.id !== id));
 
         // Intentar actualizar balance en AuthContext; ignorar si no hay token
-        if (json.newBalance !== undefined) {
+        if (json.newBalance !== undefined && json.user && isValidAuth()) {
           try {
-            updateUser({ ...json.user, pejecoins: json.newBalance } as any);
+            await updateUser({ ...json.user, pejecoins: json.newBalance } as any);
           } catch (err) {
-            console.warn('No se pudo actualizar usuario en contexto (probablemente sin token).', err);
+            console.warn('No se pudo actualizar usuario en contexto (probablemente sin token):', err);
+            // No relanzar el error para evitar romper el flujo de cierre de posición
           }
         }
       } else {
@@ -199,7 +320,7 @@ export const TradePositionsProvider: React.FC<TradePositionsProviderProps> = ({ 
     } catch (err) {
       console.error('OpenPositions: error cerrando posición', err);
     }
-  }, [positions, updateUser]);
+  }, [positions, updateUser, isValidAuth]);
 
   // Actualizar precios y calcular PnL
   const updatePositionPrices = useCallback((marketName: string, newPrice: number) => {

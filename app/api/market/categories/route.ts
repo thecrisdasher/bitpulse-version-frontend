@@ -12,26 +12,7 @@ const categoryDetails = {
     label: "Favoritos",
     icon: "star"
   },
-  "derivados": {
-    id: "derivados",
-    label: "Derivados",
-    icon: "dollar-sign"
-  },
-  "baskets": {
-    id: "baskets",
-    label: "Baskets",
-    icon: "shopping-basket"
-  },
-  "sinteticos": {
-    id: "sinteticos",
-    label: "Índices Sintéticos",
-    icon: "activity",
-    subcategories: [
-      { id: "volatility", label: "Volatility" },
-      { id: "boom", label: "Boom" },
-      { id: "crash", label: "Crash" }
-    ]
-  },
+
   "forex": {
     id: "forex",
     label: "Forex",

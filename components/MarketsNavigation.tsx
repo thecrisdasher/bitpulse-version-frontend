@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { 
   Star, 
   ChevronUp, 
@@ -44,8 +44,10 @@ import {
 import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
 import axios from "axios";
-import useBinanceTickers from '@/hooks/useBinanceTickers';
+import { useRealTimeBinanceTickers, useRealTimeCrypto } from '@/hooks/useRealTimeCrypto';
+import RealTimeIndicator from '@/components/common/RealTimeIndicator';
 import { toast } from "sonner";
+import { useTradePositions } from "@/contexts/TradePositionsContext";
 
 // Importar RealTimeMarketChart con SSR desactivado
 const RealTimeMarketChart = dynamic(
@@ -133,18 +135,7 @@ const getInstrumentIcon = (instrument: MarketInstrument): React.ReactNode => {
     return <Gem className="w-5 h-5 text-teal-600" />;
   }
 
-  // Para derivados y sintéticos
-  if (instrument.category === "derivados" || instrument.category === "sinteticos" || instrument.category === "baskets") {
-    if (instrument.name.toLowerCase().includes("volatility"))
-      return <PercentIcon className="w-5 h-5 text-pink-600" />;
-    if (instrument.name.toLowerCase().includes("boom"))
-      return <TrendingUp className="w-5 h-5 text-green-500" />;
-    if (instrument.name.toLowerCase().includes("crash"))
-      return <TrendingDown className="w-5 h-5 text-red-500" />;
-    if (instrument.name.toLowerCase().includes("synthetic"))
-      return <AreaChart className="w-5 h-5 text-indigo-500" />;
-    return <Workflow className="w-5 h-5 text-indigo-500" />;
-  }
+
 
   // Default icon
   return <Activity className="w-5 h-5 text-gray-500" />;
@@ -157,7 +148,7 @@ interface MarketsNavigationProps {
 
 const MarketsNavigation = ({ onInstrumentSelect }: MarketsNavigationProps = {}) => {
   const [selectedCategory, setSelectedCategory] = useState<string>("favoritos");
-  const [expandedCategories, setExpandedCategories] = useState<string[]>(["derivados"]);
+  const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
   const [instruments, setInstruments] = useState<MarketInstrument[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedInstrument, setSelectedInstrument] = useState<MarketInstrument | null>(null);
@@ -166,22 +157,64 @@ const MarketsNavigation = ({ onInstrumentSelect }: MarketsNavigationProps = {}) 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Use Binance tickers for crypto instruments to override prices
+  // Use real-time Binance tickers for crypto instruments to override prices
   const cryptoSymbols = instruments
     .filter(inst => inst.category === 'criptomonedas')
     .map(inst => inst.symbol.split('/')[0]);
-  const binanceTickers = useBinanceTickers(cryptoSymbols);
+  const binanceTickers = useRealTimeBinanceTickers(cryptoSymbols);
+  
+  // Get real-time connection status for crypto instruments
+  const { isConnected: cryptoConnected } = useRealTimeCrypto(cryptoSymbols);
+  
+  // Get trading context for real integration
+  const { addPosition } = useTradePositions();
+  
+  // Handle trade execution - COPIADO DEL DASHBOARD PRINCIPAL
+  const handleTradeExecution = useCallback((
+    direction: 'up' | 'down',
+    amount: number,
+    stake: number,
+    duration: { value: number; unit: 'minute' | 'hour' | 'day' }
+  ) => {
+    if (!selectedInstrument) return;
+    try {
+      const instrumentColor = (selectedInstrument.change24h ?? 0) >= 0 ? '#10b981' : '#ef4444';
+      addPosition({
+        marketName: selectedInstrument.name,
+        marketPrice: selectedInstrument.price, // USA EL PRECIO EN TIEMPO REAL
+        marketColor: instrumentColor,
+        direction,
+        amount,
+        stake,
+        duration,
+        capitalFraction: 0.10,
+        lotSize: 1.0,
+        leverage: 100
+      });
+    
+    console.log('Trade executed successfully from Markets:', {
+        instrument: selectedInstrument.name,
+        price: selectedInstrument.price,
+        direction,
+        amount,
+        stake,
+        duration
+      });
+    } catch (error) {
+      console.error('Error executing trade from Markets:', error);
+    }
+  }, [selectedInstrument, addPosition]);
 
   // Derive display list with real Binance data for cryptos
   const displayInstruments = instruments.map(inst => {
     if (inst.category === 'criptomonedas') {
       // Use base symbol for ticker lookup
       const base = inst.symbol.split('/')[0];
-      const ticker = binanceTickers[base];
+      const ticker = binanceTickers.tickers.find(t => t.symbol === base);
       return {
         ...inst,
         price: ticker?.price ?? inst.price,
-        change24h: ticker?.change24h ?? inst.change24h
+        change24h: ticker?.changePercent ?? inst.change24h
       };
     }
     return inst;
@@ -271,10 +304,37 @@ const MarketsNavigation = ({ onInstrumentSelect }: MarketsNavigationProps = {}) 
   };
   
   const handleInstrumentClick = (instrument: MarketInstrument) => {
-    setSelectedInstrument(instrument);
-    setSelectedMarketForChart(instrument.id);
-    onInstrumentSelect?.(instrument);
+    // Use the display instrument with real-time prices instead of original
+    const displayInstrument = displayInstruments.find(inst => inst.id === instrument.id) || instrument;
+    setSelectedInstrument(displayInstrument);
+    setSelectedMarketForChart(displayInstrument.id);
+    onInstrumentSelect?.(displayInstrument);
   };
+  
+  // Update selected instrument with real-time prices when they change
+  useEffect(() => {
+    if (selectedInstrument) {
+      const updatedInstrument = displayInstruments.find(inst => inst.id === selectedInstrument.id);
+      if (updatedInstrument && (
+        updatedInstrument.price !== selectedInstrument.price || 
+        updatedInstrument.change24h !== selectedInstrument.change24h
+      )) {
+        setSelectedInstrument(updatedInstrument);
+      }
+    }
+  }, [displayInstruments, selectedInstrument]);
+  
+  // NUEVO: Actualización forzada cada 2 segundos para crypto
+  useEffect(() => {
+    if (selectedCategory !== 'criptomonedas' || cryptoSymbols.length === 0 || !cryptoConnected) return;
+    
+    const interval = setInterval(() => {
+      // Forzar actualización de displayInstruments
+      setInstruments(prev => [...prev]);
+    }, 2000);
+    
+    return () => clearInterval(interval);
+  }, [selectedCategory, cryptoSymbols.length, cryptoConnected]);
   
   const handleToggleFavorite = async (e: React.MouseEvent, instrument: MarketInstrument) => {
     e.stopPropagation();
@@ -423,16 +483,34 @@ const MarketsNavigation = ({ onInstrumentSelect }: MarketsNavigationProps = {}) 
         {/* Operar: Trade panel appears before the market list */}
         {selectedInstrument && (
           <div className="border-b border-border p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold">Operar</h3>
+              {/* Mostrar indicador de tiempo real para criptomonedas */}
+              {selectedInstrument.category === 'criptomonedas' && (
+                <div className="flex items-center gap-2">
+                  <RealTimeIndicator 
+                    isConnected={cryptoConnected}
+                    size="sm"
+                  />
+                  <span className="text-sm text-muted-foreground">Operando en tiempo real</span>
+                </div>
+              )}
+            </div>
             <TradeControlPanel
               marketId={selectedInstrument.id}
               marketName={selectedInstrument.name}
-              marketPrice={selectedInstrument.price}
+              marketPrice={(() => {
+                // Asegurar que siempre se use el precio más actualizado en tiempo real
+                const currentDisplayInstrument = displayInstruments.find(inst => inst.id === selectedInstrument.id);
+                return currentDisplayInstrument?.price ?? selectedInstrument.price;
+              })()}
               marketColor={selectedInstrument.color || ''}
               isVisible={true}
               onClose={() => {
                 setSelectedInstrument(null);
                 setSelectedMarketForChart(null);
               }}
+              onPlaceTrade={handleTradeExecution}
             />
           </div>
         )}
@@ -440,7 +518,16 @@ const MarketsNavigation = ({ onInstrumentSelect }: MarketsNavigationProps = {}) 
         {/* Lista de Instrumentos */}
         <div className="flex-1 p-4 overflow-y-auto">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold">{getSectionTitle()}</h3>
+            <div className="flex items-center gap-3">
+              <h3 className="text-lg font-semibold">{getSectionTitle()}</h3>
+              {/* Mostrar indicador de tiempo real solo para criptomonedas */}
+              {selectedCategory === 'criptomonedas' && cryptoSymbols.length > 0 && (
+                <RealTimeIndicator 
+                  isConnected={cryptoConnected}
+                  size="sm"
+                />
+              )}
+            </div>
             <div className="relative w-full max-w-xs">
               <Input
                 type="text"
@@ -487,7 +574,7 @@ const MarketsNavigation = ({ onInstrumentSelect }: MarketsNavigationProps = {}) 
                             ? "text-green-500"
                             : "text-red-500"
                         )}>
-                          {isPositiveChange ? "+" : ""}{(instrument.changePercent ?? 0).toFixed(2)}%
+                          {isPositiveChange ? "+" : ""}{(instrument.change24h ?? 0).toFixed(2)}%
                         </div>
                       </div>
                       <button onClick={(e) => handleToggleFavorite(e, instrument)}>
