@@ -1203,38 +1203,13 @@ const RealTimeMarketChart = ({ marketId: initialMarketId, isRealTime: initialRea
           </div>
           <div className="flex flex-col">
               <div className="flex items-center gap-2">
-            <span>{currentMarketConfig.name}</span>
-                {/* Badge para indicar la fuente de datos actual */}
-                <Badge 
-                  variant={isSimulatedData ? "secondary" : "default"}
-                  className={cn(
-                    "px-1.5 py-0 text-[10px] font-medium",
-                    isSimulatedData
-                      ? "bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-500/20" 
-                      : effectiveDataSource === "BINANCE"
-                      ? "bg-blue-500/20 text-blue-700 dark:text-blue-400 hover:bg-blue-500/20"
-                      : "bg-green-500/20 text-green-700 dark:text-green-400 hover:bg-green-500/20"
-                  )}
-                >
-                  {shouldFallbackToSimulated 
-                    ? "SIMULADO (FALLBACK)" 
-                    : DATA_SOURCES.find(s => s.id === effectiveDataSource)?.label.toUpperCase()
-                  }
-                </Badge>
+                <span>{currentMarketConfig.name}</span>
               </div>
-            <div className="flex gap-1 items-center">
-              {currentMarketConfig.showInRealTime && (
-                <span className="text-xs px-1 py-0.5 rounded bg-red-500 text-white w-fit">1s</span>
-              )}
-                <span className="text-xs text-muted-foreground">
-                  {isSimulatedData 
-                    ? "(Precios generados para fines de demostración)"
-                    : effectiveDataSource === "BINANCE"
-                    ? "(Datos reales de Binance Exchange)"
-                    : "(Datos de mercado en tiempo real)"
-                  }
-                </span>
-            </div>
+              <div className="flex gap-1 items-center">
+                {currentMarketConfig.showInRealTime && (
+                  <span className="text-xs px-1 py-0.5 rounded bg-red-500 text-white w-fit">1s</span>
+                )}
+              </div>
           </div>
         </CardTitle>
         <div className="flex items-center gap-2">

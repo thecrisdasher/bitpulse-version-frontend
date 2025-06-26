@@ -583,30 +583,6 @@ const RealTimeMarketChartClient: React.FC<ChartProps> = ({
         position: 'relative' 
       }}
     >
-      {/* Marca de agua para datos simulados */}
-      {isSimulatedData ? (
-        <div 
-          className="absolute bottom-2 right-2 text-xs font-semibold py-1 px-2 rounded 
-                     bg-yellow-500/10 text-yellow-700 dark:text-yellow-400
-                     pointer-events-none z-10 opacity-80 uppercase tracking-wide"
-          style={{
-            backdropFilter: 'blur(2px)'
-          }}
-        >
-          Datos Simulados
-        </div>
-      ) : (
-        <div 
-          className="absolute bottom-2 right-2 text-xs font-semibold py-1 px-2 rounded 
-                     bg-green-500/10 text-green-700 dark:text-green-400
-                     pointer-events-none z-10 opacity-80 uppercase tracking-wide"
-          style={{
-            backdropFilter: 'blur(2px)'
-          }}
-        >
-          Datos Reales
-        </div>
-      )}
     </div>
   );
 };

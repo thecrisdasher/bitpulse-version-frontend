@@ -5,8 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { ThemeToggle } from '@/components/ThemeToggle';
-import { LanguageSelector } from '@/components/LanguageSelector';
+
 import { useAuth } from '@/contexts/AuthContext';
 import { 
   User, 
@@ -185,9 +184,7 @@ export default function Header() {
               </>
             )}
             
-            {/* Selector de Tema/Idioma */}
-            <ThemeToggle />
-            <LanguageSelector />
+
             
             {/* Perfil de usuario */}
             {isAuthenticated ? (

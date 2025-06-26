@@ -66,39 +66,39 @@ export default function Footer({ show }: FooterProps) {
 
             {/* Créditos del desarrollador - Solo visible para admin y maestro */}
             {shouldShowCredits && (
-              <motion.div 
-                className="flex items-center gap-2 text-center md:text-right"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.2, duration: 0.5 }}
-              >
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <span>Desarrollado con</span>
-                  <motion.div
-                    animate={{ 
-                      scale: [1, 1.2, 1],
-                      color: ["hsl(var(--muted-foreground))", "hsl(var(--primary))", "hsl(var(--muted-foreground))"]
-                    }}
-                    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                  >
-                    <Heart className="w-3 h-3 fill-current" />
-                  </motion.div>
-                  <span>por</span>
-                </div>
-                
-                <motion.a
-                  href="https://portafolio-cris-sepia.vercel.app/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-full text-xs font-medium transition-all duration-300 group"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
+            <motion.div 
+              className="flex items-center gap-2 text-center md:text-right"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.2, duration: 0.5 }}
+            >
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <span>Desarrollado con</span>
+                <motion.div
+                  animate={{ 
+                    scale: [1, 1.2, 1],
+                    color: ["hsl(var(--muted-foreground))", "hsl(var(--primary))", "hsl(var(--muted-foreground))"]
+                  }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
                 >
-                  <Code className="w-3 h-3" />
-                  <span>Mejor Llama A Cris</span>
-                  <ExternalLink className="w-3 h-3 opacity-60 group-hover:opacity-100 transition-opacity" />
-                </motion.a>
-              </motion.div>
+                  <Heart className="w-3 h-3 fill-current" />
+                </motion.div>
+                <span>por</span>
+              </div>
+              
+              <motion.a
+                href="https://portafolio-cris-sepia.vercel.app/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-full text-xs font-medium transition-all duration-300 group"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <Code className="w-3 h-3" />
+                <span>Mejor Llama A Cris</span>
+                <ExternalLink className="w-3 h-3 opacity-60 group-hover:opacity-100 transition-opacity" />
+              </motion.a>
+            </motion.div>
             )}
           </div>
 
@@ -118,20 +118,20 @@ export default function Footer({ show }: FooterProps) {
 
               {/* Créditos adicionales del desarrollador - Solo visible para admin y maestro */}
               {shouldShowCredits && (
-                <div className="flex items-center gap-1">
-                  <span>Creado por</span>
-                  <motion.a
-                    href="https://crisdasher-portfolio.vercel.app/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary hover:text-primary/80 font-medium transition-colors"
-                    whileHover={{ scale: 1.05 }}
-                  >
-                    Cristian Carabali
-                  </motion.a>
-                  <span>-</span>
-                  <span>Desarrollador Web</span>
-                </div>
+              <div className="flex items-center gap-1">
+                <span>Creado por</span>
+                <motion.a
+                  href="https://crisdasher-portfolio.vercel.app/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:text-primary/80 font-medium transition-colors"
+                  whileHover={{ scale: 1.05 }}
+                >
+                  Cristian Carabali
+                </motion.a>
+                <span>-</span>
+                <span>Desarrollador Web</span>
+              </div>
               )}
 
             </div>
