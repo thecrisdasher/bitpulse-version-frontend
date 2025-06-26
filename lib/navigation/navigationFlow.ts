@@ -85,16 +85,7 @@ export const NAVIGATION_FLOWS: Record<string, NavigationFlow> = {
         isCompleted: false,
         dependencies: ['trading_preferences']
       },
-      {
-        id: 'learning_basics',
-        title: 'Conceptos Básicos',
-        description: 'Aprende los fundamentos del trading',
-        path: '/learning',
-        icon: '📚',
-        isRequired: false,
-        isCompleted: false,
-        dependencies: ['first_market_view']
-      },
+
       {
         id: 'first_position',
         title: 'Primera Posición',
@@ -103,7 +94,7 @@ export const NAVIGATION_FLOWS: Record<string, NavigationFlow> = {
         icon: '🚀',
         isRequired: false,
         isCompleted: false,
-        dependencies: ['learning_basics']
+        dependencies: ['first_market_view']
       }
     ]
   },

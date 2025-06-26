@@ -87,7 +87,7 @@ export default function Header() {
       { name: 'Análisis Técnico', href: '/valores' },
       { name: 'Trending', href: '/trending' },
       { name: 'Chat en Vivo', href: '/chat' },
-      { name: 'Educación', href: '/learning' },
+
     ];
   } else {
     navigation = [

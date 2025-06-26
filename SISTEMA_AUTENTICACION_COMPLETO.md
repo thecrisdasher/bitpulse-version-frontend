@@ -28,7 +28,7 @@ Se ha implementado un sistema completo de autenticación, sesiones, logs y naveg
 ```typescript
 PRIVATE_ROUTES = [
   '/', '/posiciones-abiertas', '/portfolio', '/markets',
-  '/settings', '/statistics', '/learning', '/help', '/chat'
+  '/settings', '/statistics', '/help', '/chat'
 ]
 
 ROLE_BASED_ROUTES = {

@@ -28,7 +28,7 @@ const PRIVATE_ROUTES = [
   '/markets',
   '/settings',
   '/statistics',
-  '/learning',
+
   '/help',
   '/chat',
   '/crm'

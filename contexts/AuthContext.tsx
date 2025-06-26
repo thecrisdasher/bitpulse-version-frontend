@@ -229,7 +229,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             router.push('/statistics');
             break;
           case 'maestro':
-            router.push('/learning');
+            router.push('/markets');
             break;
           case 'cliente':
           default:
