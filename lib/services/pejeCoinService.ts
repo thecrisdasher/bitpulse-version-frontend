@@ -54,8 +54,8 @@ export class PejeCoinService {
         await NotificationService.create(
           userId,
           'Recarga de saldo',
-          `Se acreditaron $${amount.toLocaleString()} a tu cuenta de práctica.`,
-          '/crm/saldos'
+          `Se acreditaron $${amount.toLocaleString()} a tu cuenta.`,
+          '/pejecoins'
         );
 
         return createdTx;

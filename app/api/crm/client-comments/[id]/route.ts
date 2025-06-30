@@ -108,9 +108,9 @@ export async function PUT(
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    // Solo maestros y admins pueden actualizar comentarios
-    if (user.role !== 'admin' && user.role !== 'maestro') {
-      return NextResponse.json({ error: 'No tienes permisos para actualizar comentarios' }, { status: 403 });
+    // Solo admins pueden actualizar comentarios
+    if (user.role !== 'admin') {
+      return NextResponse.json({ error: 'Solo los administradores pueden editar comentarios' }, { status: 403 });
     }
 
     const commentId = params.id;
@@ -123,25 +123,6 @@ export async function PUT(
 
     if (!existingComment) {
       return NextResponse.json({ error: 'Comentario no encontrado' }, { status: 404 });
-    }
-
-    // Solo el autor del comentario o un admin pueden modificarlo
-    if (user.role === 'maestro' && existingComment.authorId !== user.id) {
-      return NextResponse.json({ error: 'Solo puedes modificar tus propios comentarios' }, { status: 403 });
-    }
-
-    // Si es maestro, verificar que tiene acceso al cliente
-    if (user.role === 'maestro') {
-      const assignment = await prisma.mentorAssignment.findFirst({
-        where: {
-          mentorId: user.id,
-          userId: existingComment.clientId
-        }
-      });
-
-      if (!assignment) {
-        return NextResponse.json({ error: 'No tienes acceso a este comentario' }, { status: 403 });
-      }
     }
 
     // Actualizar el comentario
@@ -201,9 +182,9 @@ export async function DELETE(
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    // Solo maestros y admins pueden eliminar comentarios
-    if (user.role !== 'admin' && user.role !== 'maestro') {
-      return NextResponse.json({ error: 'No tienes permisos para eliminar comentarios' }, { status: 403 });
+    // Solo admins pueden eliminar comentarios
+    if (user.role !== 'admin') {
+      return NextResponse.json({ error: 'Solo los administradores pueden eliminar comentarios' }, { status: 403 });
     }
 
     const commentId = params.id;
@@ -215,25 +196,6 @@ export async function DELETE(
 
     if (!existingComment) {
       return NextResponse.json({ error: 'Comentario no encontrado' }, { status: 404 });
-    }
-
-    // Solo el autor del comentario o un admin pueden eliminarlo
-    if (user.role === 'maestro' && existingComment.authorId !== user.id) {
-      return NextResponse.json({ error: 'Solo puedes eliminar tus propios comentarios' }, { status: 403 });
-    }
-
-    // Si es maestro, verificar que tiene acceso al cliente
-    if (user.role === 'maestro') {
-      const assignment = await prisma.mentorAssignment.findFirst({
-        where: {
-          mentorId: user.id,
-          userId: existingComment.clientId
-        }
-      });
-
-      if (!assignment) {
-        return NextResponse.json({ error: 'No tienes acceso a este comentario' }, { status: 403 });
-      }
     }
 
     // Eliminar el comentario

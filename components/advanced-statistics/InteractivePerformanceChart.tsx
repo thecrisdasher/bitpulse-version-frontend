@@ -237,36 +237,36 @@ export function InteractivePerformanceChart({
   const metrics = useMemo((): TradingMetric[] => {
     if (internalClosedPositions.length === 0) {
       return [
-        {
-          name: 'Ganancia Total',
+    {
+      name: 'Ganancia Total',
           value: '$0',
           change: '0%',
           trend: 'neutral',
-          icon: DollarSign,
+      icon: DollarSign,
           color: 'text-muted-foreground'
-        },
-        {
-          name: 'Tasa de Éxito',
+    },
+    {
+      name: 'Tasa de Éxito',
           value: '0%',
           change: '0%',
           trend: 'neutral',
-          icon: Target,
+      icon: Target,
           color: 'text-muted-foreground'
-        },
-        {
-          name: 'Sharpe Ratio',
+    },
+    {
+      name: 'Sharpe Ratio',
           value: '0',
           change: '0',
           trend: 'neutral',
-          icon: Brain,
+      icon: Brain,
           color: 'text-muted-foreground'
-        },
-        {
-          name: 'Max Drawdown',
+    },
+    {
+      name: 'Max Drawdown',
           value: '0%',
           change: '0%',
           trend: 'neutral',
-          icon: TrendingDown,
+      icon: TrendingDown,
           color: 'text-muted-foreground'
         }
       ];
@@ -312,14 +312,14 @@ export function InteractivePerformanceChart({
       ? lastTwoPeriods[1].winRate > lastTwoPeriods[0].winRate ? 'up' : 'down'
       : 'neutral';
 
-    const formatCurrency = (amount: number): string => {
-      return new Intl.NumberFormat('es-CO', {
-        style: 'currency',
-        currency: 'COP',
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0
-      }).format(amount);
-    };
+  const formatCurrency = (amount: number): string => {
+    return new Intl.NumberFormat('es-CO', {
+      style: 'currency',
+      currency: 'COP',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(amount);
+  };
 
     return [
       {
@@ -620,13 +620,13 @@ export function InteractivePerformanceChart({
             ) : (
               <div className="h-full flex items-center justify-center">
                 <div className="text-center">
-                  <BarChart className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-lg font-medium text-muted-foreground">
+              <BarChart className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+              <p className="text-lg font-medium text-muted-foreground">
                     No hay datos suficientes
-                  </p>
-                  <p className="text-sm text-muted-foreground mt-2">
+              </p>
+              <p className="text-sm text-muted-foreground mt-2">
                     Realiza algunas operaciones para ver estadísticas detalladas
-                  </p>
+              </p>
                 </div>
               </div>
             )}
@@ -687,61 +687,61 @@ export function InteractivePerformanceChart({
             <div className="space-y-4">
               {performanceData.length > 0 && (
                 <>
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.3 }}
-                    className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border-l-4 border-l-green-500"
-                  >
-                    <div className="flex items-start gap-2">
-                      <TrendingUp className="w-4 h-4 text-green-500 mt-0.5" />
-                      <div>
-                        <p className="text-sm font-medium text-green-700 dark:text-green-300">
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border-l-4 border-l-green-500"
+              >
+                <div className="flex items-start gap-2">
+                  <TrendingUp className="w-4 h-4 text-green-500 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-green-700 dark:text-green-300">
                           Análisis de Tendencia
-                        </p>
-                        <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                    </p>
+                    <p className="text-xs text-green-600 dark:text-green-400 mt-1">
                           {performanceData.slice(-2).length === 2 && performanceData.slice(-2)[1].profit > performanceData.slice(-2)[0].profit
                             ? "Tu rendimiento ha mejorado en el último período"
                             : "Mantén la consistencia en tu estrategia de trading"}
-                        </p>
-                      </div>
-                    </div>
-                  </motion.div>
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
 
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.5 }}
-                    className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border-l-4 border-l-blue-500"
-                  >
-                    <div className="flex items-start gap-2">
-                      <Target className="w-4 h-4 text-blue-500 mt-0.5" />
-                      <div>
-                        <p className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                          Oportunidad de Optimización
-                        </p>
-                        <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 }}
+                className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border-l-4 border-l-blue-500"
+              >
+                <div className="flex items-start gap-2">
+                  <Target className="w-4 h-4 text-blue-500 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                      Oportunidad de Optimización
+                    </p>
+                    <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
                           {parseFloat(metrics[1]?.value?.replace('%', '') || '0') < 60 
                             ? "Considera revisar tu estrategia para mejorar la tasa de éxito"
                             : "Excelente tasa de éxito, mantén tu disciplina"}
-                        </p>
-                      </div>
-                    </div>
-                  </motion.div>
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
 
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.7 }}
-                    className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg border-l-4 border-l-purple-500"
-                  >
-                    <div className="flex items-start gap-2">
-                      <Zap className="w-4 h-4 text-purple-500 mt-0.5" />
-                      <div>
-                        <p className="text-sm font-medium text-purple-700 dark:text-purple-300">
-                          Patrón Detectado
-                        </p>
-                        <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.7 }}
+                className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg border-l-4 border-l-purple-500"
+              >
+                <div className="flex items-start gap-2">
+                  <Zap className="w-4 h-4 text-purple-500 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-purple-700 dark:text-purple-300">
+                      Patrón Detectado
+                    </p>
+                    <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">
                           Has realizado {internalClosedPositions.length} operaciones en total
                           {internalClosedPositions.length > 0 && `, con un promedio de ${(internalClosedPositions.reduce((sum, pos) => sum + (pos.pnl || 0), 0) / internalClosedPositions.length).toFixed(0)} COP por operación`}
                         </p>
@@ -766,10 +766,10 @@ export function InteractivePerformanceChart({
                       </p>
                       <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
                         Realiza algunas operaciones para comenzar a ver insights personalizados
-                      </p>
-                    </div>
+                    </p>
                   </div>
-                </motion.div>
+                </div>
+              </motion.div>
               )}
             </div>
           </CardContent>
@@ -777,4 +777,4 @@ export function InteractivePerformanceChart({
       </div>
     </motion.div>
   );
-}
+} 

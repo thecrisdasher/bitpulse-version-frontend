@@ -330,6 +330,7 @@ const ClientCommentsManager: React.FC<ClientCommentsManagerProps> = ({
   });
 
   const canManageComments = user?.role === 'admin' || user?.role === 'maestro';
+  const canEditDeleteComments = user?.role === 'admin';
 
   if (loading) {
     return (
@@ -389,40 +390,30 @@ const ClientCommentsManager: React.FC<ClientCommentsManagerProps> = ({
                       )}
                     </div>
                     <Label htmlFor="client-select">Cliente</Label>
-                    <Select
-                      value={formData.clientId}
-                      onValueChange={(value) => setFormData(prev => ({ ...prev, clientId: value }))}
+                    <Select 
+                      value={selectedClient} 
+                      onValueChange={setSelectedClient}
                     >
-                      <SelectTrigger>
-                        <SelectValue placeholder={
-                          filteredClients.length === 0 && clientSearchTerm 
-                            ? "No se encontraron clientes" 
-                            : "Seleccionar cliente"
-                        } />
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Selecciona un cliente" />
                       </SelectTrigger>
                       <SelectContent>
-                        {filteredClients.length > 0 ? (
-                          filteredClients.map(client => (
+                        <SelectItem value="all">Todos los clientes</SelectItem>
+                        {filteredClients.map(client => (
                           <SelectItem key={client.id} value={client.id}>
-                            {client.firstName} {client.lastName} - {client.email}
-                            </SelectItem>
-                          ))
-                        ) : clientSearchTerm ? (
-                          <SelectItem value="" disabled>
-                            No se encontraron clientes que coincidan con "{clientSearchTerm}"
+                            {client.firstName} {client.lastName}
                           </SelectItem>
-                        ) : (
-                          clients.map(client => (
-                            <SelectItem key={client.id} value={client.id}>
-                              {client.firstName} {client.lastName} - {client.email}
-                            </SelectItem>
-                          ))
+                        ))}
+                        {clientSearchTerm && filteredClients.length === 0 && (
+                          <SelectItem value="no_results" disabled>
+                            No se encontraron resultados
+                          </SelectItem>
                         )}
                       </SelectContent>
                     </Select>
-                    {filteredClients.length > 0 && clientSearchTerm && (
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {filteredClients.length} cliente{filteredClients.length !== 1 ? 's' : ''} encontrado{filteredClients.length !== 1 ? 's' : ''}
+                    {clientSearchTerm && filteredClients.length > 0 && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {filteredClients.length} resultado{filteredClients.length !== 1 ? 's' : ''}
                       </p>
                     )}
                   </div>
@@ -557,7 +548,7 @@ const ClientCommentsManager: React.FC<ClientCommentsManagerProps> = ({
                   </SelectItem>
                 ))}
                     {clientSearchTerm && filteredClients.length === 0 && (
-                      <SelectItem value="" disabled>
+                      <SelectItem value="no_results" disabled>
                         No se encontraron clientes
                       </SelectItem>
                     )}
@@ -658,7 +649,7 @@ const ClientCommentsManager: React.FC<ClientCommentsManagerProps> = ({
                     </div>
                   </div>
                   
-                  {canManageComments && (user?.role === 'admin' || comment.authorId === user?.id) && (
+                  {canEditDeleteComments && (
                     <div className="flex items-center space-x-2">
                       <Button
                         variant="ghost"

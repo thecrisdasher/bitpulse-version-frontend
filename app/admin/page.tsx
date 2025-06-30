@@ -26,6 +26,7 @@ import {
   Database,
   FileText,
   Bell,
+  HelpCircle,
 } from 'lucide-react'
 
 // Tipos de datos para las estadísticas y actividad
@@ -247,6 +248,17 @@ const AdminDashboardPage = () => {
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground text-sm">Gestiona operaciones de clientes</p>
+              </CardContent>
+            </Card>
+          </Link>
+          <Link href="/admin/help" className="group">
+            <Card className="cursor-pointer group-hover:shadow-lg transition-shadow">
+              <CardHeader className="flex items-center gap-2">
+                <HelpCircle className="h-5 w-5 text-primary" />
+                <CardTitle className="text-sm font-medium">Centro de Ayuda</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground text-sm">Gestiona FAQs, guías y recursos</p>
               </CardContent>
             </Card>
           </Link>

@@ -63,7 +63,15 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
   // Risk management state
   const [capitalFraction, setCapitalFraction] = useState<number>(0.10); // Fracción de capital (0.10 = 10%)
   const [leverage, setLeverage] = useState<number>(100); // Apalancamiento
-  const [lotSize, setLotSize] = useState<number>(1.0); // Tamaño del lote
+  const [lotSize, setLotSize] = useState<number>(() => {
+    // Establecer lotSize inicial basado en el tipo de instrumento
+    if (marketName.includes('BTC') || marketName.includes('ETH')) {
+      return 0.01; // Para crypto, usar un valor más pequeño por defecto
+    } else if (marketName.includes('XAU')) {
+      return 0.1; // Para oro
+    }
+    return 1.0; // Para forex
+  }); // Tamaño del lote
   
   // Risk metrics calculations
   const [riskMetrics, setRiskMetrics] = useState({
@@ -147,7 +155,7 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
   useEffect(() => {
     const capitalToUse = investmentAmount * capitalFraction;
     
-    // Calcular valor de la posición
+    // Determinar tamaño del contrato según el instrumento
     let contractSize = 100000; // Para forex, 1 lote = 100,000 unidades
     if (marketName.includes('BTC') || marketName.includes('ETH')) {
       contractSize = 1; // Para crypto, 1 lote = 1 unidad
@@ -155,21 +163,27 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
       contractSize = 100; // Para oro, 1 lote = 100 onzas
     }
     
-    const positionValue = displayPrice * contractSize * lotSize;
-    const marginRequired = positionValue / leverage;
-    const effectiveMarginUsed = Math.min(marginRequired, capitalToUse);
-    const freeMargin = investmentAmount - effectiveMarginUsed;
-    const marginLevel = effectiveMarginUsed > 0 ? (freeMargin / effectiveMarginUsed) * 100 : 0;
+    // Calcular valor de la posición basado en el monto de inversión actual
+    const positionValue = capitalToUse * leverage; // Valor total de la posición con apalancamiento
+    const marginRequired = positionValue / leverage; // Margen requerido = capital que necesitamos
+    
+    // IMPORTANTE: El margen requerido debe ser igual al capital que vamos a usar
+    // porque estamos calculando basado en lo que queremos invertir
+    const actualMarginRequired = capitalToUse;
+    
+    const freeMargin = investmentAmount - actualMarginRequired;
+    const marginLevel = actualMarginRequired > 0 ? (freeMargin / actualMarginRequired) * 100 : 0;
     
     // Verificar si hay fondos suficientes
     setRiskMetrics({
-      marginRequired: effectiveMarginUsed,
+      marginRequired: actualMarginRequired, // Mostrar el margen real requerido
       freeMargin: Math.max(0, freeMargin),
       marginLevel: Math.max(0, marginLevel),
-      positionValue,
+      positionValue, // Valor total de la posición con apalancamiento
       capitalUsed: capitalToUse
     });
-  }, [investmentAmount, capitalFraction, leverage, lotSize, displayPrice, marketName]);
+    
+  }, [investmentAmount, capitalFraction, leverage, displayPrice, marketName]);
 
   // Format currency in 'dolarizado' style
   const formatCurrency = (amount: number): string => {
@@ -179,6 +193,20 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(amount);
+  };
+
+  // Format lot size for better readability
+  const formatLotSize = (value: number): string => {
+    if (value >= 1) {
+      return value.toFixed(2);
+    } else if (value >= 0.01) {
+      return value.toFixed(4);
+    } else if (value >= 0.0001) {
+      return value.toFixed(6);
+    } else {
+      // Para números muy pequeños, usar notación científica
+      return value.toExponential(3);
+    }
   };
 
   // Handle trade execution
@@ -258,6 +286,15 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
 
   const [activeTab, setActiveTab] = useState('stake');
   const [inputAmount, setInputAmount] = useState<string>('');
+  const [lotSizeInput, setLotSizeInput] = useState<string>(() => {
+    // Establecer input inicial basado en el tipo de instrumento
+    if (marketName.includes('BTC') || marketName.includes('ETH')) {
+      return '0.01'; // Para crypto, usar un valor más pequeño por defecto
+    } else if (marketName.includes('XAU')) {
+      return '0.1'; // Para oro
+    }
+    return '1.0'; // Para forex
+  }); // Estado local para el input del lote
 
   // Update capital fraction when input amount changes
   useEffect(() => {
@@ -272,6 +309,20 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
       }
     }
   }, [inputAmount, investmentAmount]);
+
+  // Update lotSizeInput when lotSize changes (but not during user input)
+  useEffect(() => {
+    setLotSizeInput(formatLotSize(lotSize));
+  }, [lotSize]);
+
+  // Handle lot size input change
+  const handleLotSizeChange = (value: string) => {
+    setLotSizeInput(value);
+    const numValue = parseFloat(value);
+    if (!isNaN(numValue) && numValue > 0) {
+      setLotSize(numValue);
+    }
+  };
 
   if (!isVisible) return null;
 
@@ -507,8 +558,8 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
                   type="number"
                   step="0.01"
                   min="0.01"
-                  value={lotSize}
-                  onChange={(e) => setLotSize(parseFloat(e.target.value) || 0.01)}
+                  value={lotSizeInput}
+                  onChange={(e) => handleLotSizeChange(e.target.value)}
                   placeholder="1.0"
                 />
               </div>
@@ -631,7 +682,14 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
                         Volumen Total
                       </div>
                       <div className="text-sm font-semibold text-blue-500">
-                        {(lotSize * (marketName.includes('USD') ? 100000 : 1)).toLocaleString()}
+                        {(() => {
+                          const contractSize = marketName.includes('BTC') || marketName.includes('ETH') ? 1 : 
+                                             marketName.includes('XAU') ? 100 : 100000;
+                          const volume = lotSize * contractSize;
+                          return volume >= 1 ? volume.toLocaleString(undefined, { maximumFractionDigits: 2 }) :
+                                 volume >= 0.01 ? volume.toFixed(4) :
+                                 volume.toExponential(2);
+                        })()}
                       </div>
                     </div>
                   </TooltipTrigger>
