@@ -130,6 +130,13 @@ const ClientCommentsManager: React.FC<ClientCommentsManagerProps> = ({
     }
   }, [selectedClient]);
 
+  // Inicializar formData.clientId cuando se abra el diálogo de creación
+  useEffect(() => {
+    if (isCreateDialogOpen && !showClientSelector && clientId) {
+      setFormData(prev => ({ ...prev, clientId }));
+    }
+  }, [isCreateDialogOpen, clientId, showClientSelector]);
+
   const loadInitialData = async () => {
     try {
       setLoading(true);
@@ -205,13 +212,29 @@ const ClientCommentsManager: React.FC<ClientCommentsManagerProps> = ({
         return;
       }
 
+      // Validar clientId cuando showClientSelector es true
+      if (showClientSelector && (!formData.clientId || formData.clientId === 'all')) {
+        toast.error('Debes seleccionar un cliente válido');
+        return;
+      }
+
+      // Asegurar que tengamos un clientId válido
+      const finalClientId = formData.clientId || clientId || (selectedClient !== 'all' ? selectedClient : '');
+      if (!finalClientId) {
+        toast.error('No se pudo determinar el cliente para el comentario');
+        return;
+      }
+
       const response = await fetch('/api/crm/client-comments', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         credentials: 'include',
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+          ...formData,
+          clientId: finalClientId
+        })
       });
 
       if (response.ok) {
@@ -219,7 +242,7 @@ const ClientCommentsManager: React.FC<ClientCommentsManagerProps> = ({
         setComments(prev => [data.comment, ...prev]);
         setIsCreateDialogOpen(false);
         setFormData({
-          clientId: clientId || (selectedClient !== 'all' ? selectedClient : ''),
+          clientId: clientId || '',
           content: '',
           tagIds: [],
           isPrivate: false
@@ -262,7 +285,7 @@ const ClientCommentsManager: React.FC<ClientCommentsManagerProps> = ({
         setIsEditDialogOpen(false);
         setEditingComment(null);
         setFormData({
-          clientId: clientId || (selectedClient !== 'all' ? selectedClient : ''),
+          clientId: clientId || '',
           content: '',
           tagIds: [],
           isPrivate: false
@@ -391,8 +414,11 @@ const ClientCommentsManager: React.FC<ClientCommentsManagerProps> = ({
                     </div>
                     <Label htmlFor="client-select">Cliente</Label>
                     <Select 
-                      value={selectedClient} 
-                      onValueChange={setSelectedClient}
+                      value={formData.clientId || selectedClient} 
+                      onValueChange={(value) => {
+                        setSelectedClient(value);
+                        setFormData(prev => ({ ...prev, clientId: value !== 'all' ? value : '' }));
+                      }}
                     >
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Selecciona un cliente" />

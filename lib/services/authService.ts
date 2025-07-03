@@ -155,7 +155,7 @@ export class AuthService {
         firstName: data.firstName,
         lastName: data.lastName,
           role: 'cliente',
-          pejecoins: 1000,
+          pejecoins: 0,
           emailConfirmed: true, // Se confirma automáticamente
           adminApprovalRequired: true,
           adminApprovalRequestedAt: now,
