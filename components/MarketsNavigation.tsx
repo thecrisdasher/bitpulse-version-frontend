@@ -449,9 +449,9 @@ const MarketsNavigation = ({ onInstrumentSelect }: MarketsNavigationProps = {}) 
   };
 
   return (
-    <div className="flex h-full">
+    <div className="flex flex-col md:flex-row h-full">
       {/* Columna de Navegación de Mercados */}
-      <div className="w-64 border-r border-border p-3 flex flex-col">
+      <div className="w-full md:w-64 md:border-r border-b md:border-b-0 border-border p-3 flex flex-col">
         <h2 className="text-xl font-bold mb-4">Mercados</h2>
         {isLoading && !Object.keys(categories).length ? (
           <div className="space-y-2">
