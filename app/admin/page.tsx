@@ -27,6 +27,7 @@ import {
   FileText,
   Bell,
   HelpCircle,
+  SlidersHorizontal,
 } from 'lucide-react'
 
 // Tipos de datos para las estadísticas y actividad
@@ -248,6 +249,17 @@ const AdminDashboardPage = () => {
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground text-sm">Gestiona operaciones de clientes</p>
+              </CardContent>
+            </Card>
+          </Link>
+          <Link href="/admin/apalancamiento" className="group">
+            <Card className="cursor-pointer group-hover:shadow-lg transition-shadow">
+              <CardHeader className="flex items-center gap-2">
+                <SlidersHorizontal className="h-5 w-5 text-primary" />
+                <CardTitle className="text-sm font-medium">Apalancamientos</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground text-sm">Configura apalancamientos por mercado</p>
               </CardContent>
             </Card>
           </Link>

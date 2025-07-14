@@ -141,13 +141,24 @@ export function RiskManagement() {
         
       const lotSize = pos.lotSize || 1;
       const positionValue = currentPrice * contractSize * lotSize;
-      const marginRequired = positionValue / (pos.leverage || 100);
 
-      // Calcular PnL no realizado
+      // Usar margen requerido calculado por el backend si está disponible, 
+      // de lo contrario calcularlo de forma local como respaldo.
+      const marginRequired =
+        typeof pos.marginRequired === 'number'
+          ? pos.marginRequired
+          : positionValue / (pos.leverage || 100);
+
+      // Utilizar la ganancia/pérdida proporcionada por el backend cuando exista
+      // para asegurar consistencia con el resto de la aplicación. Si no está
+      // presente, se realiza el cálculo local como reserva.
       const directionMultiplier = (pos.direction === 'down' || pos.type === 'sell') ? -1 : 1;
       const priceDifference = currentPrice - pos.openPrice;
       const volume = contractSize * lotSize;
-      const unrealizedPnL = priceDifference * volume * directionMultiplier;
+      const unrealizedPnL =
+        typeof (pos as any).profit === 'number'
+          ? (pos as any).profit
+          : priceDifference * volume * directionMultiplier;
 
       return {
         id: pos.id,

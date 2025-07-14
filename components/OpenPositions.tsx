@@ -196,8 +196,7 @@ const OpenPositions: React.FC<OpenPositionsProps> = ({ positions, onClosePositio
   
   // Función para obtener el profit actual (tiempo real o almacenado)
   const getCurrentProfit = (position: TradePosition) => {
-    const result = realTimeProfits[position.id] || { profit: position.profit, profitPercentage: position.profitPercentage };
-    return result;
+    return { profit: position.profit, profitPercentage: position.profitPercentage };
   };
   
   // Update current time every second for accurate time remaining calculation

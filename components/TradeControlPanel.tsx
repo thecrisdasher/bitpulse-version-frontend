@@ -5,7 +5,7 @@ import { useRealTimeCrypto } from '@/hooks/useRealTimeCrypto';
 import { Card, CardContent } from "@/components/ui/card";
 import { CompatButton as Button } from "@/components/ui/compat-button";
 import { Input } from "@/components/ui/input";
-import { ChevronLeft, Info, ArrowUpCircle, ArrowDownCircle, Percent, DollarSign, BarChart4, CheckCircle2, Shield, Calculator, BarChart3, AlertTriangle } from "lucide-react";
+import { ChevronLeft, Info, ArrowUpCircle, ArrowDownCircle, Percent, DollarSign, BarChart4, CheckCircle2, Shield, Calculator, BarChart3, AlertTriangle, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -23,6 +23,7 @@ import { useTradePositions } from "@/contexts/TradePositionsContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
+import { getLeverage, MarketCategory } from '@/lib/config/leverage';
 
 interface TradeControlPanelProps {
   marketId: string;
@@ -39,6 +40,61 @@ interface TradeControlPanelProps {
   ) => void;
 }
 
+// Función para determinar el tipo de mercado basado en el nombre del instrumento
+const getMarketType = (marketName: string): 'acciones' | 'materias-primas' | 'criptomonedas' | 'divisas' | 'indices' => {
+  const name = marketName.toLowerCase();
+  
+  // Criptomonedas
+  if (name.includes('btc') || name.includes('eth') || name.includes('bitcoin') || 
+      name.includes('ethereum') || name.includes('crypto') || name.includes('sol') ||
+      name.includes('ada') || name.includes('dot') || name.includes('xrp') ||
+      name.includes('link') || name.includes('ltc') || name.includes('bch') ||
+      name.includes('avax') || name.includes('doge') || name.includes('shib') ||
+      name.includes('matic') || name.includes('bnb')) {
+    return 'criptomonedas';
+  }
+  
+  // Materias primas
+  if (name.includes('oro') || name.includes('gold') || name.includes('xau') ||
+      name.includes('plata') || name.includes('silver') || name.includes('xag') ||
+      name.includes('oil') || name.includes('petróleo') || name.includes('copper') ||
+      name.includes('cobre') || name.includes('gas') || name.includes('platino') ||
+      name.includes('platinum')) {
+    return 'materias-primas';
+  }
+  
+  // Divisas (Forex)
+  if (name.includes('usd') || name.includes('eur') || name.includes('gbp') ||
+      name.includes('jpy') || name.includes('chf') || name.includes('cad') ||
+      name.includes('aud') || name.includes('nzd') || name.includes('/')) {
+    return 'divisas';
+  }
+  
+  // Índices
+  if (name.includes('índice') || name.includes('index') || name.includes('spx') ||
+      name.includes('nasdaq') || name.includes('dow') || name.includes('s&p') ||
+      name.includes('ftse') || name.includes('dax') || name.includes('nikkei') ||
+      name.includes('us500') || name.includes('volatility') || name.includes('boom') ||
+      name.includes('crash')) {
+    return 'indices';
+  }
+  
+  // Por defecto, asumir acciones
+  return 'acciones';
+};
+
+// Función para obtener el apalancamiento predefinido por tipo de mercado
+const getLotPrice = (marketType: 'acciones' | 'materias-primas' | 'criptomonedas' | 'divisas' | 'indices', marketPrice: number): number => {
+  switch (marketType) {
+    case 'criptomonedas': return marketPrice; // 1 lote = 1 unidad
+    case 'materias-primas': return marketPrice * 100; // 1 lote = 100 unidades
+    case 'divisas': return marketPrice * 100000; // 1 lote = 100,000 unidades
+    case 'indices': return marketPrice * 10; // 1 lote = 10 unidades
+    case 'acciones': return marketPrice * 100; // 1 lote = 100 acciones
+    default: return marketPrice;
+  }
+};
+
 const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
   marketId,
   marketName,
@@ -51,8 +107,28 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
   // Get user data for pejecoins
   const { user, updateUser } = useAuth();
   
+  // Determinar tipo de mercado y apalancamiento
+  const marketType = getMarketType(marketName);
+  const defaultLeverage = getLeverage(marketType as MarketCategory);
+
+  // Dynamic leverage (can be updated by admin)
+  const [leverage, setLeverage] = useState<number>(defaultLeverage);
+
+  useEffect(() => {
+    const fetchLeverage = async () => {
+      try {
+        const res = await fetch(`/api/admin/leverage/${marketType}`, { cache: 'no-store' });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.leverage) setLeverage(json.leverage);
+        }
+      } catch {/*ignore*/}
+    };
+    fetchLeverage();
+  }, [marketType]);
+
   // Trading state
-  const [tradeDirection, setTradeDirection] = useState<'up' | 'down'>('up');
+  const [direction, setDirection] = useState<'up' | 'down'>('up');
   const [investmentAmount, setInvestmentAmount] = useState<number>(0); // This is the total capital (pejecoins)
   const [duration, setDuration] = useState<number>(1);
   const [durationUnit, setDurationUnit] = useState<'minute' | 'hour' | 'day'>('minute');
@@ -60,9 +136,11 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
   const [showChart, setShowChart] = useState<boolean>(true);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   
-  // Risk management state
-  const [capitalFraction, setCapitalFraction] = useState<number>(0.10); // Fracción de capital (0.10 = 10%)
-  const [leverage, setLeverage] = useState<number>(100); // Apalancamiento
+  // NEW: Volume-based trading state
+  const [volume, setVolume] = useState<number>(0.10); // Fracción del lote (0.01 - 1.00)
+  const [volumeInput, setVolumeInput] = useState<string>('0.10'); // Input del volumen
+  
+  // Risk management state (leverage is now read-only)
   const [lotSize, setLotSize] = useState<number>(() => {
     // Establecer lotSize inicial basado en el tipo de instrumento
     if (marketName.includes('BTC') || marketName.includes('ETH')) {
@@ -79,7 +157,7 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
     freeMargin: 0,
     marginLevel: 0,
     positionValue: 0,
-    capitalUsed: 0
+    realCost: 0 // NEW: Costo real de la operación
   });
   
   // Get toast service for notifications
@@ -138,52 +216,43 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
     }
   }, [user]);
   
-  // Calculate potential return based on investment amount and fraction
+  // Calculate potential return based on real cost and volume
   useEffect(() => {
     // Simplified calculation based on a fixed multiplier
-    const multiplier = tradeDirection === 'up' ? 1.85 : 1.8;
-    const amountToInvest = investmentAmount * capitalFraction;
+    const multiplier = direction === 'up' ? 1.85 : 1.8;
+    const realCost = riskMetrics.realCost;
     
     // The return is the profit, not the total amount back
-    const potentialProfit = (amountToInvest * multiplier) - amountToInvest;
+    const potentialProfit = (realCost * multiplier) - realCost;
 
     setPotentialReturn(potentialProfit);
 
-  }, [tradeDirection, investmentAmount, capitalFraction]);
+  }, [direction, riskMetrics.realCost]);
 
-  // Calculate risk metrics
+  // Calculate risk metrics using the new formula
   useEffect(() => {
-    const capitalToUse = investmentAmount * capitalFraction;
+    const lotPrice = getLotPrice(marketType, displayPrice);
     
-    // Determinar tamaño del contrato según el instrumento
-    let contractSize = 100000; // Para forex, 1 lote = 100,000 unidades
-    if (marketName.includes('BTC') || marketName.includes('ETH')) {
-      contractSize = 1; // Para crypto, 1 lote = 1 unidad
-    } else if (marketName.includes('XAU')) {
-      contractSize = 100; // Para oro, 1 lote = 100 onzas
-    }
+    // NEW FORMULA: costoReal = (precioDelLote * volumen) / apalancamiento
+    const realCost = (lotPrice * volume) / leverage;
     
-    // Calcular valor de la posición basado en el monto de inversión actual
-    const positionValue = capitalToUse * leverage; // Valor total de la posición con apalancamiento
-    const marginRequired = positionValue / leverage; // Margen requerido = capital que necesitamos
+    // Calcular valor de la posición
+    const positionValue = lotPrice * volume; // Valor total de la posición
+    const marginRequired = realCost; // Margen requerido = costo real
     
-    // IMPORTANTE: El margen requerido debe ser igual al capital que vamos a usar
-    // porque estamos calculando basado en lo que queremos invertir
-    const actualMarginRequired = capitalToUse;
-    
-    const freeMargin = investmentAmount - actualMarginRequired;
-    const marginLevel = actualMarginRequired > 0 ? (freeMargin / actualMarginRequired) * 100 : 0;
+    const freeMargin = investmentAmount - marginRequired;
+    const marginLevel = marginRequired > 0 ? (freeMargin / marginRequired) * 100 : 0;
     
     // Verificar si hay fondos suficientes
     setRiskMetrics({
-      marginRequired: actualMarginRequired, // Mostrar el margen real requerido
+      marginRequired,
       freeMargin: Math.max(0, freeMargin),
       marginLevel: Math.max(0, marginLevel),
-      positionValue, // Valor total de la posición con apalancamiento
-      capitalUsed: capitalToUse
+      positionValue,
+      realCost
     });
     
-  }, [investmentAmount, capitalFraction, leverage, displayPrice, marketName]);
+  }, [investmentAmount, volume, leverage, displayPrice, marketType]);
 
   // Format currency in 'dolarizado' style
   const formatCurrency = (amount: number): string => {
@@ -209,14 +278,23 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
     }
   };
 
+  // Handle volume input change
+  const handleVolumeChange = (value: string) => {
+    setVolumeInput(value);
+    const numValue = parseFloat(value);
+    if (!isNaN(numValue) && numValue >= 0.01 && numValue <= 1.00) {
+      setVolume(numValue);
+    }
+  };
+
   // Handle trade execution
   const handlePlaceTrade = async () => {
-    const capitalToUse = riskMetrics.capitalUsed;
-    if (capitalToUse <= 0) {
-      toast.error("El monto de inversión debe ser mayor a cero.");
+    const realCost = riskMetrics.realCost;
+    if (realCost <= 0) {
+      toast.error("El costo real debe ser mayor a cero.");
       return;
     }
-    if (capitalToUse > (user?.pejecoins ?? 0)) {
+    if (realCost > (user?.pejecoins ?? 0)) {
       toast.error("Fondos insuficientes para realizar esta operación.");
       return;
     }
@@ -228,40 +306,31 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
       const priceToUse = displayPrice;
       console.log(`[TradeControlPanel] Abriendo posición para ${marketName}:`);
       console.log(`  - Precio a usar: ${priceToUse}`);
-      console.log(`  - Es crypto: ${isCrypto}`);
-      console.log(`  - Conectado: ${cryptoConnected}`);
-      console.log(`  - marketPrice original: ${marketPrice}`);
-      console.log(`  - displayPrice calculado: ${displayPrice}`);
+      console.log(`  - Volumen: ${volume}`);
+      console.log(`  - Costo real: ${realCost}`);
+      console.log(`  - Apalancamiento: ${leverage}`);
+      console.log(`  - Tipo de mercado: ${marketType}`);
       
       // Llamar addPosition del contexto API-driven
       const id = await addPosition({
         instrumentId: marketName,
         instrumentName: marketName,
         marketColor: marketColor,
-        direction: tradeDirection,
-        amount: capitalToUse,
-        stake: capitalToUse,
+        direction: direction,
+        amount: realCost, // Usar el costo real calculado
+        stake: realCost, // Usar el costo real calculado
         openPrice: priceToUse,
         duration: { value: duration, unit: durationUnit },
         leverage: leverage,
-        capitalFraction: capitalFraction,
+        capitalFraction: volume, // Usar el volumen como fracción
         lotSize: lotSize
       });
       if (!id) throw new Error('No se recibió ID de posición');
 
-      console.log(`[TradeControlPanel] Posición creada exitosamente con ID: ${id}`);
-
-      // Obtener el usuario actualizado para sincronizar el balance
+      // Actualizar el usuario después de la operación
       try {
-        const response = await fetch('/api/auth/profile', { 
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' }
-        });
-        const profileData = await response.json();
-        if (profileData.success && profileData.data) {
-          updateUser(profileData.data);
-          console.log(`[TradeControlPanel] Balance actualizado: ${profileData.data.pejecoins}`);
-        }
+        const updatedUser = { ...user, pejecoins: (user?.pejecoins || 0) - realCost };
+        await updateUser(updatedUser as any);
       } catch (err) {
         console.warn('No se pudo actualizar el perfil del usuario después de crear posición:', err);
       }
@@ -302,9 +371,8 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
     if (!isNaN(amount) && investmentAmount > 0) {
       const fraction = amount / investmentAmount;
       if (fraction >= 0 && fraction <= 1) {
-        setCapitalFraction(fraction);
+        // No longer using capitalFraction, using volume instead
       } else if (fraction > 1) {
-        setCapitalFraction(1);
         toast.warning("El monto de inversión no puede superar tu capital total.");
       }
     }
@@ -342,6 +410,9 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
               <div className="flex flex-col">
                 <div className="flex items-center gap-2">
                   <span className="font-bold text-lg">{marketName}</span>
+                  <Badge variant="outline" className="text-xs">
+                    {marketType.charAt(0).toUpperCase() + marketType.slice(1)}
+                  </Badge>
                   {isCrypto && cryptoConnected && (
                     <div className="flex items-center gap-1 text-xs bg-green-100 text-green-600 px-2 py-1 rounded-full">
                       <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
@@ -395,23 +466,23 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
                 </div>
                 <div className="flex gap-2">
                   <Button 
-                    variant={tradeDirection === 'up' ? "default" : "outline"}
+                    variant={direction === 'up' ? "default" : "outline"}
                     className={cn(
                       "flex-1 gap-2",
-                      tradeDirection === 'up' && "bg-green-500 hover:bg-green-600"
+                      direction === 'up' && "bg-green-500 hover:bg-green-600"
                     )}
-                    onClick={() => setTradeDirection('up')}
+                    onClick={() => setDirection('up')}
                   >
                     <ArrowUpCircle className="w-4 h-4" />
                     Comprar
                   </Button>
                   <Button 
-                    variant={tradeDirection === 'down' ? "default" : "outline"}
+                    variant={direction === 'down' ? "default" : "outline"}
                     className={cn(
                       "flex-1 gap-2",
-                      tradeDirection === 'down' && "bg-red-500 hover:bg-red-600"
+                      direction === 'down' && "bg-red-500 hover:bg-red-600"
                     )}
-                    onClick={() => setTradeDirection('down')}
+                    onClick={() => setDirection('down')}
                   >
                     <ArrowDownCircle className="w-4 h-4" />
                     Vender
@@ -419,9 +490,9 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
                 </div>
               </div>
 
-              {/* Investment Amount */}
+              {/* NEW: Volume Section */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold">1. Monto de Inversión</h3>
+                <h3 className="text-lg font-semibold">1. Volumen</h3>
                 
                 <div className="p-3 bg-muted rounded-lg space-y-2">
                   <div className="flex justify-between items-center text-sm">
@@ -429,41 +500,63 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
                     <span className="font-semibold">{formatCurrency(investmentAmount)}</span>
                   </div>
                   <div className="flex justify-between items-center text-sm">
-                    <span className="text-muted-foreground">Monto a Invertir</span>
-                    <span className="font-semibold text-primary">{formatCurrency(investmentAmount * capitalFraction)}</span>
+                    <span className="text-muted-foreground">Costo Real</span>
+                    <span className="font-semibold text-primary">{formatCurrency(riskMetrics.realCost)}</span>
                   </div>
                 </div>
 
-                <div className="relative">
-                  <Input
-                    type="number"
-                    placeholder="0.00"
-                    className="w-full text-lg p-4 pr-12"
-                    value={inputAmount}
-                    onChange={(e) => setInputAmount(e.target.value)}
-                    min="0"
-                    max={investmentAmount}
-                    step="10"
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm font-medium text-muted-foreground">Fracción del Lote</label>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="w-3 h-3 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <div className="max-w-xs">
+                          <p className="font-semibold mb-1">💰 Volumen</p>
+                          <p className="text-sm mb-2">Fracción del lote que deseas operar (0.01 - 1.00)</p>
+                          <div className="text-xs space-y-1">
+                            <div>• 0.10 = 10% del lote</div>
+                            <div>• 0.50 = 50% del lote</div>
+                            <div>• 1.00 = 100% del lote</div>
+                          </div>
+                          <p className="text-xs mt-2 text-blue-400">ℹ️ El costo se calcula automáticamente</p>
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <div className="relative">
+                    <Input
+                      type="number"
+                      placeholder="0.10"
+                      className="w-full text-lg p-4"
+                      value={volumeInput}
+                      onChange={(e) => handleVolumeChange(e.target.value)}
+                      min="0.01"
+                      max="1.00"
+                      step="0.01"
+                    />
+                  </div>
+                  
+                  <Slider
+                    value={[volume * 100]}
+                    onValueChange={(value) => {
+                      const newVolume = value[0] / 100;
+                      setVolume(newVolume);
+                      setVolumeInput(newVolume.toFixed(2));
+                    }}
+                    min={1}
+                    max={100}
+                    step={1}
                   />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground">USD</span>
-                </div>
-                
-                <Slider
-                  value={[capitalFraction * 100]}
-                  onValueChange={(value) => {
-                    const fraction = value[0] / 100;
-                    setCapitalFraction(fraction);
-                    setInputAmount((investmentAmount * fraction).toFixed(2));
-                  }}
-                  max={100}
-                  step={1}
-                />
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>0%</span>
-                  <span>25%</span>
-                  <span>50%</span>
-                  <span>75%</span>
-                  <span>100%</span>
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>1%</span>
+                    <span>25%</span>
+                    <span>50%</span>
+                    <span>75%</span>
+                    <span>100%</span>
+                  </div>
                 </div>
               </div>
 
@@ -530,64 +623,42 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-orange-600">🛡️ Gestión de Riesgo</h3>
               
-              {/* Tamaño del Lote */}
-              <div>
-                <div className="flex items-center gap-1 mb-2">
-                  <label className="text-xs font-medium text-muted-foreground">
-                    Tamaño del Lote
-                  </label>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Info className="w-3 h-3 text-muted-foreground cursor-help" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <div className="max-w-xs">
-                        <p className="font-semibold mb-1">Tamaño del Lote</p>
-                        <p className="text-sm mb-2">Volumen de la operación expresado en lotes estándar.</p>
-                        <div className="text-xs space-y-1">
-                          <div><strong>Forex:</strong> 1 lote = 100,000 unidades</div>
-                          <div><strong>Crypto:</strong> 1 lote = 1 unidad</div>
-                          <div><strong>Oro:</strong> 1 lote = 100 onzas</div>
-                        </div>
-                        <p className="text-xs mt-2 text-blue-400">ℹ️ Ajusta según tu tolerancia al riesgo</p>
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-                <Input 
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  value={lotSizeInput}
-                  onChange={(e) => handleLotSizeChange(e.target.value)}
-                  placeholder="1.0"
-                />
-              </div>
+              {/* Campo 'Tamaño del Lote' eliminado para optimizar la interfaz */}
 
-              {/* Leverage Selector */}
+              {/* Leverage Display (Read-only) */}
               <div className="space-y-2">
                 <h4 className="font-medium text-sm text-muted-foreground flex items-center gap-1">
-                  <Percent className="h-4 w-4" />
-                  Apalancamiento
+                  <Lock className="h-4 w-4" />
+                  Apalancamiento (Predefinido)
                 </h4>
-                <div className="flex items-center gap-2">
-                  <Slider
-                    min={1}
-                    max={100}
-                    step={1}
-                    value={[leverage]}
-                    onValueChange={(val)=>setLeverage(val[0])}
-                    className="flex-1"
-                  />
-                  <Input
-                    type="number"
-                    min={1}
-                    max={100}
-                    value={leverage}
-                    onChange={e=>setLeverage(Math.max(1, Math.min(100, Number(e.target.value))))}
-                    className="w-20 text-center"
-                  />
-                  <span className="text-sm">×</span>
+                <div className="p-3 bg-muted rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary" className="text-xs">
+                        {marketType.charAt(0).toUpperCase() + marketType.slice(1)}
+                      </Badge>
+                      <span className="text-sm text-muted-foreground">×{leverage}</span>
+                    </div>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="w-4 h-4 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <div className="max-w-xs">
+                          <p className="font-semibold mb-1">🔒 Apalancamiento Predefinido</p>
+                          <p className="text-sm mb-2">El apalancamiento se establece automáticamente según el tipo de mercado:</p>
+                          <div className="text-xs space-y-1">
+                            <div><strong>Acciones:</strong> 5×</div>
+                            <div><strong>Materias primas:</strong> 10×</div>
+                            <div><strong>Criptomonedas:</strong> 20×</div>
+                            <div><strong>Divisas:</strong> 50×</div>
+                            <div><strong>Índices:</strong> 100×</div>
+                          </div>
+                          <p className="text-xs mt-2 text-yellow-400">⚠️ Solo administradores pueden modificar este valor</p>
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
                 </div>
               </div>
 
@@ -610,7 +681,7 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
                       <p className="font-semibold mb-1">💰 Margen Requerido</p>
                       <p className="text-sm mb-2">Capital que se reserva como garantía para mantener esta posición abierta.</p>
                       <div className="text-xs space-y-1">
-                        <div>• Se calcula: Valor Posición ÷ Apalancamiento</div>
+                        <div>• Se calcula: (Precio Lote × Volumen) ÷ Apalancamiento</div>
                         <div>• Se bloquea hasta cerrar la operación</div>
                         <div>• A mayor apalancamiento, menor margen</div>
                       </div>
@@ -679,30 +750,23 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
                     <div className="p-3 bg-muted rounded text-center cursor-help hover:bg-muted/80 transition-colors">
                       <div className="text-xs text-muted-foreground flex items-center justify-center gap-1">
                         <DollarSign className="w-3 h-3" />
-                        Volumen Total
+                        Valor Posición
                       </div>
                       <div className="text-sm font-semibold text-blue-500">
-                        {(() => {
-                          const contractSize = marketName.includes('BTC') || marketName.includes('ETH') ? 1 : 
-                                             marketName.includes('XAU') ? 100 : 100000;
-                          const volume = lotSize * contractSize;
-                          return volume >= 1 ? volume.toLocaleString(undefined, { maximumFractionDigits: 2 }) :
-                                 volume >= 0.01 ? volume.toFixed(4) :
-                                 volume.toExponential(2);
-                        })()}
+                        ${riskMetrics.positionValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                       </div>
                     </div>
                   </TooltipTrigger>
                   <TooltipContent>
                     <div className="max-w-xs">
-                      <p className="font-semibold mb-1">📈 Volumen Total</p>
-                      <p className="text-sm mb-2">Cantidad real de unidades que estarás operando.</p>
+                      <p className="font-semibold mb-1">📈 Valor de la Posición</p>
+                      <p className="text-sm mb-2">Valor total de la posición sin apalancamiento.</p>
                       <div className="text-xs space-y-1">
-                        <div>• Lotes × Tamaño del Contrato</div>
-                        <div>• Determina la exposición real al mercado</div>
+                        <div>• Precio del Lote × Volumen</div>
+                        <div>• Representa la exposición real al mercado</div>
                         <div>• Impacta directamente en ganancias/pérdidas</div>
                       </div>
-                      <p className="text-xs mt-2 text-blue-400">ℹ️ Mayor volumen = Mayor riesgo y potencial</p>
+                      <p className="text-xs mt-2 text-blue-400">ℹ️ Mayor valor = Mayor riesgo y potencial</p>
                     </div>
                   </TooltipContent>
                 </Tooltip>
@@ -732,14 +796,14 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
               >
                 <Button 
                   onClick={handlePlaceTrade}
-                  disabled={isSubmitting || (investmentAmount * capitalFraction) <= 0}
+                  disabled={isSubmitting || riskMetrics.realCost <= 0}
                   className={cn(
                     "w-full py-6 text-lg font-bold shadow-xl transition-all duration-300 relative overflow-hidden",
                     "border-2 border-transparent hover:shadow-2xl",
-                    tradeDirection === 'up' 
+                    direction === 'up' 
                       ? "bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white border-green-400" 
                       : "bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white border-red-400",
-                    (isSubmitting || (investmentAmount * capitalFraction) <= 0) && "opacity-90 cursor-not-allowed"
+                    (isSubmitting || riskMetrics.realCost <= 0) && "opacity-90 cursor-not-allowed"
                   )}
                 >
                   <AnimatePresence mode="wait">
@@ -768,17 +832,17 @@ const TradeControlPanel: React.FC<TradeControlPanelProps> = ({
                         className="flex items-center gap-3"
                       >
                         <motion.div
-                          whileHover={{ scale: 1.1, rotate: tradeDirection === 'up' ? 5 : -5 }}
+                          whileHover={{ scale: 1.1, rotate: direction === 'up' ? 5 : -5 }}
                           transition={{ type: "spring", stiffness: 400, damping: 17 }}
                         >
-                          {tradeDirection === 'up' ? (
+                          {direction === 'up' ? (
                             <ArrowUpCircle className="h-6 w-6" />
                           ) : (
                             <ArrowDownCircle className="h-6 w-6" />
                           )}
                         </motion.div>
                         <span>
-                          🚀 ABRIR POSICIÓN {tradeDirection === 'up' ? 'LONG' : 'SHORT'}
+                          🚀 ABRIR POSICIÓN {direction === 'up' ? 'LONG' : 'SHORT'}
                         </span>
                         <motion.div
                           className="absolute inset-0 bg-white opacity-0"

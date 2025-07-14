@@ -1,8 +1,8 @@
 "use client";
 
 import Sidebar from "@/components/Sidebar";
-import ClientCommentsManager from "@/components/crm/ClientCommentsManager";
-import { MessageSquare } from "lucide-react";
+import ClientCardsManager from "@/components/crm/ClientCardsManager";
+import { Users } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function CrmComentariosPage() {
@@ -27,7 +27,7 @@ export default function CrmComentariosPage() {
         <main className="flex-1 p-6">
           <header className="mb-8">
             <h1 className="text-3xl font-bold mb-2 flex items-center gap-2">
-              <MessageSquare className="w-8 h-8 text-primary" />
+              <Users className="w-8 h-8 text-primary" />
               Comentarios de Clientes
             </h1>
             <p className="text-muted-foreground">
@@ -36,10 +36,10 @@ export default function CrmComentariosPage() {
           </header>
 
           <div className="container mx-auto max-w-7xl">
-            <ClientCommentsManager showClientSelector={true} />
+            <ClientCardsManager />
           </div>
         </main>
       </div>
     </div>
   );
-} 
+}; 

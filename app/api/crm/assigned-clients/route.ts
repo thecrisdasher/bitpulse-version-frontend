@@ -2,13 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { createSessionFromRequest } from '@/lib/auth/session';
+
 interface ClientInfo {
   id: string;
   firstName: string;
   lastName: string;
   email: string;
+  phone?: string | null;
   profilePicture?: string | null;
+  pejecoins: number;
+  lastLogin?: Date | null;
   createdAt: Date;
+  isActive: boolean;
 }
 
 // Middleware para verificar autenticación
@@ -64,8 +69,12 @@ export async function GET(request: NextRequest) {
           firstName: true,
           lastName: true,
           email: true,
+          phone: true,
           profilePicture: true,
-          createdAt: true
+          pejecoins: true,
+          lastLogin: true,
+          createdAt: true,
+          isActive: true
         },
         orderBy: { firstName: 'asc' }
       });
@@ -80,8 +89,12 @@ export async function GET(request: NextRequest) {
               firstName: true,
               lastName: true,
               email: true,
+              phone: true,
               profilePicture: true,
-              createdAt: true
+              pejecoins: true,
+              lastLogin: true,
+              createdAt: true,
+              isActive: true
             }
           }
         },
